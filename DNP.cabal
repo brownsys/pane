@@ -1,19 +1,19 @@
 Name:           DNP
 Version:        1.0
 Cabal-Version:	>= 1.2.3
-Copyright:      Copyright (c) 2007-2011 Brown University and Claudiu Saftoiu
+Copyright:      Copyright (c) 2011 Brown University
 License:        BSD3
 License-file:   LICENSE
-Author:         Arjun Guha, Claudiu Saftoiu, and Spiridon Eliopoulos
-Maintainer:     Arjun Guha <arjun@cs.brown.edu>
-Homepage:       http://www.cs.brown.edu/research/plt/
+Author:         Andrew Ferguson, Arjun Guha
+Maintainer:     Andrew Ferguson <adf@cs.brown.edu>
+Homepage:       http://www.cs.brown.edu/~adf/
 Stability:      provisional
 Category:       Language
 Build-Type:     Simple
-Synopsis:       JavaScript analysis tools
+Synopsis:       Dynamic Network-wide Policies
 Description:
 
-	WebBits is a collection of libraries for working with JavaScript.
+	Dynamic Network-wide Policies	
 
 Executable dnp
   Main-Is: Main.hs
