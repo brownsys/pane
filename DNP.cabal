@@ -1,0 +1,30 @@
+Name:           DNP
+Version:        1.0
+Cabal-Version:	>= 1.2.3
+Copyright:      Copyright (c) 2007-2011 Brown University and Claudiu Saftoiu
+License:        BSD3
+License-file:   LICENSE
+Author:         Arjun Guha, Claudiu Saftoiu, and Spiridon Eliopoulos
+Maintainer:     Arjun Guha <arjun@cs.brown.edu>
+Homepage:       http://www.cs.brown.edu/research/plt/
+Stability:      provisional
+Category:       Language
+Build-Type:     Simple
+Synopsis:       JavaScript analysis tools
+Description:
+
+	WebBits is a collection of libraries for working with JavaScript.
+
+Executable dnp
+  Main-Is: Main.hs
+  Hs-Source-Dirs:
+    src
+  Build-Depends:
+    base >= 4 && < 5,
+    mtl >= 1.1.0.1,
+    parsec < 3.2.0,
+    pretty >= 0.1,
+    containers >= 0.1,
+    syb >= 0.1
+  ghc-options:
+    -fwarn-incomplete-patterns
