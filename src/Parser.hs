@@ -56,7 +56,7 @@ boolExpr = numPred
 
 
 boolStmt = do
-  reserved "for"
+  reserved "mask"
   p <- prin
   e <- boolExpr
   return (Stmt p e)

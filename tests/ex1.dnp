@@ -1,2 +1,11 @@
+Root says mask Root reservation(Root) <= 3000. // Physical limit of network
+Root says mask Root latency(Root) >= 20. // 20ms is longest path in network
+Root says mask Root jitter(Root) >= 10. // physical limit
+Root says mask Root ratelimit(Root) >= 0. //
 Root says NewUser Arjun <: Root.
-Root says for Arjun reservation(Arjun) <= 3000.
+Root says mask Arjun reservation(Arjun) <= 1000.
+Arjun says reservation(Arjun) = 300.
+Root says reservation(Arjun) = 500.
+Arjun says reservation(Arjun) = 2000. // FAIL by rule 2
+Root says reservation(SKYPE) = 200.
+Root says rate-limit(MapReduce) = 15000.
