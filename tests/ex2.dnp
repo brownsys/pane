@@ -1,0 +1,13 @@
+Root says NewUser Arjun <: Root.   // Arjun is a child of Root
+Root says mask Arjun reservation(user=Arjun) <= 1000.
+Arjun says reservation(user=Arjun) = 300. // valid
+Arjun says reservation(user=Arjun) = 2000. // invalid, exceeds mask
+Root says NewUser Andrew <: Root.
+Arjun says reservation(user=Andrew) = 100. // invalid, no permissions on other user
+Arjun says reservation(app=Skype) = 500. // invalid, no permissions on apps in general
+Arjun says reservation(user=Arjun,app=Skype) = 500. // valid
+Root says NewUser Shriram <: Arjun.
+Arjun says reservation(user=Shriram) = 50. // valid, can be done because Arjun's mask inherited
+Arjun says reservation(user=Shriram) = 5000. // invalid, exceeds Arjun's mask
+Shriram says reservation(user=Shriram) = 5. // invalid, Shriram has no permissions
+Root says reservation(user=Shriram) = 2000. // valid, Shriram's reservation is now 2000

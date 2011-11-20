@@ -1,0 +1,5 @@
+Root says NewUser Arjun <: Root.
+Root says mask Arjun reservation(user=Arjun) <= 1000.
+Arjun says reservation(user=Arjun, app=A) = 300. // valid
+Arjun says reservation(user=Arjun, app=B) = 400. // valid
+Arjun says reservation(user=Arjun, app=C) = 400. // invalid ... exceeds mask
