@@ -54,7 +54,7 @@ data NumExpr
   | Latency Prin
   deriving (Show)
 
-data NumOp = NumLT | NumLEq | NumEq deriving (Show)
+data NumOp = NumLT | NumLEq | NumEq | NumGT | NumGEq deriving (Show)
 
 -- Root says, "Arjun gets less than 3mbps of bandwidth".
 -- 
@@ -71,7 +71,9 @@ data BoolExpr
   deriving (Show)
 
 data Stmt
-  = Stmt { about :: Prin, expr :: BoolExpr } 
+  = Stmt { expr :: BoolExpr } 
+--  = Stmt { about :: Prin, expr :: BoolExpr } 
   | NewUser Prin Prin -- new user, parent
+  | Mask { about :: Prin, expr :: BoolExpr } 
   deriving (Show)
 

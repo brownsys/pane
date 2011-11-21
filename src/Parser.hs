@@ -17,17 +17,38 @@ user = do
   name <- identifier
   return (User name)
 
+-- explicitly indicated user
+expUser = do
+  reserved "user"
+  reservedOp "="
+  name <- identifier
+  return (User name)
+
+expApp = do
+  reserved "app"
+  reservedOp "="
+  name <- identifier
+  return (App name)
+
+{-
+expNet = do
+  reserved "net"
+  reservedOp "="
+  name <- identifier
+  return (Network name)
+-}
+
 flow = do
   reservedOp "*"
   return (Flow "*")
 
-prin = user <|> flow
+prin = flow <|> expUser <|> expApp -- <|> expNet
 
 newUser = do
   reserved "NewUser"
-  newPrin <- prin
+  newPrin <- user
   reservedOp "<:"
-  parentPrin <- prin
+  parentPrin <- user
   return (NewUser newPrin parentPrin)
 
 number = do
@@ -39,11 +60,27 @@ reservation = do
   p <- parens prin
   return (Reservation p)
 
+latency = do
+  reserved "latency"
+  l <- parens prin
+  return (Latency l)
+
+jitter = do
+  reserved "jitter"
+  j <- parens prin
+  return (Jitter j)
+
+ratelimit = do
+  reserved "ratelimit"
+  l <- parens prin
+  return (Ratelimit l)
+
 op = (reservedOp "<=" >> return NumLEq) <|> (reservedOp "<" >> return NumLT)
-  <|> (reservedOp "==" >> return NumEq)
+  <|> (reservedOp "==" >> return NumEq) <|> (reservedOp ">=" >> return NumGEq)
+  <|> (reservedOp ">" >> return NumGT)
 
 
-numExpr = number <|> reservation
+numExpr = number <|> reservation <|> latency <|> jitter <|> ratelimit
 
 numPred = do
   e1 <- numExpr
@@ -56,16 +93,20 @@ boolExpr = numPred
 
 
 boolStmt = do
-  reserved "mask"
-  p <- prin
   e <- boolExpr
-  return (Stmt p e)
+  return (Stmt e)
+
+maskStmt = do
+  reserved "mask"
+  p <- user
+  e <- boolExpr
+  return (Mask p e) -- WTF?? should indicate that we have a mask; new Syntax needed
   
 parseStmt :: CharParser st (Prin, Stmt)
 parseStmt = do
-  speaker <- prin
+  speaker <- user
   reserved "says"
-  stmt <- newUser <|> boolStmt
+  stmt <- newUser <|> maskStmt <|> boolStmt
   dot
   return (speaker, stmt)
 
