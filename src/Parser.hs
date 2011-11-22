@@ -5,6 +5,7 @@ import Lexer
 import Syntax
 import Text.ParserCombinators.Parsec
 import qualified Text.ParserCombinators.Parsec.Token as T
+import Data.Set
 
 -- Based on:
 --   https://github.com/brownplt/webbits/blob/master/src/BrownPLT/JavaScript/Parser.hs
@@ -55,9 +56,14 @@ number = do
   n <- T.integer lex
   return (Number n)
 
+prinList = do
+  newPrin <- sepBy prin comma
+  return newPrin
+
 reservation = do
   reserved "reservation"
-  p <- parens prin
+  p <- parens prinList
+--  s <- Data.Set.fromList p -- WTF??
   return (Reservation p)
 
 latency = do

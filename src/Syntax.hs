@@ -47,7 +47,7 @@ data Prin
   deriving (Show)
 
 data NumExpr
-  = Reservation Prin
+  = Reservation [Prin] -- TODO: Arjun wants these to be sets, eh?
   | Ratelimit Prin
   | Number Integer
   | Jitter Prin
