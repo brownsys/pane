@@ -18,6 +18,9 @@ Or, we could say that Arjun can create users below him, BUT what we are really t
  * for networks and then add/drop hosts to those networks.
  * XXX: Should we be able to add networks to networks? or just tree them under
  * each other?
+ *
+ * Namespaces: We'll start with a flat namespace with a hierarchy on top. Eventually we
+ * might actually want a hierarchical namespace.
  */
 
 /* From ADF email on Nov. 18 at 10:45pm */
