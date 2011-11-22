@@ -5,7 +5,7 @@ import Lexer
 import Syntax
 import Text.ParserCombinators.Parsec
 import qualified Text.ParserCombinators.Parsec.Token as T
-import Data.Set
+import qualified Data.Set as Set
 
 -- Based on:
 --   https://github.com/brownplt/webbits/blob/master/src/BrownPLT/JavaScript/Parser.hs
@@ -73,8 +73,8 @@ prinList = do
 reservation = do
   reserved "reservation"
   p <- parens prinList
---  s <- Data.Set.fromList p -- WTF??
-  return (Reservation p)
+  let s = Set.fromList p
+  return (Reservation s)
 
 latency = do
   reserved "latency"

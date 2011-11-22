@@ -44,10 +44,10 @@ data Prin
   | User String
   | Network String -- TODO: These will refer to sets of nodes
   | Flow String -- TODO: wtf??
-  deriving (Show)
+  deriving (Show, Eq, Ord)
 
 data NumExpr
-  = Reservation [Prin] -- TODO: Arjun wants these to be sets, eh?
+  = Reservation (Set Prin)
   | Ratelimit Prin
   | Number Integer
   | Jitter Prin
