@@ -64,8 +64,8 @@ data BoolExpr
   | True
   | False
   | NumPred NumExpr NumOp NumExpr
-  | Allow [Prin]
-  | Deny [Prin]
+  | Allow (Set Prin)
+  | Deny (Set Prin)
   | Waypoint Prin Node
   | Avoid Prin Node
   deriving (Show)

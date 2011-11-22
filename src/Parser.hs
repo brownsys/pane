@@ -107,12 +107,14 @@ numPred = do
 allow = do
   reserved "allow"
   p <- parens prinList
-  return (Allow p)
+  let s = Set.fromList p
+  return (Allow s)
 
 deny = do
   reserved "deny"
   p <- parens prinList
-  return (Deny p)
+  let s = Set.fromList p
+  return (Deny s)
 
 boolExpr = numPred <|> allow <|> deny
 
