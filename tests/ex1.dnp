@@ -4,11 +4,11 @@ Root says mask Root jitter(*) >= 10. // physical limit
 Root says mask Root ratelimit(*) >= 0. //
 Root says NewUser Arjun <: Root.
 Root says mask Arjun reservation(user = Arjun) <= 1000.
-Arjun says reservation(user = Arjun) == 300.
-Root says reservation(user = Arjun) == 500.
-Arjun says reservation(user = Arjun) == 2000. // FAIL by rule 2
+Arjun says reservation(user = Arjun) = 300.
+Root says reservation(user = Arjun) = 500.
+Arjun says reservation(user = Arjun) = 2000. // FAIL by rule 2
 
 // How do we create applications? Do they need to be registered?
 
-Root says reservation(app=SKYPE) == 200.
-Root says ratelimit(app=MapReduce) == 15000.
+Root says reservation(app=SKYPE) = 200.
+Root says ratelimit(app=MapReduce) = 15000.

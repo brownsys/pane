@@ -76,7 +76,7 @@ ratelimit = do
   return (Ratelimit l)
 
 op = (reservedOp "<=" >> return NumLEq) <|> (reservedOp "<" >> return NumLT)
-  <|> (reservedOp "==" >> return NumEq) <|> (reservedOp ">=" >> return NumGEq)
+  <|> (reservedOp "=" >> return NumEq) <|> (reservedOp ">=" >> return NumGEq)
   <|> (reservedOp ">" >> return NumGT)
 
 
