@@ -10,13 +10,18 @@ import Data.Set
 -- Based on:
 --   https://github.com/brownplt/webbits/blob/master/src/BrownPLT/JavaScript/Parser.hs
 
--- Root says NewUser Arjun <: Root.
+-- Root says AddUser Arjun <: Root.
 -- Root says for Arjun Allow(*).
 
 
+-- implicitly indicated user
 user = do
   name <- identifier
   return (User name)
+
+network = do
+  name <- identifier
+  return (Network name)
 
 -- explicitly indicated user
 expUser = do
@@ -31,26 +36,31 @@ expApp = do
   name <- identifier
   return (App name)
 
-{-
 expNet = do
   reserved "net"
   reservedOp "="
   name <- identifier
   return (Network name)
--}
 
 flow = do
   reservedOp "*"
   return (Flow "*")
 
-prin = flow <|> expUser <|> expApp -- <|> expNet
+prin = flow <|> expUser <|> expApp <|> expNet
 
-newUser = do
-  reserved "NewUser"
+addUser = do
+  reserved "AddUser"
   newPrin <- user
   reservedOp "<:"
   parentPrin <- user
-  return (NewUser newPrin parentPrin)
+  return (AddUser newPrin parentPrin)
+
+addNetwork = do
+  reserved "AddNetwork"
+  newPrin <- network
+  reservedOp "<:"
+  parentPrin <- network
+  return (AddNetwork newPrin parentPrin)
 
 number = do
   n <- T.integer lex
@@ -94,8 +104,17 @@ numPred = do
   e2 <- numExpr
   return (NumPred e1 o e2)
 
+allow = do
+  reserved "allow"
+  p <- parens prinList
+  return (Allow p)
 
-boolExpr = numPred
+deny = do
+  reserved "deny"
+  p <- parens prinList
+  return (Deny p)
+
+boolExpr = numPred <|> allow <|> deny
 
 
 boolStmt = do
@@ -112,7 +131,7 @@ parseStmt :: CharParser st (Prin, Stmt)
 parseStmt = do
   speaker <- user
   reserved "says"
-  stmt <- newUser <|> maskStmt <|> boolStmt
+  stmt <- addUser <|> addNetwork <|> maskStmt <|> boolStmt
   dot
   return (speaker, stmt)
 

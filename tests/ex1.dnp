@@ -2,7 +2,7 @@ Root says mask Root reservation(*) <= 3000. // Physical limit of network ... wil
 Root says mask Root latency(*) >= 20. // 20ms is longest path in network
 Root says mask Root jitter(*) >= 10. // physical limit
 Root says mask Root ratelimit(*) >= 0. //
-Root says NewUser Arjun <: Root.
+Root says AddUser Arjun <: Root.
 Root says mask Arjun reservation(user = Arjun) <= 1000.
 Arjun says reservation(user = Arjun) = 300.
 Root says reservation(user = Arjun) = 500.

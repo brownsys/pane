@@ -1,16 +1,23 @@
-// From ADF email on Nov. 18 at 10:45pm
-Root says NewNetwork PublicNetwork <: RootNetwork.
-Root says NewNetwork PrivateNetwork <: RootNetwork.
-Root says allow() on PublicNetwork. // allow everything
-Root says deny() on PrivateNetwork. // deny everything
-Root says allow(user=Arjun) on PrivateNetwork. // allow Arjun's flows
+Root says AddNetwork PublicNetwork <: RootNetwork.
+Root says AddNetwork PrivateNetwork <: RootNetwork.
+Root says allow(net=PublicNetwork). // allow everything
+Root says deny(net=PrivateNetwork). // deny everything
+Root says allow(net=PrivateNetwork, user=Arjun). // allow Arjun's flows
 
 /*
 Ok, how do we allow Arjun to create new users only on PublicNetwork ?  
 
-Root says mask Arjun NewUser <: Arjun on PublicNetwork.
+Root says mask Arjun AddUser <: Arjun on PublicNetwork.
 
 maybe? Users are created on networks seems to make sense.
 
 Or, we could say that Arjun can create users below him, BUT what we are really trying to do is keep that new user from inheriting Arjun's permissions on PrivateNetwork. So that is a new type of mask which we have not discussed...
 */
+
+/* A network consits of network nodes. The easy thing is to create symbolic names
+ * for networks and then add/drop hosts to those networks.
+ * XXX: Should we be able to add networks to networks? or just tree them under
+ * each other?
+ */
+
+/* From ADF email on Nov. 18 at 10:45pm */

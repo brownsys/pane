@@ -4,7 +4,7 @@ import Data.Set (Set)
 
 {-
 
-  Root says: NewUser Arjun <: Root
+  Root says: AddUser Arjun <: Root
   Root says: for Arjun, Allow *
   
   ^^ What is Reservation(Arjun) here?
@@ -42,7 +42,7 @@ type Node = String
 data Prin
   = App String
   | User String
-  | Network (Set Node)
+  | Network String -- TODO: These will refer to sets of nodes
   | Flow String -- TODO: wtf??
   deriving (Show)
 
@@ -64,8 +64,8 @@ data BoolExpr
   | True
   | False
   | NumPred NumExpr NumOp NumExpr
-  | Allow Prin
-  | Deny Prin
+  | Allow [Prin]
+  | Deny [Prin]
   | Waypoint Prin Node
   | Avoid Prin Node
   deriving (Show)
@@ -73,7 +73,8 @@ data BoolExpr
 data Stmt
   = Stmt { expr :: BoolExpr } 
 --  = Stmt { about :: Prin, expr :: BoolExpr } 
-  | NewUser Prin Prin -- new user, parent
+  | AddUser Prin Prin -- new user, parent
+  | AddNetwork Prin Prin
   | Mask { about :: Prin, expr :: BoolExpr } 
   deriving (Show)
 
