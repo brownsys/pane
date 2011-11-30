@@ -10,8 +10,8 @@ import qualified Data.Set as Set
 -- Based on:
 --   https://github.com/brownplt/webbits/blob/master/src/BrownPLT/JavaScript/Parser.hs
 
--- Root says AddUser Arjun <: Root.
--- Root says for Arjun Allow(*).
+-- Root : AddUser Arjun <: Root.
+-- Root : for Arjun Allow(*).
 
 
 -- implicitly indicated user
@@ -132,7 +132,7 @@ maskStmt = do
 parseStmt :: CharParser st (Prin, Stmt)
 parseStmt = do
   speaker <- user
-  reserved "says"
+  reserved ":"
   stmt <- addUser <|> addNetwork <|> maskStmt <|> boolStmt
   dot
   return (speaker, stmt)

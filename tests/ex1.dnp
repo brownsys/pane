@@ -1,14 +1,14 @@
-Root says mask Root reservation(*) <= 3000. // Physical limit of network ... wildcarded
-Root says mask Root latency(*) >= 20. // 20ms is longest path in network
-Root says mask Root jitter(*) >= 10. // physical limit
-Root says mask Root ratelimit(*) >= 0. //
-Root says AddUser Arjun <: Root.
-Root says mask Arjun reservation(user = Arjun) <= 1000.
-Arjun says reservation(user = Arjun) = 300.
-Root says reservation(user = Arjun) = 500.
-Arjun says reservation(user = Arjun) = 2000. // FAIL by rule 2
+Root : mask Root reservation(*) <= 3000. // Physical limit of network ... wildcarded
+Root : mask Root latency(*) >= 20. // 20ms is longest path in network
+Root : mask Root jitter(*) >= 10. // physical limit
+Root : mask Root ratelimit(*) >= 0. //
+Root : AddUser Arjun <: Root.
+Root : mask Arjun reservation(user = Arjun) <= 1000. // Add token bucket. eg, 1 min of reservation time every 6 minutes, up to 20 minutes in bucket
+Arjun : reservation(user = Arjun) = 300.
+Root : reservation(user = Arjun) = 500.
+Arjun : reservation(user = Arjun) = 2000. // FAIL by rule 2
 
 // How do we create applications? Do they need to be registered?
 
-Root says reservation(app=SKYPE) = 200.
-Root says ratelimit(app=MapReduce) = 15000.
+Root : reservation(app=SKYPE) = 200.
+Root : ratelimit(app=MapReduce) = 15000.

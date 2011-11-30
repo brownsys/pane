@@ -1,13 +1,13 @@
-Root says AddNetwork PublicNetwork <: RootNetwork.
-Root says AddNetwork PrivateNetwork <: RootNetwork.
-Root says allow(net=PublicNetwork). // allow everything
-Root says deny(net=PrivateNetwork). // deny everything
-Root says allow(net=PrivateNetwork, user=Arjun). // allow Arjun's flows
+Root : AddNetwork PublicNetwork <: RootNetwork.
+Root : AddNetwork PrivateNetwork <: RootNetwork.
+Root : allow(net=PublicNetwork). // allow everything
+Root : deny(net=PrivateNetwork). // deny everything
+Root : allow(net=PrivateNetwork, user=Arjun). // allow Arjun's flows
 
 /*
 Ok, how do we allow Arjun to create new users only on PublicNetwork ?  
 
-Root says mask Arjun AddUser <: Arjun on PublicNetwork.
+Root : mask Arjun AddUser <: Arjun on PublicNetwork.
 
 maybe? Users are created on networks seems to make sense.
 

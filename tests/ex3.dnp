@@ -1,5 +1,9 @@
-Root says AddUser Arjun <: Root.
-Root says mask Arjun reservation(user=Arjun) <= 1000.
-Arjun says reservation(user=Arjun, app=A) = 300. // valid
-Arjun says reservation(user=Arjun, app=B) = 400. // valid
-Arjun says reservation(user=Arjun, app=C) = 400. // invalid ... exceeds mask
+Root : AddUser Arjun <: Root.
+Root : mask Root reservation(*) <= 1200. // physical max
+Root : mask Arjun reservation(user=Arjun) <= 1000.
+Arjun : reservation(user=Arjun, app=A) = 300. // valid
+Arjun : reservation(user=Arjun, app=B) = 400. // valid
+Arjun : reservation(user=Arjun, app=C) = 400. // invalid ... exceeds mask
+Root : reservation(user=Arjun, app=C) = 400. // valid
+Root : reservation(user=Arjun, app=C) = 600. // invalid ... exceeds physical max
+Root : reservation(user=Arjun, app=C) = 500. // valid
