@@ -29,14 +29,14 @@ instance Ord Limit where
 data AcctRef = AcctRef {
   acctRefSpeakers :: Set Speaker,
   acctRefFlows :: FlowGroup,
-  acctRefReservation :: Limit,
+  acctRefResLimit :: Limit,
   acctRefAccount :: String
 } deriving (Eq, Ord)
 
 
 data ResourceAccount = ResourceAccount {
   resAcctReservationLimit :: Limit,
-  resAcctReservation :: Limit
+  resAcctReservation :: Integer
 } deriving (Eq, Ord)
 
 type AccountTree = Tree String ResourceAccount
@@ -55,7 +55,7 @@ rootAcctRef :: AcctRef
 rootAcctRef = AcctRef Set.all anyFlow NoLimit rootAcct
 
 emptyState = 
-  State (Tree.root rootAcct (ResourceAccount NoLimit (DiscreteLimit 0)))
+  State (Tree.root rootAcct (ResourceAccount NoLimit 0))
         (Map.singleton "root" (Set.singleton rootAcctRef))
 
 isSubRef :: AccountTree -> AcctRef -> AcctRef -> Bool
@@ -100,7 +100,6 @@ giveReference from ref to (State aT refs) =
         else
           Nothing
 
-{-
 newResAcct :: Speaker
            -> AcctRef
            -> String
@@ -110,10 +109,36 @@ newResAcct :: Speaker
 newResAcct spk acctRef acctName acctLimit (State aT refs) =
   case Map.lookup spk refs of
     Nothing -> Nothing
-    Just acctRefs -> case Set.exists (isSubRef aT acctRef acctRefs) of
+    Just acctRefs -> case Set.exists (isSubRef aT acctRef) acctRefs of
       False -> Nothing
       True -> 
-        let newAcct = ResourceAcct acctName acctLimit (DiscreteLimit 0) in
-          Just (State (Tree.insert newAcct (acctRefAccount acctRef) aT) refs)
--}
+        let aT' = Tree.insert acctName
+                    (ResourceAccount acctLimit 0)
+                    (acctRefAccount acctRef)
+                     aT
+          in Just (State aT' refs)
+
+reserve :: Speaker
+        -> AcctRef
+        -> Integer
+        -> State
+        -> Maybe State
+reserve spk acctRef resv (State aT refs) = 
+  case Map.lookup spk refs of
+    Nothing -> Nothing
+    Just acctRefs -> case Set.exists (isSubRef aT acctRef) acctRefs of
+      False -> Nothing
+      True ->
+        let chain = Tree.chain (acctRefAccount acctRef) rootAcct aT
+            f Nothing _ = Nothing
+            f (Just aT) (acctName, ResourceAccount acctLimit acctResv) = 
+              if DiscreteLimit (resv + acctResv) <= acctLimit then
+                Just (Tree.update acctName 
+                        (ResourceAccount acctLimit (resv + acctResv)) aT)
+              else
+                Nothing
+          in case foldl f (Just aT) chain of
+               Nothing -> Nothing
+               Just aT' -> Just (State aT' refs)
+ 
  

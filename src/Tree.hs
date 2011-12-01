@@ -1,6 +1,7 @@
 module Tree (Tree, root, insert, member, lessThan, lessThanOrEq, chain,
-  descendingChain) where
+  descendingChain, adjust, lookup, update) where
 
+import Prelude hiding (lookup)
 import Data.Map (Map)
 import Data.Set (Set)
 import qualified Data.Set as Set
@@ -66,3 +67,17 @@ chain from to (Tree parent lt kvs) = f from where
 
 descendingChain from to lat = reverse (chain from to lat)
 
+adjust :: Ord a
+       => (b -> b)
+       -> a
+       -> Tree a b
+       -> Tree a b
+adjust f k (Tree m1 m2 kvs) = Tree m1 m2 (Map.adjust f k kvs)
+
+lookup :: Ord a => a -> Tree a b -> b
+lookup k (Tree _ _ kvs) = case Map.lookup k kvs of
+  Nothing -> error "fail"
+  Just v -> v
+
+update :: Ord a => a -> b -> Tree a b -> Tree a b
+update k v (Tree m1 m2 kvs) = Tree m1 m2 (Map.insert k v kvs)
