@@ -35,12 +35,14 @@ test5 = do
 test6 = do
   st <- createSpeaker "arjun" emptyState
   let ref = AcctRef (Set.singleton "arjun") anyFlow (DiscreteLimit 100) 
+                    rootAcct
   giveReference "root" ref "arjun" st
 
 test7 = unexpectedState $ do
   st <- createSpeaker "arjun" emptyState
   st <- createSpeaker "adf" st
   let ref = AcctRef (Set.singleton "arjun") anyFlow (DiscreteLimit 100) 
+                    rootAcct
   st <- giveReference "root" ref "arjun" st
   giveReference "arjun" (ref { acctRefReservation = DiscreteLimit 200 })
     "adf" st
@@ -49,6 +51,7 @@ test8 = do
   st <- createSpeaker "arjun" emptyState
   st <- createSpeaker "adf" st
   let ref = AcctRef (Set.singleton "arjun") anyFlow (DiscreteLimit 100) 
+                    rootAcct
   st <- giveReference "root" ref "arjun" st
   giveReference "arjun" (ref { acctRefReservation = DiscreteLimit 50 })
     "adf" st
@@ -57,6 +60,7 @@ test9 = unexpectedState $ do
   st <- createSpeaker "arjun" emptyState
   st <- createSpeaker "adf" st
   let ref = AcctRef (Set.singleton "arjun") anyFlow (DiscreteLimit 100) 
+                    rootAcct
   st <- giveReference "root" ref "arjun" st
   giveReference "arjun" (ref { acctRefReservation = DiscreteLimit 50 })
     "sk" st
