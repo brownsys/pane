@@ -8,26 +8,29 @@ import qualified Data.Map as Map
 import Data.Map ((!))
 
 
-data Tree a = 
+data Tree a b = 
   Tree (Map a a)       -- ^parent relation
-       (Map a (Set a)) -- ^transitive closure of the parent relation.
+       (Map a (Set a)) -- ^transitive closure of the parent relation
+       (Map a b)
 
-instance Show a => Show (Tree a) where
-  show (Tree parent lt) = show parent
+instance Show a => Show (Tree a b) where
+  show (Tree parent lt _) = show parent
 
 root :: Ord a
      => a
-     -> Tree a
-root root = Tree Map.empty (Map.singleton root Set.empty)
+     -> b
+     -> Tree a b
+root k v = Tree Map.empty (Map.singleton k Set.empty) (Map.singleton k v)
 
 insert :: Ord a
        => a
+       -> b
        -> a
-       -> Tree a
-       -> Tree a
-insert elt pElt (Tree parent lt) =
+       -> Tree a b
+       -> Tree a b
+insert elt v pElt (Tree parent lt kvs) =
   case not (elt `Map.member` lt) && pElt `Map.member` lt of
-    True -> Tree parent' lt' where
+    True -> Tree parent' lt' (Map.insert elt v kvs) where
       parent' = Map.insert elt pElt parent
       lt' = Map.insert elt (Set.insert pElt (lt ! pElt)) lt
     False -> error "element already in lattice"
@@ -35,9 +38,9 @@ insert elt pElt (Tree parent lt) =
 lessThan :: Ord a
          => a
          -> a
-         -> Tree a
+         -> Tree a b
          -> Bool
-lessThan e p (Tree parent lt) = 
+lessThan e p (Tree parent lt _) = 
   case (Map.member e lt) && (Map.member p lt) of
     True -> Set.member p (lt ! e)
     False -> error "element/parent not in lattice"
@@ -46,20 +49,20 @@ lessThanOrEq e p t = e == p || lessThan e p t
 
 member :: Ord a
        => a
-       -> Tree a 
+       -> Tree a b
        -> Bool
-member p (Tree parent lt) = Map.member p lt
+member p (Tree parent lt _) = Map.member p lt
 
 
 chain :: Ord a
       => a
       -> a
-      -> Tree a
-      -> [a]
-chain from to (Tree parent lt) = f from where
-  f elt = case Map.lookup elt parent of
-    Nothing -> [elt]
-    Just p -> elt : (f p)
+      -> Tree a b
+      -> [(a, b)]
+chain from to (Tree parent lt kvs) = f from where
+  f elt = case (Map.lookup elt parent, Map.lookup elt kvs) of
+    (Nothing, Just v) -> [(elt, v)]
+    (Just p, Just v) -> (elt, v) : (f p)
 
 descendingChain from to lat = reverse (chain from to lat)
 

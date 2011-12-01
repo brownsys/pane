@@ -30,17 +30,16 @@ data AcctRef = AcctRef {
   acctRefSpeakers :: Set Speaker,
   acctRefFlows :: FlowGroup,
   acctRefReservation :: Limit,
-  acctRefAccount :: ResourceAccount
+  acctRefAccount :: String
 } deriving (Eq, Ord)
 
 
 data ResourceAccount = ResourceAccount {
-  resAcctName :: String,
   resAcctReservationLimit :: Limit,
   resAcctReservation :: Limit
 } deriving (Eq, Ord)
 
-type AccountTree = Tree ResourceAccount
+type AccountTree = Tree String ResourceAccount
 
 data State = State {
   accountTree :: AccountTree,
@@ -49,14 +48,15 @@ data State = State {
 
 anyFlow = FlowGroup Set.all Set.all Set.all Set.all
 
-rootAcct :: ResourceAccount
-rootAcct = ResourceAccount "ideal universe" NoLimit (DiscreteLimit 0)
+rootAcct :: String
+rootAcct = "root account"
 
 rootAcctRef :: AcctRef
 rootAcctRef = AcctRef Set.all anyFlow NoLimit rootAcct
 
 emptyState = 
-  State (Tree.root rootAcct) (Map.singleton "root" (Set.singleton rootAcctRef))
+  State (Tree.root rootAcct (ResourceAccount NoLimit (DiscreteLimit 0)))
+        (Map.singleton "root" (Set.singleton rootAcctRef))
 
 isSubRef :: AccountTree -> AcctRef -> AcctRef -> Bool
 isSubRef aT (AcctRef speakers1 flow1 lim1 ref1) (AcctRef speakers2 flow2 lim2 ref2) =
@@ -101,9 +101,19 @@ giveReference from ref to (State aT refs) =
           Nothing
 
 {-
-newResourceAccount :: Speaker
-                   -> AcctRef
-                   -> State
-                   -> Maybe (State, AcctRef)
+newResAcct :: Speaker
+           -> AcctRef
+           -> String
+           -> Limit
+           -> State
+           -> Maybe State
+newResAcct spk acctRef acctName acctLimit (State aT refs) =
+  case Map.lookup spk refs of
+    Nothing -> Nothing
+    Just acctRefs -> case Set.exists (isSubRef aT acctRef acctRefs) of
+      False -> Nothing
+      True -> 
+        let newAcct = ResourceAcct acctName acctLimit (DiscreteLimit 0) in
+          Just (State (Tree.insert newAcct (acctRefAccount acctRef) aT) refs)
 -}
  
