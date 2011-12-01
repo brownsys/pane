@@ -5,6 +5,7 @@ module Set
   , empty
   , exists
   , insert
+  , singleton
   ) where
 
 import Prelude hiding (all)
@@ -24,6 +25,9 @@ instance Ord a => Ord (Set a) where
 
 all :: Set a
 all = All
+
+singleton :: a -> Set a
+singleton x = FiniteSet (Data.Set.singleton x)
 
 isSubsetOf :: Ord a => Set a -> Set a -> Bool
 isSubsetOf (FiniteSet s1) (FiniteSet s2) = Data.Set.isSubsetOf s1 s2

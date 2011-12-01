@@ -24,7 +24,11 @@ instance Ord Limit where
   (DiscreteLimit m) <= (DiscreteLimit n) = m <= n
   NoLimit <= (DiscreteLimit _) = False
 
-data AcctRef = AcctRef (Set Speaker) FlowGroup Limit deriving (Eq, Ord)
+data AcctRef = AcctRef {
+  acctRefSpeakers :: Set Speaker,
+  acctRefFlows :: FlowGroup,
+  acctRefReservation :: Limit
+} deriving (Eq, Ord)
 
 isSubRef :: AcctRef -> AcctRef -> Bool
 isSubRef (AcctRef speakers1 flow1 lim1) (AcctRef speakers2 flow2 lim2) =
@@ -43,6 +47,13 @@ data State = State {
   accountTree :: Bool, -- AccountTree,
   references :: Map Speaker (Set AcctRef)
 }
+
+anyFlow = FlowGroup Set.all Set.all Set.all Set.all
+
+rootAcctRef = AcctRef Set.all anyFlow NoLimit
+
+emptyState = 
+  State False (Map.singleton "root" (Set.singleton rootAcctRef))
 
 createSpeaker :: Speaker -- ^name of new speaker
               -> State -- ^existing state
