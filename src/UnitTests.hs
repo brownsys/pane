@@ -64,35 +64,37 @@ test9 = unexpectedState $ do
   st <- giveReference "root" ref "arjun" st
   giveReference "arjun" (ref { acctRefResLimit = DiscreteLimit 50 })
     "sk" st
-  
-test10 = do
-  st <- newResAcct "root" rootAcctRef "net0" (DiscreteLimit $ 10^100) emptyState
-  return ()
+ 
+testFrag1 =
+ newResAcct "root" rootAcctRef "net0" Set.all anyFlow 
+           (DiscreteLimit 200) emptyState
+
+test10 = testFrag1
 
 test11 = unexpectedState $ do
-  st <- newResAcct "root" rootAcctRef "net0" (DiscreteLimit 200) emptyState
+  st <- test10
   let net0Ref = rootAcctRef { acctRefAccount = "net0" }
   reserve "root" net0Ref 300 st
 
 test12 = do
-  st <- newResAcct "root" rootAcctRef "net0" (DiscreteLimit 200) emptyState
+  st <- test10
   reserve "root" rootAcctRef 300 st
 
 test13 = do
-  st <- newResAcct "root" rootAcctRef "net0" (DiscreteLimit 200) emptyState
+  st <- test10
   let net0Ref = rootAcctRef { acctRefAccount = "net0" }
   reserve "root" net0Ref 100 st
   reserve "root" net0Ref 100 st
 
 test14 = do
-  st <- newResAcct "root" rootAcctRef "net0" (DiscreteLimit 200) emptyState
+  st <- test10
   let net0Ref = rootAcctRef { acctRefAccount = "net0" }
   reserve "root" net0Ref 100 st
   reserve "root" net0Ref 100 st
   reserve "root" net0Ref 100 st
 
 test15 = do
-  st <- newResAcct "root" rootAcctRef "net0" (DiscreteLimit 200) emptyState
+  st <- test10
   st <- createSpeaker "adf" st
   let adfRef = rootAcctRef { acctRefAccount = "net0", 
                              acctRefResLimit = DiscreteLimit 150 }
@@ -100,7 +102,7 @@ test15 = do
   reserve "adf" adfRef 100 st
 
 test16 = do
-  st <- newResAcct "root" rootAcctRef "net0" (DiscreteLimit 200) emptyState
+  st <- test10
   st <- createSpeaker "adf" st
   let net0Ref = rootAcctRef { acctRefAccount = "net0" }
   let adfRef = rootAcctRef { acctRefAccount = "net0", 
@@ -110,7 +112,7 @@ test16 = do
   reserve "adf" adfRef 100 st
 
 test17 = unexpectedState $ do
-  st <- newResAcct "root" rootAcctRef "net0" (DiscreteLimit 200) emptyState
+  st <- test10
   st <- createSpeaker "adf" st
   let net0Ref = rootAcctRef { acctRefAccount = "net0" }
   let adfRef = rootAcctRef { acctRefAccount = "net0", 
@@ -120,22 +122,21 @@ test17 = unexpectedState $ do
   reserve "adf" adfRef 101 st
 
 test18 = do
-  st <- newResAcct "root" rootAcctRef "net0" (DiscreteLimit 200) emptyState
+  st <-test10
   st <- createSpeaker "adf" st
   st <- createSpeaker "arjun" st
   let net0Ref = rootAcctRef { acctRefAccount = "net0" }
   let adfRef = rootAcctRef { acctRefAccount = "net0", 
                              acctRefResLimit = DiscreteLimit 150 }
   st <- giveReference "root" adfRef "adf" st
---  st <- reserve "root" net0Ref 100 st
   let arjunRef = adfRef { acctRefResLimit = DiscreteLimit 75 }
   st <- giveReference "adf" arjunRef "arjun" st
-  st <- newResAcct "arjun" arjunRef "arjunAcct" (DiscreteLimit 70) st
+  st <- newResAcct "arjun" arjunRef "arjunAcct" (Set.singleton "arjun") anyFlow               (DiscreteLimit 70) st
   let arjunSubRef = arjunRef { acctRefAccount = "arjunAcct" }
   reserve "arjun" arjunSubRef 50 st
 
 test19 = unexpectedState $ do
-  st <- newResAcct "root" rootAcctRef "net0" (DiscreteLimit 200) emptyState
+  st <- test10
   st <- createSpeaker "adf" st
   st <- createSpeaker "arjun" st
   let net0Ref = rootAcctRef { acctRefAccount = "net0" }
@@ -145,12 +146,13 @@ test19 = unexpectedState $ do
 --  st <- reserve "root" net0Ref 100 st
   let arjunRef = adfRef { acctRefResLimit = DiscreteLimit 75 }
   st <- giveReference "adf" arjunRef "arjun" st
-  st <- newResAcct "arjun" arjunRef "arjunAcct" (DiscreteLimit 70) st
+  st <- newResAcct "arjun" arjunRef "arjunAcct" (Set.singleton "arjun")
+          anyFlow  (DiscreteLimit 70) st
   let arjunSubRef = arjunRef { acctRefAccount = "arjunAcct" }
   reserve "arjun" arjunSubRef 71 st
  
 test20 = do
-  st <- newResAcct "root" rootAcctRef "net0" (DiscreteLimit 200) emptyState
+  st <- test10
   st <- createSpeaker "adf" st
   st <- createSpeaker "arjun" st
   let net0Ref = rootAcctRef { acctRefAccount = "net0" }
@@ -160,7 +162,8 @@ test20 = do
 --  st <- reserve "root" net0Ref 100 st
   let arjunRef = adfRef { acctRefResLimit = DiscreteLimit 75 }
   st <- giveReference "adf" arjunRef "arjun" st
-  st <- newResAcct "arjun" arjunRef "arjunAcct" (DiscreteLimit 70) st
+  st <- newResAcct "arjun" arjunRef "arjunAcct" (Set.singleton "arjun") anyFlow
+         (DiscreteLimit 70) st
   let arjunSubRef = arjunRef { acctRefAccount = "arjunAcct" }
   reserve "arjun" arjunRef 71 st
 
