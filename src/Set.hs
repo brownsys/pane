@@ -15,7 +15,7 @@ import qualified Data.Set
 data Set a
   = FiniteSet (Data.Set.Set a)
   | All
-  deriving Eq
+  deriving (Eq, Show)
 
 instance Ord a => Ord (Set a) where
   _ <= All = True

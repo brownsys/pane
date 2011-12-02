@@ -13,9 +13,8 @@ data Tree a b =
   Tree (Map a a)       -- ^parent relation
        (Map a (Set a)) -- ^transitive closure of the parent relation
        (Map a b)
+  deriving Show
 
-instance Show a => Show (Tree a b) where
-  show (Tree parent lt _) = show parent
 
 root :: Ord a
      => a

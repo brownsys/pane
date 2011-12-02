@@ -17,55 +17,43 @@ data FlowGroup = FlowGroup {
   flowRecv :: Set User,
   flowSrcPort ::  Set Port,
   flowDestPort :: Set Port
-} deriving (Eq, Ord)
+} deriving (Eq, Ord, Show)
 
-data Limit = NoLimit | DiscreteLimit Integer deriving (Eq)
+data Limit = NoLimit | DiscreteLimit Integer deriving (Eq, Show)
 
 instance Ord Limit where
   _ <= NoLimit = True
   (DiscreteLimit m) <= (DiscreteLimit n) = m <= n
   NoLimit <= (DiscreteLimit _) = False
 
-data AcctRef = AcctRef {
-  acctRefSpeakers :: Set Speaker,
-  acctRefFlows :: FlowGroup,
-  acctRefResLimit :: Limit,
-  acctRefAccount :: String
-} deriving (Eq, Ord)
-
+type AcctRef = String
 
 data ResourceAccount = ResourceAccount {
   shareResvLimit :: Limit,
   shareResv :: Integer,
   shareFlows :: FlowGroup,
   shareSpeakers :: Set Speaker
-} deriving (Eq, Ord)
+} deriving (Eq, Ord, Show)
 
-type AccountTree = Tree String ResourceAccount
+type AccountTree = Tree AcctRef ResourceAccount
 
 data State = State {
   accountTree :: AccountTree,
   references :: Map Speaker (Set AcctRef)
-}
+} deriving Show
 
 anyFlow = FlowGroup Set.all Set.all Set.all Set.all
 
 rootAcct :: String
-rootAcct = "root account"
+rootAcct = "root"
 
 rootAcctRef :: AcctRef
-rootAcctRef = AcctRef Set.all anyFlow NoLimit rootAcct
+rootAcctRef = "root"
 
 emptyState = 
   State (Tree.root rootAcct (ResourceAccount NoLimit 0 anyFlow Set.all))
         (Map.singleton "root" (Set.singleton rootAcctRef))
 
-isSubRef :: AccountTree -> AcctRef -> AcctRef -> Bool
-isSubRef aT (AcctRef speakers1 flow1 lim1 ref1) (AcctRef speakers2 flow2 lim2 ref2) =
-  lim1 <= lim2 &&
-  isSubFlow flow1 flow2 &&
-  speakers1 `Set.isSubsetOf` speakers2 &&
-  Tree.lessThanOrEq ref1 ref2 aT
 
 isSubFlow :: FlowGroup -> FlowGroup -> Bool
 isSubFlow (FlowGroup fs1 fr1 fsp1 fdp1) (FlowGroup fs2 fr2 fsp2 fdp2) =
@@ -103,7 +91,7 @@ giveReference from ref to (State aT refs) =
     case Map.lookup from refs of
       Nothing -> error "Assplosion"
       Just fromRefs -> 
-        if Set.exists (isSubRef aT ref) fromRefs then
+        if Set.exists (==ref) fromRefs then
           let refs' = Map.adjust (\ toSet -> Set.insert ref toSet) to refs in
             Just (State aT refs')
         else
@@ -120,15 +108,15 @@ newResAcct :: Speaker
 newResAcct spk acctRef acctName acctSpk acctFlows acctLimit (State aT refs) =
   case Map.lookup spk refs of
     Nothing -> Nothing
-    Just acctRefs -> case Set.exists (isSubRef aT acctRef) acctRefs of
+    Just acctRefs -> case Set.exists (==acctRef) acctRefs of
       False -> Nothing
       True -> 
-        let newAcct = ResourceAccount acctLimit 0 acctFlows acctSpk 
-          in case newAcct `isSubAcct` (Tree.lookup (acctRefAccount acctRef) aT) of
+        let newAcct = ResourceAccount acctLimit 0 acctFlows acctSpk
+            refs' = Map.adjust (\s -> Set.insert acctName s) spk refs
+          in case newAcct `isSubAcct` (Tree.lookup acctRef aT) of
                True -> 
-                 Just (State (Tree.insert acctName newAcct 
-                                (acctRefAccount acctRef) aT) 
-                             refs)
+                 Just (State (Tree.insert acctName newAcct acctRef aT) 
+                             refs')
                False -> Nothing
 
 reserve :: Speaker
@@ -139,10 +127,10 @@ reserve :: Speaker
 reserve spk acctRef resv (State aT refs) = 
   case Map.lookup spk refs of
     Nothing -> Nothing
-    Just acctRefs -> case Set.exists (isSubRef aT acctRef) acctRefs of
+    Just acctRefs -> case Set.exists (==acctRef) acctRefs of
       False -> Nothing
       True ->
-        let chain = Tree.chain (acctRefAccount acctRef) rootAcct aT
+        let chain = Tree.chain acctRef rootAcct aT
             f Nothing _ = Nothing
             f (Just aT) (acctName, acct) = 
               if DiscreteLimit (resv + shareResv acct) <= shareResvLimit acct then
@@ -152,5 +140,3 @@ reserve spk acctRef resv (State aT refs) =
           in case foldl f (Just aT) chain of
                Nothing -> Nothing
                Just aT' -> Just (State aT' refs)
- 
- 
