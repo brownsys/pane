@@ -6,6 +6,7 @@ module Set
   , exists
   , insert
   , singleton
+  , member
   ) where
 
 import Prelude hiding (all)
@@ -25,6 +26,10 @@ instance Ord a => Ord (Set a) where
 
 all :: Set a
 all = All
+
+member :: Ord a => a -> Set a -> Bool
+member _ All = True
+member x (FiniteSet s) = x `Data.Set.member` s
 
 singleton :: a -> Set a
 singleton x = FiniteSet (Data.Set.singleton x)

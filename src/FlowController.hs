@@ -32,14 +32,15 @@ data ResourceAccount = ResourceAccount {
   shareResvLimit :: Limit,
   shareResv :: Integer,
   shareFlows :: FlowGroup,
-  shareSpeakers :: Set Speaker
+  shareSpeakers :: Set Speaker,
+  shareHolders :: Set Speaker
 } deriving (Eq, Ord, Show)
 
 type AccountTree = Tree AcctRef ResourceAccount
 
 data State = State {
   accountTree :: AccountTree,
-  references :: Map Speaker (Set AcctRef)
+  stateSpeakers :: Set String
 } deriving Show
 
 anyFlow = FlowGroup Set.all Set.all Set.all Set.all
@@ -51,9 +52,10 @@ rootAcctRef :: AcctRef
 rootAcctRef = "root"
 
 emptyState = 
-  State (Tree.root rootAcct (ResourceAccount NoLimit 0 anyFlow Set.all))
-        (Map.singleton "root" (Set.singleton rootAcctRef))
-
+  State (Tree.root rootAcctRef
+                   (ResourceAccount NoLimit 0 anyFlow Set.all 
+                                    (Set.singleton rootAcct)))
+        (Set.singleton rootAcct)
 
 isSubFlow :: FlowGroup -> FlowGroup -> Bool
 isSubFlow (FlowGroup fs1 fr1 fsp1 fdp1) (FlowGroup fs2 fr2 fsp2 fdp2) =
@@ -63,8 +65,8 @@ isSubFlow (FlowGroup fs1 fr1 fsp1 fdp1) (FlowGroup fs2 fr2 fsp2 fdp2) =
   Set.isSubsetOf fdp1 fdp2
 
 isSubAcct :: ResourceAccount -> ResourceAccount -> Bool
-isSubAcct (ResourceAccount resLim1 _ flows1 spk1)
-          (ResourceAccount resLim2 _ flows2 spk2) = 
+isSubAcct (ResourceAccount resLim1 _ flows1 spk1 _)
+          (ResourceAccount resLim2 _ flows2 spk2 _) = 
   spk1 `Set.isSubsetOf` spk2 &&
   resLim1 <= resLim2 &&
   flows1 <= flows2
@@ -72,12 +74,11 @@ isSubAcct (ResourceAccount resLim1 _ flows1 spk1)
 createSpeaker :: Speaker -- ^name of new speaker
               -> State -- ^existing state
               -> Maybe State
-createSpeaker newSpeaker (State aT refs) =
-  if Map.member newSpeaker refs then
+createSpeaker newSpeaker (State aT spk) =
+  if Set.exists (==newSpeaker) spk then
     Nothing
   else
-    let refs' = Map.insert newSpeaker Set.empty refs in
-      Just (State aT refs')
+    Just (State aT (Set.insert newSpeaker spk))
 
 giveReference :: Speaker -- ^grantor
               -> AcctRef -- ^reference to account
@@ -85,17 +86,16 @@ giveReference :: Speaker -- ^grantor
               -> State -- ^existing state
               -> Maybe State
 giveReference from ref to (State aT refs) = 
-  if not (Map.member from refs) || not (Map.member to refs) then
+  if not (Set.member from refs) || not (Set.member to refs) then
     Nothing
   else
-    case Map.lookup from refs of
-      Nothing -> error "Assplosion"
-      Just fromRefs -> 
-        if Set.exists (==ref) fromRefs then
-          let refs' = Map.adjust (\ toSet -> Set.insert ref toSet) to refs in
-            Just (State aT refs')
-        else
-          Nothing
+    let share = Tree.lookup ref aT 
+      in case from `Set.member` shareHolders share of
+        True -> 
+          let share' = share {shareHolders = Set.insert to (shareHolders share)}
+              aT' = Tree.update ref share' aT
+            in Just (State aT' refs)
+        False -> Nothing
 
 newResAcct :: Speaker
            -> AcctRef
@@ -105,19 +105,21 @@ newResAcct :: Speaker
            -> Limit
            -> State
            -> Maybe State
-newResAcct spk acctRef acctName acctSpk acctFlows acctLimit (State aT refs) =
-  case Map.lookup spk refs of
-    Nothing -> Nothing
-    Just acctRefs -> case Set.exists (==acctRef) acctRefs of
-      False -> Nothing
-      True -> 
-        let newAcct = ResourceAccount acctLimit 0 acctFlows acctSpk
-            refs' = Map.adjust (\s -> Set.insert acctName s) spk refs
-          in case newAcct `isSubAcct` (Tree.lookup acctRef aT) of
-               True -> 
-                 Just (State (Tree.insert acctName newAcct acctRef aT) 
-                             refs')
-               False -> Nothing
+newResAcct spk parentName acctName acctSpk acctFlows acctLimit (State aT refs) =
+  if Tree.member parentName aT then
+    let parentShare = Tree.lookup parentName aT
+      in case Set.member spk (shareHolders parentShare) of
+        True -> 
+          let newAcct = ResourceAccount acctLimit 0 acctFlows acctSpk 
+                                       (Set.singleton spk)
+            in case newAcct `isSubAcct` parentShare of
+                 True -> 
+                   Just (State (Tree.insert acctName newAcct parentName aT) 
+                               refs)
+                 False -> Nothing
+        False -> Nothing
+  else
+    Nothing
 
 reserve :: Speaker
         -> AcctRef
@@ -125,18 +127,20 @@ reserve :: Speaker
         -> State
         -> Maybe State
 reserve spk acctRef resv (State aT refs) = 
-  case Map.lookup spk refs of
-    Nothing -> Nothing
-    Just acctRefs -> case Set.exists (==acctRef) acctRefs of
-      False -> Nothing
-      True ->
-        let chain = Tree.chain acctRef rootAcct aT
-            f Nothing _ = Nothing
-            f (Just aT) (acctName, acct) = 
-              if DiscreteLimit (resv + shareResv acct) <= shareResvLimit acct then
-                Just (Tree.update acctName (acct { shareResv = resv + shareResv acct }) aT)
-              else
-                Nothing
-          in case foldl f (Just aT) chain of
-               Nothing -> Nothing
-               Just aT' -> Just (State aT' refs)
+  if Tree.member acctRef aT then
+    let share = Tree.lookup acctRef aT
+      in case Set.member spk (shareHolders share) of
+        False -> Nothing
+        True ->
+          let chain = Tree.chain acctRef rootAcct aT
+              f Nothing _ = Nothing
+              f (Just aT) (acctName, acct) = 
+                if DiscreteLimit (resv + shareResv acct) <= shareResvLimit acct then
+                  Just (Tree.update acctName (acct { shareResv = resv + shareResv acct }) aT)
+                else
+                  Nothing
+            in case foldl f (Just aT) chain of
+                 Nothing -> Nothing
+                 Just aT' -> Just (State aT' refs)
+  else
+    Nothing
