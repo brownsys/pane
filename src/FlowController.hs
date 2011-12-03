@@ -97,6 +97,22 @@ giveReference from ref to (State aT refs) =
             in Just (State aT' refs)
         False -> Nothing
 
+giveDefaultReference :: Speaker -- ^grantor
+                     -> AcctRef -- ^reference to account
+                     -> State -- ^existing state
+                     -> Maybe State
+giveDefaultReference from ref (State aT refs) = 
+  if not (Set.member from refs) then
+    Nothing
+  else
+    let share = Tree.lookup ref aT 
+      in case from `Set.member` shareHolders share of
+        True -> 
+          let share' = share {shareHolders = Set.all}
+              aT' = Tree.update ref share' aT
+            in Just (State aT' refs)
+        False -> Nothing
+
 newResAcct :: Speaker
            -> AcctRef
            -> String

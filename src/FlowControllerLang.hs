@@ -2,6 +2,7 @@ module FlowControllerLang
   ( DNP
   , createSpeakerM
   , giveReferenceM
+  , giveDefaultReferenceM
   , newResAcctM
   , reserveM
   , runDNP
@@ -33,6 +34,8 @@ giveReferenceM :: Speaker
               -> DNP Bool
 giveReferenceM fromSpk share toSpk = 
   boolWrapper (giveReference fromSpk share toSpk)
+
+giveDefaultReferenceM fromSpk share = boolWrapper (giveDefaultReference fromSpk share)
 
 newResAcctM x1 x2 x3 x4 x5 x6 = boolWrapper (newResAcct x1 x2 x3 x4 x5 x6)
 

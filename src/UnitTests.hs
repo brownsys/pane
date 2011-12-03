@@ -45,7 +45,7 @@ test6 = runDNP $ do
 frag1 limitForAdf = do
   b1 <- createSpeakerM "arjun"
   b2 <- createSpeakerM "adf"
-  b3 <- newResAcctM "root" rootAcct "arjun-account" Set.all
+  b3 <- newResAcctM "root" rootAcct "arjun-account" Set.all -- IRL, Arjun's group?
                     anyFlow (DiscreteLimit 100)
   b4 <- giveReferenceM "root" "arjun-account" "arjun"
   b5 <- newResAcctM "arjun" "arjun-account" "adf-account" (Set.singleton "adf") 
@@ -122,6 +122,23 @@ test18 = runDNP $ do
   b2 <- reserveM "adf" "adfAcct" 51
   return (b1 && not b2)
 
+frag4 = do
+  b1 <- createSpeakerM "arjun"
+  b2 <- newResAcctM "root" rootAcct "hadoop-account" (Set.singleton "root") --ppl who can delegate
+                    anyFlow (DiscreteLimit 100)
+  b3 <- giveDefaultReferenceM "root" "hadoop-account"
+  b4 <- reserveM "arjun" "hadoop-account" 25
+  return (b1 && b2 && b3 && b4)
+
+test19 = runDNP $ do frag4
+
+test20 = runDNP $ do
+  b1 <- frag4
+  b2 <- createSpeakerM "adf"
+  b3 <- reserveM "adf" "hadoop-account" 25
+  return (b1 && b2 && b3)
+
+
 allTests = TestList
   [ test1 ~? "cannot create speaker"
   , test2 ~? "duplicate speaker"
@@ -141,6 +158,8 @@ allTests = TestList
   , test16 ~? "reserve to limit in separate accounts"
   , test17 ~? "cannot give root what he wants"
   , test18 ~? "exceeded limit on subaccount"
+  , test19 ~? "use default reference"
+  , test20 ~? "use default reference with new user"
   ]
 
 main :: IO ()
