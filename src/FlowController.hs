@@ -40,7 +40,8 @@ type AccountTree = Tree AcctRef ResourceAccount
 
 data State = State {
   accountTree :: AccountTree,
-  stateSpeakers :: Set String
+  stateSpeakers :: Set String,
+  stateReservations :: Set (FlowGroup, Integer)
 } deriving Show
 
 anyFlow = FlowGroup Set.all Set.all Set.all Set.all
@@ -56,6 +57,7 @@ emptyState =
                    (ResourceAccount NoLimit 0 anyFlow Set.all 
                                     (Set.singleton rootAcct)))
         (Set.singleton rootAcct)
+        Set.empty
 
 isSubFlow :: FlowGroup -> FlowGroup -> Bool
 isSubFlow (FlowGroup fs1 fr1 fsp1 fdp1) (FlowGroup fs2 fr2 fsp2 fdp2) =
@@ -74,18 +76,18 @@ isSubAcct (ResourceAccount resLim1 _ flows1 spk1 _)
 createSpeaker :: Speaker -- ^name of new speaker
               -> State -- ^existing state
               -> Maybe State
-createSpeaker newSpeaker (State aT spk) =
+createSpeaker newSpeaker st@(State {stateSpeakers=spk})  =
   if Set.exists (==newSpeaker) spk then
     Nothing
   else
-    Just (State aT (Set.insert newSpeaker spk))
+    Just (st { stateSpeakers = Set.insert newSpeaker spk })
 
 giveReference :: Speaker -- ^grantor
               -> AcctRef -- ^reference to account
               -> Speaker -- ^acceptor
               -> State -- ^existing state
               -> Maybe State
-giveReference from ref to (State aT refs) = 
+giveReference from ref to st@(State {accountTree=aT, stateSpeakers=refs}) = 
   if not (Set.member from refs) || not (Set.member to refs) then
     Nothing
   else
@@ -94,14 +96,14 @@ giveReference from ref to (State aT refs) =
         True -> 
           let share' = share {shareHolders = Set.insert to (shareHolders share)}
               aT' = Tree.update ref share' aT
-            in Just (State aT' refs)
+            in Just (st {accountTree = aT'})
         False -> Nothing
 
 giveDefaultReference :: Speaker -- ^grantor
                      -> AcctRef -- ^reference to account
                      -> State -- ^existing state
                      -> Maybe State
-giveDefaultReference from ref (State aT refs) = 
+giveDefaultReference from ref st@(State {accountTree=aT, stateSpeakers=refs}) = 
   if not (Set.member from refs) then
     Nothing
   else
@@ -110,7 +112,7 @@ giveDefaultReference from ref (State aT refs) =
         True -> 
           let share' = share {shareHolders = Set.all}
               aT' = Tree.update ref share' aT
-            in Just (State aT' refs)
+            in Just (st {accountTree = aT'})
         False -> Nothing
 
 newResAcct :: Speaker
@@ -121,7 +123,8 @@ newResAcct :: Speaker
            -> Limit
            -> State
            -> Maybe State
-newResAcct spk parentName acctName acctSpk acctFlows acctLimit (State aT refs) =
+newResAcct spk parentName acctName acctSpk acctFlows acctLimit
+           st@(State {accountTree = aT}) =
   if Tree.member parentName aT then
     let parentShare = Tree.lookup parentName aT
       in case Set.member spk (shareHolders parentShare) of
@@ -130,8 +133,8 @@ newResAcct spk parentName acctName acctSpk acctFlows acctLimit (State aT refs) =
                                        (Set.singleton spk)
             in case newAcct `isSubAcct` parentShare of
                  True -> 
-                   Just (State (Tree.insert acctName newAcct parentName aT) 
-                               refs)
+                   Just (st { accountTree =
+                            (Tree.insert acctName newAcct parentName aT) } )
                  False -> Nothing
         False -> Nothing
   else
@@ -139,13 +142,16 @@ newResAcct spk parentName acctName acctSpk acctFlows acctLimit (State aT refs) =
 
 reserve :: Speaker
         -> AcctRef
+        -> FlowGroup
         -> Integer
         -> State
         -> Maybe State
-reserve spk acctRef resv (State aT refs) = 
+reserve spk acctRef flow resv st@(State {accountTree = aT,
+        stateReservations = sR}) = 
   if Tree.member acctRef aT then
     let share = Tree.lookup acctRef aT
-      in case Set.member spk (shareHolders share) of
+      in case Set.member spk (shareHolders share) && 
+               flow `isSubFlow` (shareFlows share) of
         False -> Nothing
         True ->
           let chain = Tree.chain acctRef rootAcct aT
@@ -157,6 +163,13 @@ reserve spk acctRef resv (State aT refs) =
                   Nothing
             in case foldl f (Just aT) chain of
                  Nothing -> Nothing
-                 Just aT' -> Just (State aT' refs)
+                 Just aT' -> Just (st { accountTree = aT',
+                                        stateReservations = Set.insert
+                                             (flow, resv) sR })
   else
     Nothing
+
+currentReservations = stateReservations
+-- currentReservations :: State -> Set (FlowGroup, Integer)
+-- currentReservations st@(State {stateReservations = sR}) =
+--  sR
