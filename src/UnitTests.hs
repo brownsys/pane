@@ -35,75 +35,92 @@ test5 = runDNP $ do
   b2 <- giveReferenceM "root" rootAcctRef "arjun"
   return (b1 && b2)
 
-test6 = do
-  st <- createSpeaker "arjun" emptyState
-  st <- newResAcct "root" rootAcct "arjun-account" (Set.singleton "arjun") 
-           anyFlow (DiscreteLimit 100) st
-  giveReference "root" "arjun-account" "arjun" st
+test6 = runDNP $ do
+  b1 <- createSpeakerM "arjun" 
+  b2 <- newResAcctM "root" rootAcct "arjun-account" (Set.singleton "arjun") 
+           anyFlow (DiscreteLimit 100)
+  b3 <- giveReferenceM "root" "arjun-account" "arjun"
+  return (b1 && b2 && b3)
 
-frag2 limitForAdf = do
-  st <- createSpeaker "arjun" emptyState
-  st <- createSpeaker "adf" st
-  st <- newResAcct "root" rootAcct "arjun-account" Set.all
-          anyFlow (DiscreteLimit 100) st
-  st <- giveReference "root" "arjun-account" "arjun" st
-  st <- newResAcct "arjun" "arjun-account" "adf-account" (Set.singleton "adf") 
-          anyFlow (DiscreteLimit limitForAdf) st
-  giveReference "arjun" "adf-account" "adf" st
+frag1 limitForAdf = do
+  b1 <- createSpeakerM "arjun"
+  b2 <- createSpeakerM "adf"
+  b3 <- newResAcctM "root" rootAcct "arjun-account" Set.all
+                    anyFlow (DiscreteLimit 100)
+  b4 <- giveReferenceM "root" "arjun-account" "arjun"
+  b5 <- newResAcctM "arjun" "arjun-account" "adf-account" (Set.singleton "adf") 
+                    anyFlow (DiscreteLimit limitForAdf)
+  b6 <- giveReferenceM "arjun" "adf-account" "adf"
+  return (b1 && b2 && b3 && b4 && b5 && b6)
 
-test7 = unexpectedState (frag2 200)
+test7 = runDNP $ do
+   b1 <- frag1 200
+   return (not b1)
 
-test8 = frag2 50
+test8 = runDNP $ do frag1 50
 
-test9 = unexpectedState $ do
-  st <- frag2 50
-  giveReference "arjun" "adf-account" "non user" st
+test9 =  runDNP $ do
+  b1 <- frag1 50
+  b2 <- giveReferenceM "arjun" "adf-account" "non user" 
+  return (b1 && not b2)
 
   
-test10 = 
- newResAcct "root" rootAcctRef "net0" Set.all anyFlow 
-           (DiscreteLimit 200) emptyState
+frag2 = do
+  b1 <- newResAcctM "root" rootAcctRef "net0" Set.all anyFlow 
+                    (DiscreteLimit 200)
+  return b1
 
-test11 = unexpectedState $ do
-  st <- test10
-  reserve "root" "net0" 300 st
+test10 = runDNP $ do frag2
 
-test12 = do
-  st <- test10
-  reserve "root" "root" 300 st
+test11 = runDNP $ do
+  b1 <- frag2 
+  b2 <- reserveM "root" "net0" 300
+  return (b1 && not b2)
 
-test13 = do
-  st <- test10
-  st <- reserve "root" "net0" 100 st
-  reserve "root" "net0" 100 st
+test12 = runDNP $ do
+  b1 <- frag2
+  b2 <- reserveM "root" "root" 300
+  return (b1 && b2)
 
-test14 = unexpectedState $ do
-  st <- test10
-  st <- reserve "root" "net0" 100 st
-  st <- reserve "root" "net0"  100 st
-  reserve "root" "net0" 100 st
+test13 = runDNP $ do
+  b1 <- frag2
+  b2 <- reserveM "root" "net0" 100
+  b3 <- reserveM "root" "net0" 100
+  return (b1 && b2 && b3)
 
-test15 = do
-  st <- test10
-  st <- createSpeaker "adf" st
-  st <- newResAcct "root" "net0" "adfAcct" (Set.singleton "adf") anyFlow 
-           (DiscreteLimit 150) st
-  st <- giveReference "root" "adfAcct" "adf" st
-  reserve "adf" "adfAcct" 100 st
-
-
-test16 = do
-  st <- test15
-  reserve "root" "net0" 100 st
+test14 = runDNP $ do
+  b1 <- frag2
+  b2 <- reserveM "root" "net0" 100
+  b3 <- reserveM "root" "net0"  100
+  b4 <- reserveM "root" "net0" 100
+  return (b1 && b2 && b3 && not b4)
 
 
-test17 = unexpectedState $ do
-  st <- test15
-  reserve "root" "net0" 101 st
+frag3 = do 
+  b1 <- frag2
+  b2 <- createSpeakerM "adf"
+  b3 <- newResAcctM "root" "net0" "adfAcct" (Set.singleton "adf") anyFlow 
+           (DiscreteLimit 150)
+  b4 <- giveReferenceM "root" "adfAcct" "adf"
+  b5 <- reserveM "adf" "adfAcct" 100
+  return (b1 && b2 && b3 && b4 && b5)
 
-test18 = unexpectedState $ do
-  st <- test15
-  reserve "adf" "adfAcct" 51 st
+test15 = runDNP $ do frag3
+
+test16 = runDNP $ do
+  b1 <- frag3
+  b2 <- reserveM "root" "net0" 100
+  return (b1 && b2)
+
+test17 = runDNP $ do
+  b1 <- frag3
+  b2 <- reserveM "root" "net0" 101
+  return (b1 && not b2)
+
+test18 = runDNP $ do
+  b1 <- frag3
+  b2 <- reserveM "adf" "adfAcct" 51
+  return (b1 && not b2)
 
 allTests = TestList
   [ test1 ~? "cannot create speaker"

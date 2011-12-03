@@ -3,6 +3,7 @@ module FlowControllerLang
   , createSpeakerM
   , giveReferenceM
   , newResAcctM
+  , reserveM
   , runDNP
   ) where
 
@@ -35,4 +36,4 @@ giveReferenceM fromSpk share toSpk =
 
 newResAcctM x1 x2 x3 x4 x5 x6 = boolWrapper (newResAcct x1 x2 x3 x4 x5 x6)
 
-
+reserveM x1 x2 x3 = boolWrapper (reserve x1 x2 x3)
