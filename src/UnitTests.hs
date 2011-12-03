@@ -3,6 +3,7 @@ module UnitTests where
 import Test.HUnit
 import FlowController
 import qualified Set
+import FlowControllerLang
 
 instance AssertionPredicable (Maybe a) where
   assertionPredicate Nothing = return False
@@ -12,25 +13,27 @@ unexpectedState (Just _) = Nothing
 unexpectedState Nothing = Just emptyState
 
 
-test1 =
-  createSpeaker "arjun" emptyState
+test1 = runDNP $ do
+  createSpeakerM "arjun"
 
-test2 =
-  (unexpectedState (createSpeaker "root" emptyState))
+test2 = runDNP $ do
+  b <- createSpeakerM "root"
+  return (not b)
 
-test3 = do
-  st <- createSpeaker "arjun" emptyState
-  st <- createSpeaker "adf" st
-  return True
+test3 = runDNP $ do
+  b1 <- createSpeakerM "arjun"
+  b2 <- createSpeakerM "adf"
+  return (b1 && b2)
 
-test4 = unexpectedState $ do
-  st <- createSpeaker "arjun" emptyState
-  st <- createSpeaker "arjun" st
-  return True
+test4 = runDNP $ do
+  b1 <- createSpeakerM "arjun"
+  b2 <- createSpeakerM "arjun"
+  return (b1 && not b2)
 
-test5 = do
-  st <- createSpeaker "arjun" emptyState
-  giveReference "root" rootAcctRef "arjun" st
+test5 = runDNP $ do
+  b1 <- createSpeakerM "arjun"
+  b2 <- giveReferenceM "root" rootAcctRef "arjun"
+  return (b1 && b2)
 
 test6 = do
   st <- createSpeaker "arjun" emptyState
