@@ -4,6 +4,7 @@ import Test.HUnit
 import FlowController
 import qualified Set
 import FlowControllerLang
+import EmitFML
 
 instance AssertionPredicable (Maybe a) where
   assertionPredicate Nothing = return False
@@ -74,25 +75,25 @@ test10 = runDNP $ do frag2
 
 test11 = runDNP $ do
   b1 <- frag2 
-  b2 <- reserveM "root" "net0" 300
+  b2 <- reserveM "root" "net0" anyFlow 300
   return (b1 && not b2)
 
 test12 = runDNP $ do
   b1 <- frag2
-  b2 <- reserveM "root" "root" 300
+  b2 <- reserveM "root" "root" anyFlow 300
   return (b1 && b2)
 
 test13 = runDNP $ do
   b1 <- frag2
-  b2 <- reserveM "root" "net0" 100
-  b3 <- reserveM "root" "net0" 100
+  b2 <- reserveM "root" "net0" anyFlow 100
+  b3 <- reserveM "root" "net0" anyFlow 100
   return (b1 && b2 && b3)
 
 test14 = runDNP $ do
   b1 <- frag2
-  b2 <- reserveM "root" "net0" 100
-  b3 <- reserveM "root" "net0"  100
-  b4 <- reserveM "root" "net0" 100
+  b2 <- reserveM "root" "net0" anyFlow 100
+  b3 <- reserveM "root" "net0" anyFlow 100
+  b4 <- reserveM "root" "net0" anyFlow 100
   return (b1 && b2 && b3 && not b4)
 
 
@@ -102,14 +103,14 @@ frag3 = do
   b3 <- newResAcctM "root" "net0" "adfAcct" (Set.singleton "adf") anyFlow 
            (DiscreteLimit 150)
   b4 <- giveReferenceM "root" "adfAcct" "adf"
-  b5 <- reserveM "adf" "adfAcct" 100
+  b5 <- reserveM "adf" "adfAcct" anyFlow 100
   return (b1 && b2 && b3 && b4 && b5)
 
 test15 = runDNP $ do frag3
 
 test16 = runDNP $ do
   b1 <- frag3
-  b2 <- reserveM "root" "net0" 100
+  b2 <- reserveM "root" "net0" anyFlow 100
   return (b1 && b2)
 
 test16a = runDNP $ do
@@ -124,12 +125,12 @@ test16b = runDNP $ do
 
 test17 = runDNP $ do
   b1 <- frag3
-  b2 <- reserveM "root" "net0" 101
+  b2 <- reserveM "root" "net0" anyFlow 101
   return (b1 && not b2)
 
 test18 = runDNP $ do
   b1 <- frag3
-  b2 <- reserveM "adf" "adfAcct" 51
+  b2 <- reserveM "adf" "adfAcct" anyFlow 51
   return (b1 && not b2)
 
 frag4 = do
@@ -137,7 +138,7 @@ frag4 = do
   b2 <- newResAcctM "root" rootAcct "hadoop-account" (Set.singleton "root") --ppl who can delegate
                     anyFlow (DiscreteLimit 100)
   b3 <- giveDefaultReferenceM "root" "hadoop-account"
-  b4 <- reserveM "arjun" "hadoop-account" 25
+  b4 <- reserveM "arjun" "hadoop-account" anyFlow 25
   return (b1 && b2 && b3 && b4)
 
 test19 = runDNP $ do frag4
@@ -145,8 +146,39 @@ test19 = runDNP $ do frag4
 test20 = runDNP $ do
   b1 <- frag4
   b2 <- createSpeakerM "adf"
-  b3 <- reserveM "adf" "hadoop-account" 25
+  b3 <- reserveM "adf" "hadoop-account" anyFlow 25
   return (b1 && b2 && b3)
+
+arjunFlow = anyFlow { flowSend = Set.singleton "arjun" }
+
+frag5 = do
+  b1 <- createSpeakerM "arjun"
+  b2 <- newResAcctM "root" rootAcct "arjun-account" (Set.singleton "arjun")
+             arjunFlow (DiscreteLimit 100)
+  b3 <- giveReferenceM "root" "arjun-account" "arjun"
+  b4 <- reserveM "arjun" "arjun-account" arjunFlow 50
+  s  <- currentReservationsM
+  let b5 = s == Set.singleton (arjunFlow, 50)
+  return (b1 && b2 && b3 && b4 && b5)
+
+test21 = runDNP $ frag5
+
+
+frag6 = do
+  b1 <- frag5
+  let arjunWebFlow = (arjunFlow { flowSrcPort = Set.singleton 80}) 
+  b2 <- reserveM "arjun" "arjun-account"
+             arjunWebFlow 50
+  s  <- currentReservationsM
+  let b3 = s == Set.fromList [ (arjunFlow, 50), (arjunWebFlow, 50) ]
+  return (b1 && b2 && b3)
+
+test22 = runDNP frag6
+
+test23 = runDNP $ do
+  b1 <- frag5
+  b2 <- reserveM "arjun" "arjun-account" anyFlow 50
+  return (b1 && not b2)
 
 
 allTests = TestList
@@ -172,6 +204,9 @@ allTests = TestList
   , test18 ~? "exceeded limit on subaccount"
   , test19 ~? "use default reference"
   , test20 ~? "use default reference with new user"
+  , test21 ~? "put flow restrictions on subaccount"
+  , test22 ~? "reserve with more restricted flow than restriction on acct"
+  , test23 ~? "cannot reserve with less restricted flow than restr. on acct"
   ]
 
 main :: IO ()

@@ -5,16 +5,23 @@ module FlowControllerLang
   , giveDefaultReferenceM
   , newResAcctM
   , reserveM
+  , currentReservationsM
   , runDNP
+  , fmlDNP
   ) where
 
 import qualified Control.Monad.State as StateM
+import EmitFML
 import FlowController
+import Set(Set)
 
 type DNP a = StateM.State State a
 
 runDNP :: DNP a -> a
 runDNP m = StateM.evalState m emptyState
+
+fmlDNP :: DNP a -> String
+fmlDNP m = emitFML (StateM.execState m emptyState)
 
 boolWrapper exp = do
   s <- StateM.get
@@ -39,4 +46,9 @@ giveDefaultReferenceM fromSpk share = boolWrapper (giveDefaultReference fromSpk 
 
 newResAcctM x1 x2 x3 x4 x5 x6 = boolWrapper (newResAcct x1 x2 x3 x4 x5 x6)
 
-reserveM x1 x2 x3 = boolWrapper (reserve x1 x2 x3)
+reserveM x1 x2 x3 x4 = boolWrapper (reserve x1 x2 x3 x4)
+
+currentReservationsM :: DNP (Set (FlowGroup, Integer))
+currentReservationsM = do
+  s <- StateM.get
+  return (currentReservations s)

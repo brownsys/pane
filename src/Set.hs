@@ -7,6 +7,8 @@ module Set
   , insert
   , singleton
   , member
+  , fromList
+  , toList
   ) where
 
 import Prelude hiding (all)
@@ -49,3 +51,8 @@ exists f (FiniteSet s) = any f (Data.Set.toList s)
 insert :: Ord a => a -> Set a -> Set a
 insert a (FiniteSet s) = FiniteSet (Data.Set.insert a s)
 insert a All = All
+
+fromList lst = (FiniteSet (Data.Set.fromList lst))
+
+toList All = Nothing
+toList (FiniteSet s) = Just (Data.Set.toList s)
