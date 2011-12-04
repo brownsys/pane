@@ -28,12 +28,19 @@ instance Ord Limit where
 
 type AcctRef = String
 
+data Reservation = Reservation {
+  resvSize = Integer,
+  resvStartTime = Integer,
+  resvLength = Integer
+}
+
 data ResourceAccount = ResourceAccount {
   shareResvLimit :: Limit,
   shareResv :: Integer,
   shareFlows :: FlowGroup,
   shareSpeakers :: Set Speaker,
-  shareHolders :: Set Speaker
+  shareHolders :: Set Speaker,
+  shareReservations :: Set Reservation
 } deriving (Eq, Ord, Show)
 
 type AccountTree = Tree AcctRef ResourceAccount
@@ -41,7 +48,7 @@ type AccountTree = Tree AcctRef ResourceAccount
 data State = State {
   accountTree :: AccountTree,
   stateSpeakers :: Set String,
-  stateReservations :: Set (FlowGroup, Integer)
+  stateReservations :: Set (FlowGroup, Reservation)
 } deriving Show
 
 anyFlow = FlowGroup Set.all Set.all Set.all Set.all

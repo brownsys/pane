@@ -4,6 +4,7 @@ import Test.HUnit
 import FlowController
 import qualified Set
 import FlowControllerLang
+import EmitFML
 
 instance AssertionPredicable (Maybe a) where
   assertionPredicate Nothing = return False
@@ -152,7 +153,8 @@ frag5 = do
 
 test21 = runDNP $ frag5
 
-test22 = runDNP $ do
+
+frag6 = do
   b1 <- frag5
   let arjunWebFlow = (arjunFlow { flowSrcPort = Set.singleton 80}) 
   b2 <- reserveM "arjun" "arjun-account"
@@ -160,6 +162,8 @@ test22 = runDNP $ do
   s  <- currentReservationsM
   let b3 = s == Set.fromList [ (arjunFlow, 50), (arjunWebFlow, 50) ]
   return (b1 && b2 && b3)
+
+test22 = runDNP frag6
 
 test23 = runDNP $ do
   b1 <- frag5

@@ -7,9 +7,11 @@ module FlowControllerLang
   , reserveM
   , currentReservationsM
   , runDNP
+  , fmlDNP
   ) where
 
 import qualified Control.Monad.State as StateM
+import EmitFML
 import FlowController
 import Set(Set)
 
@@ -17,6 +19,9 @@ type DNP a = StateM.State State a
 
 runDNP :: DNP a -> a
 runDNP m = StateM.evalState m emptyState
+
+fmlDNP :: DNP a -> String
+fmlDNP m = emitFML (StateM.execState m emptyState)
 
 boolWrapper exp = do
   s <- StateM.get
