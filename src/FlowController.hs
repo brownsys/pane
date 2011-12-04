@@ -17,7 +17,7 @@ data FlowGroup = FlowGroup {
   flowRecv :: Set User,
   flowSrcPort ::  Set Port,
   flowDestPort :: Set Port
-} deriving (Eq, Show)
+} deriving (Ord, Eq, Show)
 
 data Limit = NoLimit | DiscreteLimit Integer deriving (Eq, Show)
 
@@ -28,19 +28,12 @@ instance Ord Limit where
 
 type AcctRef = String
 
-data Reservation = Reservation {
-  resvSize = Integer,
-  resvStartTime = Integer,
-  resvLength = Integer
-}
-
 data ResourceAccount = ResourceAccount {
   shareResvLimit :: Limit,
   shareResv :: Integer,
   shareFlows :: FlowGroup,
   shareSpeakers :: Set Speaker,
-  shareHolders :: Set Speaker,
-  shareReservations :: Set Reservation
+  shareHolders :: Set Speaker
 } deriving (Eq, Show)
 
 type AccountTree = Tree AcctRef ResourceAccount
@@ -48,7 +41,7 @@ type AccountTree = Tree AcctRef ResourceAccount
 data State = State {
   accountTree :: AccountTree,
   stateSpeakers :: Set String,
-  stateReservations :: Set (FlowGroup, Reservation)
+  stateReservations :: Set (FlowGroup, Integer)
 } deriving Show
 
 anyFlow = FlowGroup Set.all Set.all Set.all Set.all

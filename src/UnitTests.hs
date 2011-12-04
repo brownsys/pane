@@ -115,12 +115,12 @@ test16 = runDNP $ do
 
 test16a = runDNP $ do
   b1 <- frag3
-  b2 <- reserveM "root" "adfAcct" 50
+  b2 <- reserveM "root" "adfAcct" anyFlow 50
   return (b1 && b2)
 
 test16b = runDNP $ do
   b1 <- frag3
-  b2 <- reserveM "root" "adfAcct" 51
+  b2 <- reserveM "root" "adfAcct" anyFlow 51
   return (b1 && not b2)
 
 test17 = runDNP $ do
