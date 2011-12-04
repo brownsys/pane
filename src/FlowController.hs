@@ -17,7 +17,7 @@ data FlowGroup = FlowGroup {
   flowRecv :: Set User,
   flowSrcPort ::  Set Port,
   flowDestPort :: Set Port
-} deriving (Eq, Ord, Show)
+} deriving (Eq, Show)
 
 data Limit = NoLimit | DiscreteLimit Integer deriving (Eq, Show)
 
@@ -34,7 +34,7 @@ data ResourceAccount = ResourceAccount {
   shareFlows :: FlowGroup,
   shareSpeakers :: Set Speaker,
   shareHolders :: Set Speaker
-} deriving (Eq, Ord, Show)
+} deriving (Eq, Show)
 
 type AccountTree = Tree AcctRef ResourceAccount
 
@@ -69,7 +69,7 @@ isSubAcct (ResourceAccount resLim1 _ flows1 spk1 _)
           (ResourceAccount resLim2 _ flows2 spk2 _) = 
   spk1 `Set.isSubsetOf` spk2 &&
   resLim1 <= resLim2 &&
-  flows1 <= flows2
+  flows1 `isSubFlow` flows2
 
 createSpeaker :: Speaker -- ^name of new speaker
               -> State -- ^existing state

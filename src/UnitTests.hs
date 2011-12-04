@@ -112,6 +112,16 @@ test16 = runDNP $ do
   b2 <- reserveM "root" "net0" 100
   return (b1 && b2)
 
+test16a = runDNP $ do
+  b1 <- frag3
+  b2 <- reserveM "root" "adfAcct" 50
+  return (b1 && b2)
+
+test16b = runDNP $ do
+  b1 <- frag3
+  b2 <- reserveM "root" "adfAcct" 51
+  return (b1 && not b2)
+
 test17 = runDNP $ do
   b1 <- frag3
   b2 <- reserveM "root" "net0" 101
@@ -156,6 +166,8 @@ allTests = TestList
   , test14 ~? "reserve beyond limit"
   , test15 ~? "adf can reserve"
   , test16 ~? "reserve to limit in separate accounts"
+  , test16a ~? "root reserve from ADF account"
+  , test16b ~? "root reserve too much from ADF account"
   , test17 ~? "cannot give root what he wants"
   , test18 ~? "exceeded limit on subaccount"
   , test19 ~? "use default reference"
