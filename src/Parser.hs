@@ -2,7 +2,7 @@ module Parser where
 
 import Prelude hiding (lex)
 import Lexer
-import Syntax
+import Syntax hiding (False)
 import Text.ParserCombinators.Parsec
 import qualified Text.ParserCombinators.Parsec.Token as T
 import qualified Set as Set
@@ -189,6 +189,21 @@ parseStmts = do
   ss <- many parseStmt
   eof
   return (sequence ss)
+
+parseStmt' = do
+  s <- parseStmt
+  eof
+  return s
+
+parseStmtFromStdin :: IO (DNP Bool)
+parseStmtFromStdin = do
+  str <- getLine
+  case parse parseStmt' "<stdin>" str of
+    Left err -> do
+      putStrLn ("Parse failed: " ++ show err)
+      return (return False)
+    Right cmd -> do
+      return cmd
 
 parseFromFile :: String -> IO (DNP [Bool])
 parseFromFile filename = do
