@@ -3,9 +3,16 @@ module PriorityQueue
   , empty
   , isEmpty
   , dequeue
+  , dequeueWhile
   , enqueue
   , toList
+  , peek
+  , filter
   ) where
+
+import Data.List (span)
+import qualified Prelude
+import Prelude hiding (filter)
 
 data PQ a = PQ { 
   leq :: a -> a -> Bool,
@@ -37,8 +44,25 @@ dequeue pq = case items pq of
   [] -> Nothing
   (x:xs) -> Just (x, pq { items = xs })
 
+dequeueWhile :: (a -> Bool)
+             -> PQ a 
+             -> ([a], PQ a)
+dequeueWhile f pq = 
+  let (ret, keep) = span f (items pq) in
+      (ret, pq { items = keep })
+
+peek :: PQ a
+     -> Maybe a
+peek pq = case items pq of
+  [] -> Nothing
+  (x:_) -> Just x
+
 toList :: PQ a
        -> [a]
 toList = items
 
-
+filter :: (a -> Bool)
+       -> PQ a
+       -> PQ a
+filter f pq =
+  pq { items = Prelude.filter f (items pq) }

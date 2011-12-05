@@ -10,11 +10,9 @@ import Set (Set)
 
 emitFML :: State
         -> String
-emitFML st = render (reservations (stateReservations st))
+emitFML st = render (reservations (currentReservations st))
 
-reservations resv = case Set.toList resv of
-  Nothing -> error "infinite set of reservations!"
-  Just lst -> vcat $ map reservation lst
+reservations resvs = vcat $ map reservation resvs
 
 data Flow = Flow (Maybe User) (Maybe User) (Maybe Port) (Maybe Port)
 
@@ -39,7 +37,7 @@ expandFlowGroup (FlowGroup sendUser recvUser sendPort recvPort) =
             Just lst -> map Just lst
             Nothing -> [Nothing]
 
-reservation (flowGroup, n) = 
+reservation resv@(Resv {resvFlows=flowGroup, resvSize=n}) = 
   vcat [ text "bandwidth(" <> text (show n) <> text ") <=" <+> flow  f
            | f <- expandFlowGroup flowGroup ]
 

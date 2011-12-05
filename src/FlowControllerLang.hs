@@ -3,7 +3,7 @@ module FlowControllerLang
   , createSpeakerM
   , giveReferenceM
   , giveDefaultReferenceM
-  , newResAcctM
+  , newShareM
   , reserveM
   , currentReservationsM
   , runDNP
@@ -36,7 +36,7 @@ createSpeakerM :: Speaker -> DNP Bool
 createSpeakerM spk = boolWrapper (createSpeaker spk)
 
 giveReferenceM :: Speaker
-              -> AcctRef
+              -> ShareRef
               -> Speaker
               -> DNP Bool
 giveReferenceM fromSpk share toSpk = 
@@ -44,11 +44,11 @@ giveReferenceM fromSpk share toSpk =
 
 giveDefaultReferenceM fromSpk share = boolWrapper (giveDefaultReference fromSpk share)
 
-newResAcctM x1 x2 x3 x4 x5 x6 = boolWrapper (newResAcct x1 x2 x3 x4 x5 x6)
+newShareM x1 x2 x3 x4 x5 x6 = boolWrapper (newShare x1 x2 x3 x4 x5 x6)
 
-reserveM x1 x2 x3 x4 = boolWrapper (reserve x1 x2 x3 x4)
+reserveM x1 x2 = boolWrapper (reserve x1 x2)
 
-currentReservationsM :: DNP (Set (FlowGroup, Integer))
+currentReservationsM :: DNP ([Resv])
 currentReservationsM = do
   s <- StateM.get
   return (currentReservations s)
