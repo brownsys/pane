@@ -186,7 +186,7 @@ test23 = runDNP $ do
 
 test24 = runDNP $ do
   b1 <- frag2 -- root creates net0 share
-  let resv = Resv rootShareRef anyFlow 0 (injLimit 10) 100
+  let resv = Resv rootShareRef anyFlow 0 (DiscreteLimit 10) 100
   b2 <- reserveM rootSpeaker resv
   s <- currentReservationsM
   let b3 = s == [resv]
@@ -203,7 +203,7 @@ test24 = runDNP $ do
 
 test25 = runDNP $ do
   b1 <- frag2
-  let resv = Resv rootShareRef anyFlow 5 (injLimit 10) 100
+  let resv = Resv rootShareRef anyFlow 5 (DiscreteLimit 10) 100
   b2 <- reserveM rootSpeaker resv
   s <- currentReservationsM
   let b3 = s == []
