@@ -42,7 +42,7 @@ type Node = String
 type ShareName = String
 
 data Prin
-  = App Integer -- port number (for now) 
+  = App Integer -- TODO: port number (for now) .. apps could be sets of port numbers
   | User String
   | Network String -- TODO: These will refer to sets of nodes
   | Flow String -- TODO: wtf??
@@ -50,10 +50,10 @@ data Prin
 
 data NumExpr
   = Reservation (Set Prin)
-  | Ratelimit Prin
+  | Ratelimit (Set Prin)
   | Number Integer
-  | Jitter Prin
-  | Latency Prin
+  | Jitter (Set Prin)
+  | Latency (Set Prin)
   deriving (Show)
 
 data NumOp = NumLT | NumLEq | NumEq | NumGT | NumGEq deriving (Show)
@@ -74,9 +74,9 @@ data BoolExpr
 
 data Stmt
   = Stmt { expr :: BoolExpr, share :: ShareName } 
---  = Stmt { about :: Prin, expr :: BoolExpr } 
   | AddUser Prin -- new user
   | AddNetwork Prin Prin
-  | NewShare { name :: ShareName, spks :: (Set Prin), stmt :: Stmt } 
+  | NewShare { name :: ShareName, spks :: (Set Prin), stmt :: Stmt }
+  | GrantUse Prin ShareName
   deriving (Show)
 

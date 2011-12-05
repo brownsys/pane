@@ -54,8 +54,8 @@ prin = flow <|> expUser <|> expApp <|> expNet
 
 addUser = do
   reserved "AddUser"
-  newPrin <- user
-  return (AddUser newPrin)
+  newUser <- user
+  return (AddUser newUser)
 
 addNetwork = do
   reserved "AddNetwork"
@@ -63,6 +63,13 @@ addNetwork = do
   reservedOp "<:"
   parentPrin <- network
   return (AddNetwork newPrin parentPrin)
+
+grantUse = do
+  reserved "GrantUse"
+  newUser <- user
+  reserved "on"
+  share <- shareName
+  return (GrantUse newUser share)
 
 number = do
   n <- T.integer lex
@@ -80,18 +87,21 @@ reservation = do
 
 latency = do
   reserved "latency"
-  l <- parens prin
+  p <- parens prinList
+  let l = Set.fromList p
   return (Latency l)
 
 jitter = do
   reserved "jitter"
-  j <- parens prin
+  p <- parens prinList
+  let j = Set.fromList p
   return (Jitter j)
 
 ratelimit = do
   reserved "ratelimit"
-  l <- parens prin
-  return (Ratelimit l)
+  p <- parens prinList
+  let r = Set.fromList p
+  return (Ratelimit r)
 
 op = (reservedOp "<=" >> return NumLEq) <|> (reservedOp "<" >> return NumLT)
   <|> (reservedOp "=" >> return NumEq) <|> (reservedOp ">=" >> return NumGEq)
@@ -125,6 +135,12 @@ boolStmt = do
   e <- boolExpr
   reserved "on"
   share <- shareName
+  -- TODO: Here we want some kind of (maybe "from") & (maybe "to")
+  -- examples: from 1730 to 1830, from 1730 to +60m, from Now to +60m, from Now to Forever
+  -- WELL, NewShare would always have "from Now to Forever" at least as we've constructed
+  -- things so far. We also want NewShare to have tokenBucket (eventually) ... this is a
+  -- rate limit, rather than the fixed limit of "from"/"to"
+  -- OR, should it go in the boolExpr as *part* of the prinList, that is: user=blah,from=,to=
   return (Stmt e share)
 
 newShareStmt = do
@@ -140,7 +156,7 @@ parseStmt :: CharParser st (Prin, Stmt)
 parseStmt = do
   speaker <- user
   reserved ":"
-  stmt <- addUser <|> addNetwork <|> newShareStmt <|> boolStmt
+  stmt <- addUser <|> addNetwork <|> grantUse <|> newShareStmt <|> boolStmt
   dot
   return (speaker, stmt)
 

@@ -12,7 +12,12 @@ Arjun : reservation(user=Arjun,app=443) = 500 on arjunShare. // valid
 
 // Root : AddUser Shriram <: Arjun.
 
+Root : AddUser Shriram.
+
 // Arjun : reservation(user=Shriram) = 50. // valid, can be done because Arjun's mask inherited
 // Arjun : reservation(user=Shriram) = 5000. // invalid, exceeds Arjun's mask
 // Shriram : reservation(user=Shriram) = 5. // invalid, Shriram has no permissions
 // Root : reservation(user=Shriram) = 2000. // valid, Shriram's reservation is now 2000
+
+Arjun : NewShare shriramShare (Shriram) reservation(user=Shriram) <= 500 on arjunShare.
+Arjun : GrantUse Shriram on shriramShare.

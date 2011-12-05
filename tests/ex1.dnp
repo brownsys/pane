@@ -1,14 +1,15 @@
-Root : mask Root reservation(*) <= 3000. // Physical limit of network ... wildcarded
-Root : mask Root latency(*) >= 20. // 20ms is longest path in network
-Root : mask Root jitter(*) >= 10. // physical limit
-Root : mask Root ratelimit(*) >= 0. //
-Root : AddUser Arjun <: Root.
-Root : mask Arjun reservation(user = Arjun) <= 1000. // Add token bucket. eg, 1 min of reservation time every 6 minutes, up to 20 minutes in bucket ... tokenBucket 1min per 6min max 20min.
-Arjun : reservation(user = Arjun) = 300.
-Root : reservation(user = Arjun) = 500.
-Arjun : reservation(user = Arjun) = 2000. // FAIL by rule 2
+Root : NewShare net0 (Root) reservation(*) <= 3000 on rootShare. // Physical limit of network
+Root : NewShare net0 (Root) latency(*) >= 20 on rootShare. // 20ms is longest path in network
+Root : NewShare net0 (Root) jitter(*) >= 10 on rootShare. // physical limit
+Root : NewShare net0 (Root) ratelimit(*) >= 0 on rootShare. // probably redundant
+
+Root : AddUser Arjun.
+Root : NewShare arjunShare (Arjun) reservation(user = Arjun) <= 1000 on net0. // Add token bucket. eg, 1 min of reservation time every 6 minutes, up to 20 minutes in bucket ... tokenBucket 1min per 6min max 20min.
+Arjun : reservation(user = Arjun) = 300 on arjunShare.
+Root : reservation(user = Arjun) = 500 on arjunShare.
+Arjun : reservation(user = Arjun) = 2000 on arjunShare. // FAIL by rule 2
 
 // How do we create applications? Do they need to be registered?
 
-Root : reservation(app=SKYPE) = 200.
-Root : ratelimit(app=MapReduce) = 15000.
+Root : reservation(app=443) = 200 on net0. // app=SKYPE
+Root : ratelimit(app=50030) = 15000 on net0. // app=Hadoop ... will want sets of ports TODO
