@@ -23,6 +23,10 @@ network = do
   name <- identifier
   return (Network name)
 
+shareName = do
+  name <- identifier
+  return name -- return (ShareName name) ??
+
 -- explicitly indicated user
 expUser = do
   reserved "user"
@@ -33,8 +37,8 @@ expUser = do
 expApp = do
   reserved "app"
   reservedOp "="
-  name <- identifier
-  return (App name)
+  port <- T.integer lex  -- names  in the future ??
+  return (App port)
 
 expNet = do
   reserved "net"
@@ -51,9 +55,7 @@ prin = flow <|> expUser <|> expApp <|> expNet
 addUser = do
   reserved "AddUser"
   newPrin <- user
-  reservedOp "<:"
-  parentPrin <- user
-  return (AddUser newPrin parentPrin)
+  return (AddUser newPrin)
 
 addNetwork = do
   reserved "AddNetwork"
@@ -121,19 +123,24 @@ boolExpr = numPred <|> allow <|> deny
 
 boolStmt = do
   e <- boolExpr
-  return (Stmt e)
+  reserved "on"
+  share <- shareName
+  return (Stmt e share)
 
-maskStmt = do
-  reserved "mask"
-  p <- user
-  e <- boolExpr
-  return (Mask p e) -- WTF?? should indicate that we have a mask; new Syntax needed
-  
+newShareStmt = do
+  reserved "NewShare"
+  name <- shareName
+  tmp <- parens (sepBy user comma)
+  let users = Set.fromList tmp
+  stmt <- boolStmt
+  return (NewShare name users stmt)
+ 
+ 
 parseStmt :: CharParser st (Prin, Stmt)
 parseStmt = do
   speaker <- user
   reserved ":"
-  stmt <- addUser <|> addNetwork <|> maskStmt <|> boolStmt
+  stmt <- addUser <|> addNetwork <|> newShareStmt <|> boolStmt
   dot
   return (speaker, stmt)
 

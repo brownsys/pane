@@ -1,9 +1,12 @@
-Root : AddUser Arjun <: Root.
-Root : mask Root reservation(*) <= 1200. // physical max
-Root : mask Arjun reservation(user=Arjun) <= 1000.
-Arjun : reservation(user=Arjun, app=A) = 300. // valid
-Arjun : reservation(user=Arjun, app=B) = 400. // valid
-Arjun : reservation(user=Arjun, app=C) = 400. // invalid ... exceeds mask
-Root : reservation(user=Arjun, app=C) = 400. // valid
-Root : reservation(user=Arjun, app=C) = 600. // invalid ... exceeds physical max
-Root : reservation(user=Arjun, app=C) = 500. // valid
+Root : AddUser Arjun.
+Root : NewShare net0 (Root) reservation(*) <= 1200 on rootShare. // physical max
+// Root : mask Root reservation(*) <= 1200. // physical max
+
+Root : NewShare arjunShare (Arjun) reservation(user=Arjun) <= 1000 on net0.
+
+Arjun : reservation(user=Arjun, app=1) = 300 on arjunShare. // valid
+Arjun : reservation(user=Arjun, app=2) = 400 on arjunShare. // valid
+Arjun : reservation(user=Arjun, app=3) = 400 on arjunShare. // invalid ... exceeds mask
+Root : reservation(user=Arjun, app=3) = 400 on net0. // valid
+Root : reservation(user=Arjun, app=3) = 600 on net0. // invalid ... exceeds physical max
+Root : reservation(user=Arjun, app=3) = 500 on net0. // valid

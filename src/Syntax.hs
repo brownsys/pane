@@ -39,8 +39,10 @@ import Data.Set (Set)
 
 type Node = String
 
+type ShareName = String
+
 data Prin
-  = App String
+  = App Integer -- port number (for now) 
   | User String
   | Network String -- TODO: These will refer to sets of nodes
   | Flow String -- TODO: wtf??
@@ -71,10 +73,10 @@ data BoolExpr
   deriving (Show)
 
 data Stmt
-  = Stmt { expr :: BoolExpr } 
+  = Stmt { expr :: BoolExpr, share :: ShareName } 
 --  = Stmt { about :: Prin, expr :: BoolExpr } 
-  | AddUser Prin Prin -- new user, parent
+  | AddUser Prin -- new user
   | AddNetwork Prin Prin
-  | Mask { about :: Prin, expr :: BoolExpr } 
+  | NewShare { name :: ShareName, spks :: (Set Prin), stmt :: Stmt } 
   deriving (Show)
 
