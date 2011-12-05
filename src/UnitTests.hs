@@ -184,6 +184,43 @@ test23 = runDNP $ do
   b2 <- reserveM "arjun" (foreverResv "arjun-share" anyFlow 50)
   return (b1 && not b2)
 
+test24 = runDNP $ do
+  b1 <- frag2 -- root creates net0 share
+  let resv = Resv rootShareRef anyFlow 0 (injLimit 10) 100
+  b2 <- reserveM rootSpeaker resv
+  s <- currentReservationsM
+  let b3 = s == [resv]
+  tickM 5
+  s <- currentReservationsM
+  let b4 = s == [resv]
+  tickM 2
+  s <- currentReservationsM
+  let b5 = s == [resv]
+  tickM 4
+  s <- currentReservationsM
+  let b6 = s == []
+  return (b1 && b2 && b3 && b4 && b5 && b6)
+
+test25 = runDNP $ do
+  b1 <- frag2
+  let resv = Resv rootShareRef anyFlow 5 (injLimit 10) 100
+  b2 <- reserveM rootSpeaker resv
+  s <- currentReservationsM
+  let b3 = s == []
+  tickM 4
+  s <- currentReservationsM
+  let b4 = s == []
+  tickM 1
+  s <- currentReservationsM
+  let b5 = s == [resv]
+  tickM 5
+  s <- currentReservationsM
+  let b6 = s == [resv]
+  tickM 1
+  s <- currentReservationsM
+  let b7 = s == []
+  return (b1 && b2 && b3 && b4 && b5 && b7)
+  
 
 allTests = TestList
   [ test1 ~? "cannot create speaker"
@@ -211,6 +248,8 @@ allTests = TestList
   , test21 ~? "put flow restrictions on subshare"
   , test22 ~? "reserve with more restricted flow than restriction on share"
   , test23 ~? "cannot reserve with less restricted flow than restr. on share"
+  , test24 ~? "reservation should expire"
+  , test25 ~? "reservation in the future"
   ]
 
 main :: IO ()
