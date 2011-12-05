@@ -6,6 +6,7 @@ module FlowControllerLang
   , newShareM
   , reserveM
   , currentReservationsM
+  , tickM
   , runDNP
   , fmlDNP
   ) where
@@ -52,3 +53,10 @@ currentReservationsM :: DNP ([Resv])
 currentReservationsM = do
   s <- StateM.get
   return (currentReservations s)
+
+tickM :: Integer -> DNP Integer
+tickM t = do
+  s <- StateM.get
+  let s' = tick t s
+  StateM.put s'
+  return (stateNow s')

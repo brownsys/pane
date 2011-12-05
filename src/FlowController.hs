@@ -35,7 +35,7 @@ type ShareRef = String
 data Resv = Resv {
   resvShare :: ShareRef,
   resvFlows :: FlowGroup,
-  resvStart :: Integer,
+  resvStart :: Integer, -- invariant: start < end
   resvEnd :: Limit,
   resvSize :: Integer
 } deriving (Show, Ord, Eq)
@@ -61,7 +61,8 @@ data State = State {
   shareTree :: ShareTree,
   stateSpeakers :: Set String,
   acceptedResvs :: PQ Resv,
-  activeResvs :: PQ Resv
+  activeResvs :: PQ Resv,
+  stateNow :: Integer
 } deriving Show
 
 anyFlow = FlowGroup Set.all Set.all Set.all Set.all
@@ -81,6 +82,7 @@ emptyState =
         (Set.singleton rootSpeaker)
         (PQ.empty resvStartOrder)
         (PQ.empty resvEndOrder)
+        0
         
 
 isSubFlow :: FlowGroup -> FlowGroup -> Bool
@@ -185,6 +187,7 @@ simulate resvsByStart = simStep 0 resvsByStart (PQ.empty resvEndOrder) where
                      - sum (map resvSize endingNow)
         in (now, size'):(simStep size' byStart' byEnd'')
 
+-- add invariant: end > now ... what should happen if start < now ?
 reserve :: Speaker
         -> Resv
         -> State
@@ -216,12 +219,23 @@ reserve spk resv@(Resv shareRef flow start end size)
             in case foldl f (Just sT) chain of
                  Nothing -> Nothing
                  Just sT' -> 
-                   Just (st { shareTree = sT',
-                              acceptedResvs = PQ.enqueue resv accepted })
+                   Just (tick 0 (st { shareTree = sT',
+                              acceptedResvs = PQ.enqueue resv accepted }))
   else
     Nothing
 
-currentReservations = PQ.toList.acceptedResvs
+tick :: Integer -> State -> State
+tick t st@(State {acceptedResvs=byStart, activeResvs=byEnd, stateNow=now}) =
+  st { acceptedResvs = byStart', activeResvs = byEnd'', stateNow = now' }
+  where now' = now + t
+        (startingNow, byStart') = PQ.dequeueWhile (\r -> resvStart r <= now')
+                                       byStart
+        (endingNow, byEnd') = PQ.dequeueWhile (\r -> resvEnd r
+                                       <= (injLimit now'))
+                                       byEnd
+        byEnd'' = foldr PQ.enqueue byEnd' startingNow
+
+currentReservations = PQ.toList.activeResvs
 -- currentReservations :: State -> Set (FlowGroup, Integer)
 -- currentReservations st@(State {stateReservations = sR}) =
 --  sR
