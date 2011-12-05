@@ -13,7 +13,7 @@ import Data.Maybe (maybe)
 type Speaker = String
 
 type User = String
-type Port = Int
+type Port = Integer
 
 data FlowGroup = FlowGroup {
   flowSend :: Set User,
