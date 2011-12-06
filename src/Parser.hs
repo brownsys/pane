@@ -61,6 +61,12 @@ flowGroup = do
   let flowDestPort = maybeAll (catMaybes (map forApp p))
   return (FlowGroup flowSend Set.all Set.all flowDestPort)
 
+boolean = do symbol "True"
+             return True
+      <|> do symbol "False"
+             return False
+
+
 -----------------------------
 
 {-
@@ -191,6 +197,7 @@ reservation spk = do
 
 -----------------------------
 
+-- TODO: Can we have a statement which returns something other than a DNP Bool? how?
 parseStmt spk = do
   stmt <- tick spk <|> addUser spk <|> newShareStmt spk <|> reservation spk <|> grantUse spk
           <|> grantDefaultUse spk
@@ -198,15 +205,18 @@ parseStmt spk = do
   return stmt
  
 parseTestStmt = do
+  res <- boolean
+  reserved "<-"
   spk <- identifier
   reserved ":"
   stmt <- parseStmt spk
-  return stmt
+  return (res, stmt)
 
 parseTestStmts = do
-  ss <- many parseTestStmt
+  tmp <- many parseTestStmt
   eof
-  return (sequence ss)
+  let (res, ss) = unzip tmp
+  return (res, (sequence ss))
 
 parseInteractive spk = do
   s <- (parseStmt spk)
@@ -223,7 +233,7 @@ parseStmtFromStdin spk = do
     Right cmd -> do
       return cmd
 
-parseFromTestFile :: String -> IO (DNP [Bool])
+parseFromTestFile :: String -> IO ([Bool], DNP [Bool])
 parseFromTestFile filename = do
   str <- readFile filename
   case parse parseTestStmts filename str of

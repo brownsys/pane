@@ -1,23 +1,23 @@
-root : AddUser Arjun.
-root : NewShare arjunShare (Arjun) reserve(user=Arjun) <= 1000 on rootShare.
+True  <- root : AddUser Arjun.
+True  <- root : NewShare arjunShare (Arjun) reserve(user=Arjun) <= 1000 on rootShare.
+True  <- root : GrantUse Arjun on arjunShare.
+True  <- Arjun : reserve(user=Arjun) = 300 on arjunShare.
+False <- Arjun : reserve(user=Arjun) = 2000 on arjunShare. // exceeds mask
 
-Arjun : reserve(user=Arjun) = 300 on arjunShare. // valid
-Arjun : reserve(user=Arjun) = 2000 on arjunShare. // invalid, exceeds mask
+True  <- root : AddUser Andrew. // Used to want Andrew to be child of Arjun  TODO: give reference
 
-root : AddUser Andrew. // Used to want Andrew to be child of Arjun ... TODO: give reference
-
-Arjun : reserve(user=Andrew) = 100 on arjunShare. // invalid, no permissions on other user
-Arjun : reserve(app=443) = 500 on arjunShare. // invalid, no permissions on apps in general
-Arjun : reserve(user=Arjun,app=443) = 500 on arjunShare. // valid
+False <- Arjun : reserve(user=Andrew) = 100 on arjunShare. // no permission on other user
+False <- Arjun : reserve(app=443) = 500 on arjunShare. // no permissions on apps in general
+True  <- Arjun : reserve(user=Arjun,app=443) = 500 on arjunShare.
 
 // root : AddUser Shriram <: Arjun.
 
-root : AddUser Shriram.
+True  <- root : AddUser Shriram.
 
 // Arjun : reserve(user=Shriram) = 50. // valid, can be done because Arjun's mask inherited
 // Arjun : reserve(user=Shriram) = 5000. // invalid, exceeds Arjun's mask
 // Shriram : reserve(user=Shriram) = 5. // invalid, Shriram has no permissions
 // root : reserve(user=Shriram) = 2000. // valid, Shriram's reserve is now 2000
 
-Arjun : NewShare shriramShare (Shriram) reserve(user=Shriram) <= 500 on arjunShare.
+True  <- Arjun : NewShare shriramShare (Shriram) reserve(user=Shriram) <= 500 on arjunShare.
 // Arjun : GrantUse Shriram on shriramShare. // TODO: THIS LINE CAUSES FAIL WHEN UNCOMMENTED

@@ -19,8 +19,9 @@ loop spk st = do
       loop spk st'
 
 runTestFile f = do
-  dnp <- parseFromTestFile f
+  (res, dnp) <- parseFromTestFile f
   putStrLn (show (runDNP dnp))
+  putStrLn (show res)
 
 main = do
   args <- getArgs
