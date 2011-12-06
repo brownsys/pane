@@ -40,7 +40,8 @@ serverAction cmd stRef = do
   case b of
     True -> do
       putStrLn "--> ACCEPTED"
-      putStrLn "--> BEGIN NEW FML CONFIGURATION"
+      let (t, _) = runDNP getTimeM st'
+      putStrLn ("--> BEGIN NEW FML CONFIGURATION. TIME = " ++ (show t))
       putStrLn (emitFML st')
       putStrLn "--> END NEW FML CONFIGURATION"
     False -> do
@@ -52,7 +53,7 @@ authUser conn st = do
   msg <- recv conn 1024
   let msgStr = C.unpack msg
   let (spk, _:restMsg)  = span (/='.') msgStr
-  processLoop spk conn st ""
+  processLoop spk conn st restMsg
 
 processLoop spk conn st msg = do
   putStr (spk ++ " : ")

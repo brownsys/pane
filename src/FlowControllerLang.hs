@@ -7,6 +7,7 @@ module FlowControllerLang
   , reserveM
   , currentReservationsM
   , tickM
+  , getTimeM
   , evalDNP
   , fmlDNP
   , runDNP
@@ -64,3 +65,7 @@ tickM t = do
   let s' = tick t s
   StateM.put s'
   return True -- TODO: Need another function to return the time: (stateNow s')
+
+getTimeM = do
+  s <- StateM.get
+  return (stateNow s)
