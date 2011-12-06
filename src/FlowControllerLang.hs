@@ -58,9 +58,9 @@ currentReservationsM = do
   s <- StateM.get
   return (currentReservations s)
 
-tickM :: Integer -> DNP Integer
+tickM :: Integer -> DNP Bool
 tickM t = do
   s <- StateM.get
   let s' = tick t s
   StateM.put s'
-  return (stateNow s')
+  return True -- TODO: Need another function to return the time: (stateNow s')

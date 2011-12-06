@@ -15,7 +15,8 @@ javascriptDef =
                 (alphaNum <|> oneOf "$_") -- identifier rest
                 (oneOf "{}<>()~.,?:|&^=!+-*/%!") -- operator start
                 (oneOf "=<>|&+") -- operator rest
-                [ "AddUser", "DropUser", "NewShare", "AddNetwork", "DropNetwork", "GrantUse", "on"
+                [ "Tick", "AddUser", "NewShare", "GrantUse", "on"
+                -- "DropUser", "AddNetwork", "DropNetwork"
                 ]
                 [ "*", "(", ")", ",", ":" ]
                  True -- case-sensitive

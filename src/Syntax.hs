@@ -48,6 +48,7 @@ data Prin
   | Flow String -- TODO: wtf??
   deriving (Show, Eq, Ord)
 
+{-
 data NumExpr
   = Reservation (Set Prin)
   | Ratelimit (Set Prin)
@@ -57,9 +58,11 @@ data NumExpr
   deriving (Show)
 
 data NumOp = NumLT | NumLEq | NumEq | NumGT | NumGEq deriving (Show)
+-}
 
 -- Root says, "Arjun gets less than 3mbps of bandwidth".
 -- 
+{-
 data BoolExpr
   = And BoolExpr BoolExpr
   | Or BoolExpr BoolExpr
@@ -71,7 +74,9 @@ data BoolExpr
   | Waypoint Prin Node
   | Avoid Prin Node
   deriving (Show)
+-}
 
+{-
 data Stmt
   = Stmt { expr :: BoolExpr, share :: ShareName } 
   | AddUser Prin -- new user
@@ -79,4 +84,4 @@ data Stmt
   | NewShare { name :: ShareName, spks :: (Set Prin), stmt :: Stmt }
   | GrantUse Prin ShareName
   deriving (Show)
-
+-}

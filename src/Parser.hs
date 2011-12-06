@@ -2,13 +2,13 @@ module Parser where
 
 import Prelude hiding (lex)
 import Lexer
-import Syntax hiding (False)
+import Syntax
 import Text.ParserCombinators.Parsec
 import qualified Text.ParserCombinators.Parsec.Token as T
 import qualified Set as Set
 import Data.Maybe (catMaybes)
 import FlowControllerLang
-import FlowController
+import FlowController hiding (tick)
 
 -- Based on:
 --   https://github.com/brownplt/webbits/blob/master/src/BrownPLT/JavaScript/Parser.hs
@@ -16,19 +16,6 @@ import FlowController
 -- Root : AddUser Arjun <: Root.
 -- Root : for Arjun Allow(*).
 
-
--- implicitly indicated user
-user = do
-  name <- identifier
-  return (User name)
-
-network = do
-  name <- identifier
-  return (Network name)
-
-shareName = do
-  name <- identifier
-  return name -- return (ShareName name) ??
 
 -- explicitly indicated user
 expUser = do
@@ -55,32 +42,6 @@ flow = do
 
 prin = flow <|> expUser <|> expApp <|> expNet
 
-addUser "root" = do
-  reserved "AddUser"
-  newUser <- identifier
-  return (createSpeakerM newUser)
-
-addUser _ = fail "user other than root tried to add user"
-
-{- addNetwork = do
-  reserved "AddNetwork"
-  newPrin <- network
-  reservedOp "<:"
-  parentPrin <- network
-  return (AddNetwork newPrin parentPrin)
-
-grantUse = do
-  reserved "GrantUse"
-  newUser <- user
-  reserved "on"
-  share <- shareName
-  return (GrantUse newUser share)
-
-number = do
-  n <- T.integer lex
-  return (Number n)
--}
-
 prinList = do
   newPrin <- sepBy prin comma
   return newPrin
@@ -100,13 +61,19 @@ flowGroup = do
   let flowDestPort = maybeAll (catMaybes (map forApp p))
   return (FlowGroup flowSend Set.all Set.all flowDestPort)
 
+-----------------------------
 
-{- reservation = do
-  reserved "reservation"
-  p <- parens prinList
-  let s = Set.fromList p
-  return (Reservation s) -}
+{-
+  addNetwork = do
+  reserved "AddNetwork"
+  newPrin <- network
+  reservedOp "<:"
+  parentPrin <- network
+  return (AddNetwork newPrin parentPrin)
+-}
 
+
+{-
 latency = do
   reserved "latency"
   p <- parens prinList
@@ -124,19 +91,22 @@ ratelimit = do
   p <- parens prinList
   let r = Set.fromList p
   return (Ratelimit r)
+-}
 
+{-
 op = (reservedOp "<=" >> return NumLEq) <|> (reservedOp "<" >> return NumLT)
   <|> (reservedOp "=" >> return NumEq) <|> (reservedOp ">=" >> return NumGEq)
   <|> (reservedOp ">" >> return NumGT)
 
 
--- numExpr = number <|> latency <|> jitter <|> ratelimit
+numExpr = number <|> latency <|> jitter <|> ratelimit
 
-{- numPred = do
+numPred = do
   e1 <- numExpr
   o <- op
   e2 <- numExpr
-  return (NumPred e1 o e2) -}
+  return (NumPred e1 o e2)
+-}
 
 {- allow = do
   reserved "allow"
@@ -157,21 +127,42 @@ boolStmt = do
   e <- boolExpr
   reserved "on"
   share <- shareName
-  -- TODO: Here we want some kind of (maybe "from") & (maybe "to")
-  -- examples: from 1730 to 1830, from 1730 to +60m, from Now to +60m, from Now to Forever
-  -- WELL, NewShare would always have "from Now to Forever" at least as we've constructed
-  -- things so far. We also want NewShare to have tokenBucket (eventually) ... this is a
-  -- rate limit, rather than the fixed limit of "from"/"to"
-  -- OR, should it go in the boolExpr as *part* of the prinList, that is: user=blah,from=,to=
   return (Stmt e share)
 -}
+
+tick "root" = do
+  reserved "Tick"
+  t <- T.integer lex
+  return (tickM t)
+
+tick _ = fail "only root can tick the clock"
+
+addUser "root" = do
+  reserved "AddUser"
+  newUser <- identifier
+  return (createSpeakerM newUser)
+
+addUser _ = fail "user other than root tried to add user"
+
+grantUse spk = do
+  reserved "GrantUse"
+  newUser <- identifier
+  reserved "on"
+  share <- identifier 
+  return (giveReferenceM spk share newUser)
+
+grantDefaultUse spk = do
+  reserved "GrantDefaultUse"
+  reserved "on"
+  share <- identifier 
+  return (giveDefaultReferenceM spk share)
 
 newShareStmt spk = do
   reserved "NewShare"
   name <- identifier
   tmp <- parens (sepBy identifier comma)
   let users = Set.fromList tmp
-  reserved "reservation" -- TODO: should be some kind of generic resource? reserve?
+  reserved "reserve" -- TODO: should be some generic resource? (actually, case on resource)
   fg <- flowGroup
   reservedOp "<="
   size <- T.integer lex
@@ -188,42 +179,53 @@ resv = do
   return (Resv share fg 0 NoLimit size)
 
 reservation spk = do
-  reserved "reservation" -- TODO: change to 'reserve'
+  reserved "reserve"
   r <- resv
+  -- TODO: Here we want some kind of (maybe "from") & (maybe "to")
+  -- examples: from 1730 to 1830, from 1730 to +60m, from Now to +60m, from Now to Forever
+  -- WELL, NewShare would always have "from Now to Forever" at least as we've constructed
+  -- things so far. We also want NewShare to have tokenBucket (eventually) ... this is a
+  -- rate limit, rather than the fixed limit of "from"/"to"
+  -- OR, should it go in the boolExpr as *part* of the prinList, that is: user=blah,from=,to=
   return (reserveM spk r)
-  
- 
--- parseStmt :: CharParser st (Prin, Stmt)
-parseStmt = do
-  spk <- identifier
-  reserved ":"
-  stmt <- addUser spk <|> newShareStmt spk <|> reservation spk <|> grantUse spk
+
+-----------------------------
+
+parseStmt spk = do
+  stmt <- tick spk <|> addUser spk <|> newShareStmt spk <|> reservation spk <|> grantUse spk
+          <|> grantDefaultUse spk
   dot
   return stmt
+ 
+parseTestStmt = do
+  spk <- identifier
+  reserved ":"
+  stmt <- parseStmt spk
+  return stmt
 
-parseStmts = do
-  ss <- many parseStmt
+parseTestStmts = do
+  ss <- many parseTestStmt
   eof
   return (sequence ss)
 
-parseStmt' = do
-  s <- parseStmt
+parseInteractive spk = do
+  s <- (parseStmt spk)
   eof
   return s
 
-parseStmtFromStdin :: IO (DNP Bool)
-parseStmtFromStdin = do
+parseStmtFromStdin :: String -> IO (DNP Bool)
+parseStmtFromStdin spk = do
   str <- getLine
-  case parse parseStmt' "<stdin>" str of
+  case parse (parseInteractive spk) "<stdin>" str of
     Left err -> do
       putStrLn ("Parse failed: " ++ show err)
       return (return False)
     Right cmd -> do
       return cmd
 
-parseFromFile :: String -> IO (DNP [Bool])
-parseFromFile filename = do
+parseFromTestFile :: String -> IO (DNP [Bool])
+parseFromTestFile filename = do
   str <- readFile filename
-  case parse parseStmts filename str of
+  case parse parseTestStmts filename str of
     Left err -> fail (show err)
     Right stmts -> return stmts

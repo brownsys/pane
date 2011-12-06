@@ -1,23 +1,23 @@
-Root : AddUser Arjun.
-Root : NewShare arjunShare (Arjun) reservation(user=Arjun) <= 1000 on rootShare.
+root : AddUser Arjun.
+root : NewShare arjunShare (Arjun) reserve(user=Arjun) <= 1000 on rootShare.
 
-Arjun : reservation(user=Arjun) = 300 on arjunShare. // valid
-Arjun : reservation(user=Arjun) = 2000 on arjunShare. // invalid, exceeds mask
+Arjun : reserve(user=Arjun) = 300 on arjunShare. // valid
+Arjun : reserve(user=Arjun) = 2000 on arjunShare. // invalid, exceeds mask
 
-Root : AddUser Andrew. // Used to want Andrew to be child of Arjun ... TODO: give reference
+root : AddUser Andrew. // Used to want Andrew to be child of Arjun ... TODO: give reference
 
-Arjun : reservation(user=Andrew) = 100 on arjunShare. // invalid, no permissions on other user
-Arjun : reservation(app=443) = 500 on arjunShare. // invalid, no permissions on apps in general
-Arjun : reservation(user=Arjun,app=443) = 500 on arjunShare. // valid
+Arjun : reserve(user=Andrew) = 100 on arjunShare. // invalid, no permissions on other user
+Arjun : reserve(app=443) = 500 on arjunShare. // invalid, no permissions on apps in general
+Arjun : reserve(user=Arjun,app=443) = 500 on arjunShare. // valid
 
-// Root : AddUser Shriram <: Arjun.
+// root : AddUser Shriram <: Arjun.
 
-Root : AddUser Shriram.
+root : AddUser Shriram.
 
-// Arjun : reservation(user=Shriram) = 50. // valid, can be done because Arjun's mask inherited
-// Arjun : reservation(user=Shriram) = 5000. // invalid, exceeds Arjun's mask
-// Shriram : reservation(user=Shriram) = 5. // invalid, Shriram has no permissions
-// Root : reservation(user=Shriram) = 2000. // valid, Shriram's reservation is now 2000
+// Arjun : reserve(user=Shriram) = 50. // valid, can be done because Arjun's mask inherited
+// Arjun : reserve(user=Shriram) = 5000. // invalid, exceeds Arjun's mask
+// Shriram : reserve(user=Shriram) = 5. // invalid, Shriram has no permissions
+// root : reserve(user=Shriram) = 2000. // valid, Shriram's reserve is now 2000
 
-Arjun : NewShare shriramShare (Shriram) reservation(user=Shriram) <= 500 on arjunShare.
-Arjun : GrantUse Shriram on shriramShare.
+Arjun : NewShare shriramShare (Shriram) reserve(user=Shriram) <= 500 on arjunShare.
+// Arjun : GrantUse Shriram on shriramShare. // TODO: THIS LINE CAUSES FAIL WHEN UNCOMMENTED

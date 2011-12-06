@@ -1,20 +1,19 @@
 root : AddUser Arjun.
-root : NewShare net0 (root,Arjun) reservation(*) <= 1200 on rootShare. // physical max
-// root : mask root reservation(*) <= 1200. // physical max
+root : NewShare net0 (root,Arjun) reserve(*) <= 1600 on rootShare. // physical max
+// root : mask root reserve(*) <= 1200. // physical max
 
-root : NewShare arjunShare (Arjun) reservation(user=Arjun) <= 1000 on net0.
+root : NewShare arjunShare (Arjun) reserve(user=Arjun) <= 1000 on net0.
+root : GrantUse Arjun on arjunShare.
 
-Arjun : reservation(user=Arjun, app=1) = 300 on arjunShare. // valid
-Arjun : reservation(user=Arjun, app=2) = 400 on arjunShare. // valid
-Arjun : reservation(user=Arjun, app=3) = 400 on arjunShare. // invalid ... exceeds mask
-root : reservation(user=Arjun, app=3) = 400 on net0. // valid
-root : reservation(user=Arjun, app=3) = 600 on net0. // invalid ... exceeds physical max
-root : reservation(user=Arjun, app=3) = 500 on net0. // valid
+Arjun : reserve(user=Arjun, app=1) = 300 on arjunShare. // valid
+Arjun : reserve(user=Arjun, app=2) = 400 on arjunShare. // valid
+Arjun : reserve(user=Arjun, app=3) = 400 on arjunShare. // invalid ... exceeds mask
+root : reserve(user=Arjun, app=3) = 400 on net0. // valid
+root : reserve(user=Arjun, app=3) = 600 on net0. // invalid ... exceeds physical max
+root : reserve(user=Arjun, app=3) = 500 on net0. // valid
 
-// reservation(user={Arjun,Adf}
-// reservation(user=Arjun, user=Adf)
-
-root : reservation(user=Arjun, app=3) = 500 on net0.
+// reserve(user={Arjun,Adf}
+// reserve(user=Arjun, user=Adf)
 
 // root : latency(user=Arjun, app=3) = 20 on net0.
 // root : allow(user=Arjun) on net0.
