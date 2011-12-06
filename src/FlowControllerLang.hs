@@ -7,9 +7,9 @@ module FlowControllerLang
   , reserveM
   , currentReservationsM
   , tickM
-  , runDNP
+  , evalDNP
   , fmlDNP
-  , runDNP'
+  , runDNP
   ) where
 
 import qualified Control.Monad.State as StateM
@@ -19,10 +19,10 @@ import Set(Set)
 
 type DNP a = StateM.State State a
 
-runDNP :: DNP a -> a
-runDNP m = StateM.evalState m emptyState
+evalDNP :: DNP a -> a
+evalDNP m = StateM.evalState m emptyState
 
-runDNP' = StateM.runState
+runDNP = StateM.runState
 
 
 fmlDNP :: DNP a -> String

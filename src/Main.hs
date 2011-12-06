@@ -11,7 +11,7 @@ loop spk st = do
   putStr (spk ++ "$ ")
   hFlush stdout
   cmd <- parseStmtFromStdin spk
-  let (b, st') = runDNP' cmd st
+  let (b, st') = runDNP cmd st
   case b of
     True -> loop spk st'
     False -> do
@@ -20,7 +20,7 @@ loop spk st = do
 
 runTestFile f = do
   (res, dnp) <- parseFromTestFile f
-  putStrLn (show (runDNP dnp))
+  putStrLn (show (evalDNP dnp))
   putStrLn (show res)
 
 main = do

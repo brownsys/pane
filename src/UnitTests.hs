@@ -16,29 +16,29 @@ unexpectedState Nothing = Just emptyState
 foreverResv shareRef flow size =
  Resv shareRef flow 0 NoLimit size
 
-test1 = runDNP $ do
+test1 = evalDNP $ do
   createSpeakerM "arjun"
 
-test2 = runDNP $ do
+test2 = evalDNP $ do
   b <- createSpeakerM "root"
   return (not b)
 
-test3 = runDNP $ do
+test3 = evalDNP $ do
   b1 <- createSpeakerM "arjun"
   b2 <- createSpeakerM "adf"
   return (b1 && b2)
 
-test4 = runDNP $ do
+test4 = evalDNP $ do
   b1 <- createSpeakerM "arjun"
   b2 <- createSpeakerM "arjun"
   return (b1 && not b2)
 
-test5 = runDNP $ do
+test5 = evalDNP $ do
   b1 <- createSpeakerM "arjun"
   b2 <- giveReferenceM "root" rootShareRef "arjun"
   return (b1 && b2)
 
-test6 = runDNP $ do
+test6 = evalDNP $ do
   b1 <- createSpeakerM "arjun" 
   b2 <- newShareM "root" rootShareRef "arjun-share" (Set.singleton "arjun") 
            anyFlow (DiscreteLimit 100)
@@ -56,13 +56,13 @@ frag1 limitForAdf = do
   b6 <- giveReferenceM "arjun" "adf-share" "adf"
   return (b1 && b2 && b3 && b4 && b5 && b6)
 
-test7 = runDNP $ do
+test7 = evalDNP $ do
    b1 <- frag1 200
    return (not b1)
 
-test8 = runDNP $ do frag1 50
+test8 = evalDNP $ do frag1 50
 
-test9 =  runDNP $ do
+test9 =  evalDNP $ do
   b1 <- frag1 50
   b2 <- giveReferenceM "arjun" "adf-share" "non user" 
   return (b1 && not b2)
@@ -73,25 +73,25 @@ frag2 = do
                     (DiscreteLimit 200)
   return b1
 
-test10 = runDNP $ do frag2
+test10 = evalDNP $ do frag2
 
-test11 = runDNP $ do
+test11 = evalDNP $ do
   b1 <- frag2 
   b2 <- reserveM "root" (foreverResv "net0" anyFlow 300)
   return (b1 && not b2)
 
-test12 = runDNP $ do
+test12 = evalDNP $ do
   b1 <- frag2
   b2 <- reserveM "root" (foreverResv rootShareRef anyFlow 300)
   return (b1 && b2)
 
-test13 = runDNP $ do
+test13 = evalDNP $ do
   b1 <- frag2
   b2 <- reserveM "root" (foreverResv "net0" anyFlow 100)
   b3 <- reserveM "root" (foreverResv "net0" anyFlow 100)
   return (b1 && b2 && b3)
 
-test14 = runDNP $ do
+test14 = evalDNP $ do
   b1 <- frag2
   b2 <- reserveM "root" (foreverResv "net0" anyFlow 100)
   b3 <- reserveM "root" (foreverResv "net0" anyFlow 100)
@@ -108,29 +108,29 @@ frag3 = do
   b5 <- reserveM "adf" (foreverResv "adfShare" anyFlow 100)
   return (b1 && b2 && b3 && b4 && b5)
 
-test15 = runDNP $ do frag3
+test15 = evalDNP $ do frag3
 
-test16 = runDNP $ do
+test16 = evalDNP $ do
   b1 <- frag3
   b2 <- reserveM "root" (foreverResv "net0" anyFlow 100)
   return (b1 && b2)
 
-test16a = runDNP $ do
+test16a = evalDNP $ do
   b1 <- frag3
   b2 <- reserveM "root" (foreverResv "adfShare" anyFlow 50)
   return (b1 && b2)
 
-test16b = runDNP $ do
+test16b = evalDNP $ do
   b1 <- frag3
   b2 <- reserveM "root" (foreverResv "adfShare" anyFlow 51)
   return (b1 && not b2)
 
-test17 = runDNP $ do
+test17 = evalDNP $ do
   b1 <- frag3
   b2 <- reserveM "root" (foreverResv "net0" anyFlow 101)
   return (b1 && not b2)
 
-test18 = runDNP $ do
+test18 = evalDNP $ do
   b1 <- frag3
   b2 <- reserveM "adf" (foreverResv "adfShare" anyFlow 51)
   return (b1 && not b2)
@@ -143,9 +143,9 @@ frag4 = do
   b4 <- reserveM "arjun" (foreverResv "hadoop-share" anyFlow 25)
   return (b1 && b2 && b3 && b4)
 
-test19 = runDNP $ do frag4
+test19 = evalDNP $ do frag4
 
-test20 = runDNP $ do
+test20 = evalDNP $ do
   b1 <- frag4
   b2 <- createSpeakerM "adf"
   b3 <- reserveM "adf" (foreverResv "hadoop-share" anyFlow 25)
@@ -164,7 +164,7 @@ frag5 = do
                                foreverResv "arjun-share" arjunFlow 50)
   return (b1 && b2 && b3 && b4 && b5)
 
-test21 = runDNP $ frag5
+test21 = evalDNP $ frag5
 
 
 frag6 = do
@@ -177,14 +177,14 @@ frag6 = do
                                    (foreverResv "arjun-share" arjunWebFlow 50)]
   return (b1 && b2 && b3)
 
-test22 = runDNP frag6
+test22 = evalDNP frag6
 
-test23 = runDNP $ do
+test23 = evalDNP $ do
   b1 <- frag5
   b2 <- reserveM "arjun" (foreverResv "arjun-share" anyFlow 50)
   return (b1 && not b2)
 
-test24 = runDNP $ do
+test24 = evalDNP $ do
   b1 <- frag2 -- root creates net0 share
   let resv = Resv rootShareRef anyFlow 0 (DiscreteLimit 10) 100
   b2 <- reserveM rootSpeaker resv
@@ -201,7 +201,7 @@ test24 = runDNP $ do
   let b6 = s == []
   return (b1 && b2 && b3 && b4 && b5 && b6)
 
-test25 = runDNP $ do
+test25 = evalDNP $ do
   b1 <- frag2
   let resv = Resv rootShareRef anyFlow 5 (DiscreteLimit 10) 100
   b2 <- reserveM rootSpeaker resv
