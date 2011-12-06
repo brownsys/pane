@@ -2,9 +2,12 @@ module Main where
 
 import System.Environment
 import System.IO
+import Data.Word
 import Parser
 import FlowControllerLang
 import FlowController (emptyState, State)
+
+import Server
 
 loop :: String -> State -> IO a
 loop spk st = do
@@ -29,4 +32,5 @@ main = do
   case args !! 0 of
     "-f" -> runTestFile (args !! 1)
     "-i" -> loop (args !! 1) emptyState
+    "-s" -> serverMain (read (args !! 1) :: Word16) emptyState
     _ -> putStrLn "requires two arguments"

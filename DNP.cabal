@@ -25,6 +25,8 @@ Executable dnp
     parsec < 3.2.0,
     pretty >= 0.1,
     containers >= 0.1,
-    syb >= 0.1
+    syb >= 0.1,
+    network >= 2.3,
+    bytestring
   ghc-options:
     -fwarn-incomplete-patterns

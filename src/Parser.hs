@@ -239,3 +239,12 @@ parseFromTestFile filename = do
   case parse parseTestStmts filename str of
     Left err -> fail (show err)
     Right stmts -> return stmts
+
+parseStmtFromString :: String -> String -> IO (DNP Bool)
+parseStmtFromString spk str = do
+  case parse (parseInteractive spk) "<string>" str of
+    Left err -> do
+      putStrLn ("Parse failed: " ++ show err)
+      return (return False)
+    Right cmd -> do
+      return cmd
