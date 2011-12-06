@@ -50,7 +50,6 @@ data Share = Share {
   shareResvLimit :: Limit,
   shareResv :: PQ Resv,
   shareFlows :: FlowGroup,
-  shareSpeakers :: Set Speaker,
   shareHolders :: Set Speaker
 } deriving (Show)
 
@@ -77,8 +76,8 @@ emptyShareResv = PQ.empty resvStartOrder
 
 emptyState = 
   State (Tree.root rootShareRef
-                   (Share NoLimit emptyShareResv anyFlow Set.all 
-                                    (Set.singleton rootSpeaker)))
+                   (Share NoLimit emptyShareResv anyFlow
+                   (Set.singleton rootSpeaker)))
         (Set.singleton rootSpeaker)
         (PQ.empty resvStartOrder)
         (PQ.empty resvEndOrder)
@@ -93,9 +92,8 @@ isSubFlow (FlowGroup fs1 fr1 fsp1 fdp1) (FlowGroup fs2 fr2 fsp2 fdp2) =
   Set.isSubsetOf fdp1 fdp2
 
 isSubShare :: Share -> Share -> Bool
-isSubShare (Share resLim1 _ flows1 spk1 _)
-          (Share resLim2 _ flows2 spk2 _) = 
-  spk1 `Set.isSubsetOf` spk2 &&
+isSubShare (Share resLim1 _ flows1 _)
+          (Share resLim2 _ flows2 _) = 
   resLim1 <= resLim2 &&
   flows1 `isSubFlow` flows2
 
@@ -144,19 +142,17 @@ giveDefaultReference from ref st@(State {shareTree=sT, stateSpeakers=refs}) =
 newShare :: Speaker
            -> ShareRef
            -> String
-           -> Set Speaker
            -> FlowGroup
            -> Limit
            -> State
            -> Maybe State
-newShare spk parentName shareName shareSpk shareFlows shareLimit
+newShare spk parentName shareName shareFlows shareLimit
            st@(State {shareTree = sT}) =
   if Tree.member parentName sT then
     let parentShare = Tree.lookup parentName sT
       in case Set.member spk (shareHolders parentShare) of
         True -> 
           let newShare = Share shareLimit emptyShareResv shareFlows 
-                                        shareSpk 
                                         (Set.singleton spk)
             in case newShare `isSubShare` parentShare of
                  True -> 
@@ -187,7 +183,7 @@ simulate resvsByStart = simStep 0 resvsByStart (PQ.empty resvEndOrder) where
                      - sum (map resvSize endingNow)
         in (now, size'):(simStep size' byStart' byEnd'')
 
--- add invariant: end > now ... what should happen if start < now ?
+-- TODO: add invariant: end > now ... what should happen if start < now ?
 reserve :: Speaker
         -> Resv
         -> State

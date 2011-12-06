@@ -40,19 +40,16 @@ test5 = evalDNP $ do
 
 test6 = evalDNP $ do
   b1 <- createSpeakerM "arjun" 
-  b2 <- newShareM "root" rootShareRef "arjun-share" (Set.singleton "arjun") 
-           anyFlow (DiscreteLimit 100)
+  b2 <- newShareM "root" rootShareRef "arjun-share" anyFlow (DiscreteLimit 100)
   b3 <- giveReferenceM "root" "arjun-share" "arjun"
   return (b1 && b2 && b3)
 
 frag1 limitForAdf = do
   b1 <- createSpeakerM "arjun"
   b2 <- createSpeakerM "adf"
-  b3 <- newShareM "root" rootShareRef "arjun-share" Set.all -- IRL, Arjun's group?
-                    anyFlow (DiscreteLimit 100)
+  b3 <- newShareM "root" rootShareRef "arjun-share" anyFlow (DiscreteLimit 100)
   b4 <- giveReferenceM "root" "arjun-share" "arjun"
-  b5 <- newShareM "arjun" "arjun-share" "adf-share" (Set.singleton "adf") 
-                    anyFlow (DiscreteLimit limitForAdf)
+  b5 <- newShareM "arjun" "arjun-share" "adf-share" anyFlow (DiscreteLimit limitForAdf)
   b6 <- giveReferenceM "arjun" "adf-share" "adf"
   return (b1 && b2 && b3 && b4 && b5 && b6)
 
@@ -69,8 +66,7 @@ test9 =  evalDNP $ do
 
   
 frag2 = do
-  b1 <- newShareM "root" rootShareRef "net0" Set.all anyFlow 
-                    (DiscreteLimit 200)
+  b1 <- newShareM "root" rootShareRef "net0" anyFlow (DiscreteLimit 200)
   return b1
 
 test10 = evalDNP $ do frag2
@@ -102,7 +98,7 @@ test14 = evalDNP $ do
 frag3 = do 
   b1 <- frag2
   b2 <- createSpeakerM "adf"
-  b3 <- newShareM "root" "net0" "adfShare" (Set.singleton "adf") anyFlow 
+  b3 <- newShareM "root" "net0" "adfShare" anyFlow 
            (DiscreteLimit 150)
   b4 <- giveReferenceM "root" "adfShare" "adf"
   b5 <- reserveM "adf" (foreverResv "adfShare" anyFlow 100)
@@ -137,8 +133,7 @@ test18 = evalDNP $ do
 
 frag4 = do
   b1 <- createSpeakerM "arjun"
-  b2 <- newShareM "root" rootShareRef "hadoop-share" (Set.singleton "root") --ppl who can delegate
-                    anyFlow (DiscreteLimit 100)
+  b2 <- newShareM "root" rootShareRef "hadoop-share" anyFlow (DiscreteLimit 100)
   b3 <- giveDefaultReferenceM "root" "hadoop-share"
   b4 <- reserveM "arjun" (foreverResv "hadoop-share" anyFlow 25)
   return (b1 && b2 && b3 && b4)
@@ -155,8 +150,7 @@ arjunFlow = anyFlow { flowSend = Set.singleton "arjun" }
 
 frag5 = do
   b1 <- createSpeakerM "arjun"
-  b2 <- newShareM "root" rootShareRef "arjun-share" (Set.singleton "arjun")
-             arjunFlow (DiscreteLimit 100)
+  b2 <- newShareM "root" rootShareRef "arjun-share" arjunFlow (DiscreteLimit 100)
   b3 <- giveReferenceM "root" "arjun-share" "arjun"
   b4 <- reserveM "arjun" (foreverResv "arjun-share" arjunFlow 50)
   s  <- currentReservationsM

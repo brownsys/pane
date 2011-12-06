@@ -1,7 +1,7 @@
 True  <- root : AddUser Arjun.
-True  <- root : NewShare net0 (root,Arjun) reserve(*) <= 1600 on rootShare. // physical max
+True  <- root : NewShare net0 reserve(*) <= 1600 on rootShare. // physical max
 
-True  <- root : NewShare arjunShare (Arjun) reserve(user=Arjun) <= 1000 on net0.
+True  <- root : NewShare arjunShare reserve(user=Arjun) <= 1000 on net0.
 True  <- root : GrantUse Arjun on arjunShare.
 
 True  <- Arjun : reserve(user=Arjun, app=1) = 300 on arjunShare. // valid

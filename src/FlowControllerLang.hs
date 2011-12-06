@@ -50,7 +50,7 @@ giveReferenceM fromSpk share toSpk =
 
 giveDefaultReferenceM fromSpk share = boolWrapper (giveDefaultReference fromSpk share)
 
-newShareM x1 x2 x3 x4 x5 x6 = boolWrapper (newShare x1 x2 x3 x4 x5 x6)
+newShareM x1 x2 x3 x4 x5 = boolWrapper (newShare x1 x2 x3 x4 x5)
 
 reserveM x1 x2 = boolWrapper (reserve x1 x2)
 
@@ -64,7 +64,7 @@ tickM t = do
   s <- StateM.get
   let s' = tick t s
   StateM.put s'
-  return True -- TODO: Need another function to return the time: (stateNow s')
+  return True
 
 getTimeM = do
   s <- StateM.get

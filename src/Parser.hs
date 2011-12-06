@@ -168,15 +168,13 @@ grantDefaultUse spk = do
 newShareStmt spk = do
   reserved "NewShare"
   name <- identifier
-  tmp <- parens (sepBy identifier comma)
-  let users = Set.fromList tmp
   reserved "reserve" -- TODO: should be some generic resource? (actually, case on resource)
   fg <- flowGroup
   reservedOp "<="
   size <- T.integer lex
   reserved "on"
   parent <- identifier
-  return (newShareM spk parent name users fg (DiscreteLimit size))
+  return (newShareM spk parent name fg (DiscreteLimit size))
 
 from = (do { reserved "from"; n <- T.integer lex; return n }) <|> (return 0)
 

@@ -1,5 +1,5 @@
 True  <- root : AddUser Arjun.
-True  <- root : NewShare arjunShare (Arjun) reserve(user=Arjun) <= 1000 on rootShare.
+True  <- root : NewShare arjunShare reserve(user=Arjun) <= 1000 on rootShare.
 True  <- root : GrantUse Arjun on arjunShare.
 True  <- Arjun : reserve(user=Arjun) = 300 on arjunShare.
 False <- Arjun : reserve(user=Arjun) = 2000 on arjunShare. // exceeds mask
@@ -19,5 +19,5 @@ True  <- root : AddUser Shriram.
 // Shriram : reserve(user=Shriram) = 5. // invalid, Shriram has no permissions
 // root : reserve(user=Shriram) = 2000. // valid, Shriram's reserve is now 2000
 
-True  <- Arjun : NewShare shriramShare (Shriram) reserve(user=Shriram) <= 500 on arjunShare.
+True  <- Arjun : NewShare shriramShare reserve(user=Shriram) <= 500 on arjunShare.
 // Arjun : GrantUse Shriram on shriramShare. // TODO: THIS LINE CAUSES FAIL WHEN UNCOMMENTED
