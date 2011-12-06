@@ -33,7 +33,7 @@ serverMain port state = withSocketsDo $ do
 
 
 serverAction cmd stRef = do
-  (b, st') <- atomicModifyIORef stRef
+  (b, st') <- atomicModifyIORef stRef -- TODO: use a real lock so emitFML is inside as well
          (\st -> let (result, st') = runDNP cmd st in (st', (result, st')))
   case b of
     True -> do
@@ -47,7 +47,7 @@ serverAction cmd stRef = do
 
 
 processLoop conn st = do
-  msg <- recv conn 1024 -- TODO: what if command longer than 1024?
+  msg <- recv conn 1024 -- TODO: what if command longer than 1024? or falls over a boundary?
   case S.null msg of
     True -> do
       processLoop conn st
