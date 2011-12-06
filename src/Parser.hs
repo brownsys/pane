@@ -178,13 +178,21 @@ newShareStmt spk = do
   parent <- identifier
   return (newShareM spk parent name users fg (DiscreteLimit size))
 
+from = (do { reserved "from"; n <- T.integer lex; return n }) <|> (return 0)
+
+to = (do { reserved "to"; n <- T.integer lex; return (DiscreteLimit n) }) 
+     <|> (return NoLimit)
+  
+
 resv = do
   fg <- flowGroup
   reservedOp "="
   size <- T.integer lex
   reserved "on"
   share <- identifier
-  return (Resv share fg 0 NoLimit size)
+  fromTime <- from
+  toTime <- to
+  return (Resv share fg fromTime toTime size)
 
 reservation spk = do
   reserved "reserve"
