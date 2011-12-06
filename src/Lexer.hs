@@ -15,9 +15,9 @@ javascriptDef =
                 (alphaNum <|> oneOf "$_") -- identifier rest
                 (oneOf "{}<>()~.,?:|&^=!+-*/%!") -- operator start
                 (oneOf "=<>|&+") -- operator rest
-                [ ":", "AddUser", "DropUser", "NewShare", "AddNetwork", "DropNetwork", "GrantUse"
+                [ "AddUser", "DropUser", "NewShare", "AddNetwork", "DropNetwork", "GrantUse", "on"
                 ]
-                [ "<:", "*", "(", ")", "," ]
+                [ "*", "(", ")", ",", ":" ]
                  True -- case-sensitive
             
 lex :: T.TokenParser st

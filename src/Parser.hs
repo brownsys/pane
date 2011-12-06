@@ -2,10 +2,13 @@ module Parser where
 
 import Prelude hiding (lex)
 import Lexer
-import Syntax
+import Syntax hiding (False)
 import Text.ParserCombinators.Parsec
 import qualified Text.ParserCombinators.Parsec.Token as T
-import qualified Data.Set as Set
+import qualified Set as Set
+import Data.Maybe (catMaybes)
+import FlowControllerLang
+import FlowController
 
 -- Based on:
 --   https://github.com/brownplt/webbits/blob/master/src/BrownPLT/JavaScript/Parser.hs
@@ -52,12 +55,14 @@ flow = do
 
 prin = flow <|> expUser <|> expApp <|> expNet
 
-addUser = do
+addUser "root" = do
   reserved "AddUser"
-  newUser <- user
-  return (AddUser newUser)
+  newUser <- identifier
+  return (createSpeakerM newUser)
 
-addNetwork = do
+addUser _ = fail "user other than root tried to add user"
+
+{- addNetwork = do
   reserved "AddNetwork"
   newPrin <- network
   reservedOp "<:"
@@ -74,16 +79,33 @@ grantUse = do
 number = do
   n <- T.integer lex
   return (Number n)
+-}
 
 prinList = do
   newPrin <- sepBy prin comma
   return newPrin
 
-reservation = do
+forUser (User s) = Just s
+forUser _ = Nothing
+
+forApp (App n) = Just n
+forApp _ = Nothing
+
+maybeAll [] = Set.all
+maybeAll xs = Set.fromList xs
+
+flowGroup = do
+  p <- parens prinList
+  let flowSend = maybeAll (catMaybes (map forUser p))
+  let flowDestPort = maybeAll (catMaybes (map forApp p))
+  return (FlowGroup flowSend Set.all Set.all flowDestPort)
+
+
+{- reservation = do
   reserved "reservation"
   p <- parens prinList
   let s = Set.fromList p
-  return (Reservation s)
+  return (Reservation s) -}
 
 latency = do
   reserved "latency"
@@ -108,15 +130,15 @@ op = (reservedOp "<=" >> return NumLEq) <|> (reservedOp "<" >> return NumLT)
   <|> (reservedOp ">" >> return NumGT)
 
 
-numExpr = number <|> reservation <|> latency <|> jitter <|> ratelimit
+-- numExpr = number <|> latency <|> jitter <|> ratelimit
 
-numPred = do
+{- numPred = do
   e1 <- numExpr
   o <- op
   e2 <- numExpr
-  return (NumPred e1 o e2)
+  return (NumPred e1 o e2) -}
 
-allow = do
+{- allow = do
   reserved "allow"
   p <- parens prinList
   let s = Set.fromList p
@@ -142,30 +164,64 @@ boolStmt = do
   -- rate limit, rather than the fixed limit of "from"/"to"
   -- OR, should it go in the boolExpr as *part* of the prinList, that is: user=blah,from=,to=
   return (Stmt e share)
+-}
 
-newShareStmt = do
+newShareStmt spk = do
   reserved "NewShare"
-  name <- shareName
-  tmp <- parens (sepBy user comma)
+  name <- identifier
+  tmp <- parens (sepBy identifier comma)
   let users = Set.fromList tmp
-  stmt <- boolStmt
-  return (NewShare name users stmt)
+  reserved "reservation" -- TODO: should be some kind of generic resource? reserve?
+  fg <- flowGroup
+  reservedOp "<="
+  size <- T.integer lex
+  reserved "on"
+  parent <- identifier
+  return (newShareM spk parent name users fg (DiscreteLimit size))
+
+resv = do
+  fg <- flowGroup
+  reservedOp "="
+  size <- T.integer lex
+  reserved "on"
+  share <- identifier
+  return (Resv share fg 0 NoLimit size)
+
+reservation spk = do
+  reserved "reservation" -- TODO: change to 'reserve'
+  r <- resv
+  return (reserveM spk r)
+  
  
- 
-parseStmt :: CharParser st (Prin, Stmt)
+-- parseStmt :: CharParser st (Prin, Stmt)
 parseStmt = do
-  speaker <- user
+  spk <- identifier
   reserved ":"
-  stmt <- addUser <|> addNetwork <|> grantUse <|> newShareStmt <|> boolStmt
+  stmt <- addUser spk <|> newShareStmt spk <|> reservation spk <|> grantUse spk
   dot
-  return (speaker, stmt)
+  return stmt
 
 parseStmts = do
   ss <- many parseStmt
   eof
-  return ss
+  return (sequence ss)
 
-parseFromFile :: String -> IO [(Prin, Stmt)]
+parseStmt' = do
+  s <- parseStmt
+  eof
+  return s
+
+parseStmtFromStdin :: IO (DNP Bool)
+parseStmtFromStdin = do
+  str <- getLine
+  case parse parseStmt' "<stdin>" str of
+    Left err -> do
+      putStrLn ("Parse failed: " ++ show err)
+      return (return False)
+    Right cmd -> do
+      return cmd
+
+parseFromFile :: String -> IO (DNP [Bool])
 parseFromFile filename = do
   str <- readFile filename
   case parse parseStmts filename str of

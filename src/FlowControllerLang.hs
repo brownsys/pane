@@ -9,6 +9,7 @@ module FlowControllerLang
   , tickM
   , runDNP
   , fmlDNP
+  , runDNP'
   ) where
 
 import qualified Control.Monad.State as StateM
@@ -20,6 +21,9 @@ type DNP a = StateM.State State a
 
 runDNP :: DNP a -> a
 runDNP m = StateM.evalState m emptyState
+
+runDNP' = StateM.runState
+
 
 fmlDNP :: DNP a -> String
 fmlDNP m = emitFML (StateM.execState m emptyState)
