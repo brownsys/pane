@@ -268,14 +268,15 @@ parseInteractive' spk inBuf action acc = do
 --  putStrLn $ "Trying to parse " ++ inStream
   let p acc = do
 --        lift $ putStrLn "Waiting to parse ..."
+        T.whiteSpace lex
         s <- parseStmt spk
         lift (action s acc)
   let pars acc = 
-                 (do { eof; lift $ putStrLn "EOF"; return acc }) <|>
+                 (do { eof; return acc }) <|>
                  (do { acc' <- p acc; pars acc' })
   a <- runParserT (pars acc) () "network-in" inBuf 
   case a of
     Left err -> do
-      putStrLn $ "parse error: " ++ show err
+      putStrLn $ "parse error:\n" ++ show err
       return acc
     Right a -> return a
