@@ -1,3 +1,5 @@
+{-# LANGUAGE ForeignFunctionInterface #-}
+
 module Server where
 
 import Control.Monad (unless)
@@ -15,7 +17,8 @@ import EmitFML
 import Control.Concurrent
 import Data.IORef
 
--- serverLoop :: Socket -> State -> IO a
+foreign import ccall unsafe "htons" htons :: Word16 -> Word16
+
 serverLoop serverSock state = do
   (clientSock, _) <- accept serverSock
   forkIO (authUser clientSock state)
@@ -25,8 +28,7 @@ serverMain :: Word16 -> State -> IO ()
 serverMain port state = withSocketsDo $ do
     sock <- socket AF_INET Stream 0
     setSocketOption sock ReuseAddr 1
-    bindSocket sock (SockAddrInet 4242 iNADDR_ANY)
-    -- bindSocket sock (SockAddrInet (PortNum port) iNADDR_ANY)
+    bindSocket sock (SockAddrInet (PortNum (htons port)) iNADDR_ANY)
     listen sock 2
     stateRef <- newIORef state    
     serverLoop sock stateRef
