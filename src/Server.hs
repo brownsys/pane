@@ -6,7 +6,7 @@ import qualified Data.ByteString as S
 import qualified Data.ByteString.Char8 as C
 import Network.Socket.ByteString (recv, send)
 import Data.Word
-
+import Data.List (span)
 import System.IO
 import Parser
 import FlowControllerLang
@@ -18,7 +18,7 @@ import Data.IORef
 -- serverLoop :: Socket -> State -> IO a
 serverLoop serverSock state = do
   (clientSock, _) <- accept serverSock
-  forkIO (processLoop clientSock state)
+  forkIO (authUser clientSock state)
   serverLoop serverSock state 
 
 serverMain :: Word16 -> State -> IO ()
@@ -45,16 +45,16 @@ serverAction cmd stRef = do
       putStrLn "--> REJECTED"
   return stRef
 
+authUser conn st = do
+  msg <- recv conn 1024
+  let msgStr = C.unpack msg
+  let (spk, _:restMsg)  = break (/='.') msgStr
+  processLoop spk conn st restMsg
 
-processLoop conn st = do
-  msg <- recv conn 1024 -- TODO: what if command longer than 1024?
-  case S.null msg of
-    True -> do
-      processLoop conn st
-    False -> do
-      let spk = "root" -- TODO: Obviously, something else is needed here
-      putStr (spk ++ " : ")
-      C.putStrLn msg
-      st' <- parseInteractive' spk (C.unpack msg) serverAction st
-      processLoop conn st'
+processLoop spk conn st msg = do
+  putStr (spk ++ " : ")
+  putStrLn msg
+  st' <- parseInteractive' spk msg serverAction st
+  msg' <- recv conn 1024
+  processLoop spk conn st' (C.unpack msg')
 
