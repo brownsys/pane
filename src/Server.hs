@@ -52,7 +52,7 @@ authUser conn st = do
   msg <- recv conn 1024
   let msgStr = C.unpack msg
   let (spk, _:restMsg)  = span (/='.') msgStr
-  processLoop spk conn st restMsg
+  processLoop spk conn st ""
 
 processLoop spk conn st msg = do
   putStr (spk ++ " : ")
