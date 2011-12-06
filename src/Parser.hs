@@ -3,12 +3,14 @@ module Parser where
 import Prelude hiding (lex)
 import Lexer
 import Syntax
-import Text.ParserCombinators.Parsec
-import qualified Text.ParserCombinators.Parsec.Token as T
+import Text.Parsec
+import qualified Text.Parsec.Token as T
 import qualified Set as Set
 import Data.Maybe (catMaybes)
 import FlowControllerLang
 import FlowController hiding (tick)
+import Control.Monad.IO.Class
+
 
 -- Based on:
 --   https://github.com/brownplt/webbits/blob/master/src/BrownPLT/JavaScript/Parser.hs
@@ -61,9 +63,9 @@ flowGroup = do
   let flowDestPort = maybeAll (catMaybes (map forApp p))
   return (FlowGroup flowSend Set.all Set.all flowDestPort)
 
-boolean = do symbol "True"
+boolean = do reserved "True"
              return True
-      <|> do symbol "False"
+      <|> do reserved "False"
              return False
 
 
@@ -248,3 +250,25 @@ parseStmtFromString spk str = do
       return (return False)
     Right cmd -> do
       return cmd
+
+parseInteractive' :: String  -- ^speaker
+                  -> String  -- ^input stream
+                  -> (DNP Bool -> a -> IO a)
+                  -> a
+                  -> IO a
+parseInteractive' spk inStream action acc = do
+  putStrLn $ "Trying to parse " ++ inStream
+  let p acc = do
+        liftIO $ putStrLn "Waiting to parse ..."
+        s <- parseStmt spk
+        liftIO $ putStrLn "parsed something."
+        liftIO (action s acc)
+  let pars acc = 
+                 (do { eof; liftIO $ putStrLn "EOF"; return acc }) <|>
+                 (do { acc' <- p acc; pars acc' })
+  a <- runParserT (pars acc) () "network-in" inStream
+  case a of
+    Left err -> do
+      putStrLn $ "parse error: " ++ show err
+      return acc
+    Right a -> return a

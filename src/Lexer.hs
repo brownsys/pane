@@ -1,51 +1,64 @@
 module Lexer where
 
 import Prelude hiding (lex)
-import Text.ParserCombinators.Parsec
-import qualified Text.ParserCombinators.Parsec.Token as T
+import Text.Parsec
+import Text.Parsec.Token (GenLanguageDef (..), GenTokenParser)
+import qualified Text.Parsec.Token as T
+import Control.Monad.Identity
 
-identifierStart = (letter <|> oneOf "$_")
-
+javascriptDef :: Monad m
+              => GenLanguageDef String u m
 javascriptDef =
   T.LanguageDef "/*"
                 "*/"
                 "//"
                 False -- no nested comments
-                identifierStart
+                (letter <|> oneOf "$_")
                 (alphaNum <|> oneOf "$_") -- identifier rest
                 (oneOf "{}<>()~.,?:|&^=!+-*/%!") -- operator start
                 (oneOf "=<>|&+") -- operator rest
-                [ "Tick", "AddUser", "NewShare", "GrantUse", "on"
+                [ "Tick", "AddUser", "NewShare", "GrantUse", "on", "True", "False"
                 -- "DropUser", "AddNetwork", "DropNetwork"
                 ]
                 [ "*", "(", ")", ",", ":" ]
                  True -- case-sensitive
-            
-lex :: T.TokenParser st
+
+lex :: Monad m
+    => GenTokenParser String u m
 lex = T.makeTokenParser javascriptDef
 
--- everything but commaSep and semiSep
+identifier :: Monad m => ParsecT String u m String
 identifier = T.identifier	 lex
-reserved = T.reserved	 lex
-operator = T.operator	 lex
-reservedOp = T.reservedOp lex	
-charLiteral = T.charLiteral lex	
-stringLiteral = T.stringLiteral lex	
-natural = T.natural lex	
-integer = T.integer lex	
-naturalOrFloat = T.naturalOrFloat lex	
-decimal = T.decimal lex	
-hexadecimal = T.hexadecimal lex	
-octal = T.octal lex	
-symbol = T.symbol lex	
-whiteSpace = T.whiteSpace lex	
-parens = T.parens	 lex
-braces = T.braces	 lex
-squares = T.squares lex	
-semi = T.semi	 lex
-comma = T.comma	 lex
-colon = T.colon lex	
-dot = T.dot lex
-brackets = T.brackets lex
-lexeme = T.lexeme lex
 
+reserved :: Monad m => String -> ParsecT String u m ()
+reserved = T.reserved	 lex
+
+reservedOp :: Monad m => String -> ParsecT String u m ()
+reservedOp = T.reservedOp lex	
+
+charLiteral :: Monad m => ParsecT String u m Char
+charLiteral = T.charLiteral lex	
+
+integer :: Monad m => ParsecT String u m Integer
+integer = T.integer lex	
+
+parens :: Monad m => ParsecT String u m a -> ParsecT String u m a
+parens = T.parens	 lex
+
+braces :: Monad m => ParsecT String u m a -> ParsecT String u m a
+braces = T.braces	 lex
+
+brackets :: Monad m => ParsecT String u m a -> ParsecT String u m a
+brackets = T.brackets lex
+
+semi :: Monad m => ParsecT String u m String
+semi = T.semi	 lex
+
+comma :: Monad m => ParsecT String u m String
+comma = T.comma	 lex
+
+colon:: Monad m => ParsecT String u m String
+colon = T.colon lex	
+
+dot :: Monad m => ParsecT String u m String
+dot = T.dot lex
