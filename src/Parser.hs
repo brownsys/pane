@@ -10,7 +10,7 @@ import Data.Maybe (catMaybes)
 import FlowControllerLang
 import FlowController hiding (tick)
 import Control.Monad.IO.Class
-
+import Control.Monad.Trans
 
 -- Based on:
 --   https://github.com/brownplt/webbits/blob/master/src/BrownPLT/JavaScript/Parser.hs
@@ -220,7 +220,7 @@ parseTestStmts = do
   let (res, ss) = unzip tmp
   return (res, (sequence ss))
 
-parseInteractive spk = do
+parseCompleteString spk = do
   s <- (parseStmt spk)
   eof
   return s
@@ -228,7 +228,7 @@ parseInteractive spk = do
 parseStmtFromStdin :: String -> IO (DNP Bool)
 parseStmtFromStdin spk = do
   str <- getLine
-  case parse (parseInteractive spk) "<stdin>" str of
+  case parse (parseCompleteString spk) "<stdin>" str of
     Left err -> do
       putStrLn ("Parse failed: " ++ show err)
       return (return False)
@@ -244,7 +244,7 @@ parseFromTestFile filename = do
 
 parseStmtFromString :: String -> String -> IO (DNP Bool)
 parseStmtFromString spk str = do
-  case parse (parseInteractive spk) "<string>" str of
+  case parse (parseCompleteString spk) "<string>" str of
     Left err -> do
       putStrLn ("Parse failed: " ++ show err)
       return (return False)
@@ -252,21 +252,20 @@ parseStmtFromString spk str = do
       return cmd
 
 parseInteractive' :: String  -- ^speaker
-                  -> String  -- ^input stream
-                  -> (DNP Bool -> a -> IO a)
-                  -> a
-                  -> IO a
-parseInteractive' spk inStream action acc = do
-  putStrLn $ "Trying to parse " ++ inStream
+                 -> String  -- ^input stream
+                 -> (DNP Bool -> a -> IO a)
+                 -> a
+                 -> IO a
+parseInteractive' spk inBuf action acc = do
+--  putStrLn $ "Trying to parse " ++ inStream
   let p acc = do
-        liftIO $ putStrLn "Waiting to parse ..."
+--        lift $ putStrLn "Waiting to parse ..."
         s <- parseStmt spk
-        liftIO $ putStrLn "parsed something."
-        liftIO (action s acc)
+        lift (action s acc)
   let pars acc = 
-                 (do { eof; liftIO $ putStrLn "EOF"; return acc }) <|>
+                 (do { eof; lift $ putStrLn "EOF"; return acc }) <|>
                  (do { acc' <- p acc; pars acc' })
-  a <- runParserT (pars acc) () "network-in" inStream
+  a <- runParserT (pars acc) () "network-in" inBuf 
   case a of
     Left err -> do
       putStrLn $ "parse error: " ++ show err
