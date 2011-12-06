@@ -112,11 +112,12 @@ giveReference :: Speaker -- ^grantor
               -> State -- ^existing state
               -> Maybe State
 giveReference from ref to st@(State {shareTree=sT, stateSpeakers=refs}) = 
-  if not (Set.member from refs) || not (Set.member to refs) then
+  if not (Set.member from refs) || not (Set.member to refs) ||
+     not (Tree.member ref sT) then
     Nothing
   else
-    let share = Tree.lookup ref sT -- TODO: What if ref is not in sT ??
-      in case from `Set.member` shareHolders share of -- TODO: We need to check that to is in shareSpeakers (I think)
+    let share = Tree.lookup ref sT
+      in case from `Set.member` shareHolders share of
         True -> 
           let share' = share {shareHolders = Set.insert to (shareHolders share)}
               sT' = Tree.update ref share' sT
@@ -132,7 +133,7 @@ giveDefaultReference from ref st@(State {shareTree=sT, stateSpeakers=refs}) =
     Nothing
   else
     let share = Tree.lookup ref sT 
-      in case from `Set.member` shareHolders share of -- TODO: should this be shareSpeakers ??
+      in case from `Set.member` shareHolders share of
         True -> 
           let share' = share {shareHolders = Set.all}
               sT' = Tree.update ref share' sT
@@ -183,7 +184,6 @@ simulate resvsByStart = simStep 0 resvsByStart (PQ.empty resvEndOrder) where
                      - sum (map resvSize endingNow)
         in (now, size'):(simStep size' byStart' byEnd'')
 
--- TODO: add invariant: end > now ... what should happen if start < now ?
 reserve :: Speaker
         -> Resv
         -> State
@@ -194,7 +194,9 @@ reserve spk resv@(Resv shareRef flow start end size)
   if Tree.member shareRef sT then
     let share = Tree.lookup shareRef sT
       in case Set.member spk (shareHolders share) && 
-               flow `isSubFlow` (shareFlows share) of
+               flow `isSubFlow` (shareFlows share) &&
+               start < (stateNow st) &&
+               (DiscreteLimit start) < end of
         False -> Nothing
         True ->
           let chain = Tree.chain shareRef rootShareRef sT
@@ -233,6 +235,3 @@ tick t st@(State {acceptedResvs=byStart, activeResvs=byEnd, stateNow=now}) =
         byEnd'' = foldr PQ.enqueue byEnd' startingNow
 
 currentReservations = PQ.toList.activeResvs
--- currentReservations :: State -> Set (FlowGroup, Integer)
--- currentReservations st@(State {stateReservations = sR}) =
---  sR
