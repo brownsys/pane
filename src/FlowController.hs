@@ -50,7 +50,7 @@ data Share = Share {
   shareResvLimit :: Limit,
   shareResv :: PQ Resv,
   shareFlows :: FlowGroup,
-  shareHolders :: Set Speaker,
+  shareHolders :: Set Speaker
 --  shareStart :: Integer, -- invariant: start < end
 --  shareEnd :: Limit,  TODO (?)
 } deriving (Show)
@@ -240,3 +240,14 @@ tick t st@(State {acceptedResvs=byStart, activeResvs=byEnd, stateNow=now}) =
         byEnd'' = foldr PQ.enqueue byEnd' startingNow
 
 currentReservations = PQ.toList.activeResvs
+
+
+findSharesByFlowGroup :: FlowGroup -> State -> [(ShareRef, Share)]
+findSharesByFlowGroup fg st@(State {shareTree=sT}) =
+  findInTree fg (rootShareRef, (Tree.lookup rootShareRef sT)) sT where
+    findInTree flow (shareRef, share) tr = 
+      let next = (foldl (++) [] (map (\x -> findInTree flow x tr)
+                                  (Tree.children shareRef tr)))
+        in case fg `isSubFlow` (shareFlows share) of
+          False -> next
+          True -> (shareRef, share):next

@@ -1,5 +1,8 @@
 True  <- root : AddUser Arjun.
 True  <- root : NewShare arjunShare reserve(user=Arjun) <= 1000 on rootShare.
+// TODO: really, this is: "arjunSENDShare" .. there will be another share for
+// arjunRECVshare and arjun's hostSENDshare and hostRECVshare, the later might be only for
+// admission control
 True  <- root : GrantUse Arjun on arjunShare.
 True  <- Arjun : reserve(user=Arjun) = 300 on arjunShare.
 False <- Arjun : reserve(user=Arjun) = 2000 on arjunShare. // exceeds mask

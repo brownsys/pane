@@ -1,5 +1,5 @@
 module Tree (Tree, root, insert, member, lessThan, lessThanOrEq, chain,
-  descendingChain, adjust, lookup, update) where
+  descendingChain, adjust, lookup, update, children) where
 
 import Prelude hiding (lookup)
 import Data.Map (Map)
@@ -53,7 +53,6 @@ member :: Ord a
        -> Bool
 member p (Tree parent lt _) = Map.member p lt
 
-
 chain :: Ord a
       => a
       -> a
@@ -80,3 +79,12 @@ lookup k (Tree _ _ kvs) = case Map.lookup k kvs of
 
 update :: Ord a => a -> b -> Tree a b -> Tree a b
 update k v (Tree m1 m2 kvs) = Tree m1 m2 (Map.insert k v kvs)
+
+children :: Ord a
+         => a
+         -> Tree a b
+         -> [(a, b)]
+children elt tr@(Tree parent lt kvs) =
+  case (Map.lookup elt lt) of
+    Nothing -> []
+    Just children -> map (\ x -> (x, lookup x tr)) (Set.toList children)
