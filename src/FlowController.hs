@@ -50,7 +50,9 @@ data Share = Share {
   shareResvLimit :: Limit,
   shareResv :: PQ Resv,
   shareFlows :: FlowGroup,
-  shareHolders :: Set Speaker
+  shareHolders :: Set Speaker,
+--  shareStart :: Integer, -- invariant: start < end
+--  shareEnd :: Limit,  TODO (?)
 } deriving (Show)
 
 type ShareTree = Tree ShareRef Share
@@ -184,6 +186,8 @@ simulate resvsByStart = simStep 0 resvsByStart (PQ.empty resvEndOrder) where
                      - sum (map resvSize endingNow)
         in (now, size'):(simStep size' byStart' byEnd'')
 
+-- TODO: Make more general so it can be used in three functions:
+-- 1) IsAvailable  2)  HoldIfAvailable  3) ReserveIfAvailable (existing use)
 reserve :: Speaker
         -> Resv
         -> State
@@ -232,6 +236,7 @@ tick t st@(State {acceptedResvs=byStart, activeResvs=byEnd, stateNow=now}) =
                                        <= (injLimit now'))
                                        byEnd
 -- TODO: We should delete the endingNow reservations from the shareTree (optimization)
+-- TODO: After we can delete reservations, make it possible to delete shares
         byEnd'' = foldr PQ.enqueue byEnd' startingNow
 
 currentReservations = PQ.toList.activeResvs
