@@ -12,7 +12,8 @@ import Data.Map ((!))
 data Tree a b = 
   Tree (Map a a)       -- ^parent relation
        (Map a (Set a)) -- ^transitive closure of the parent relation
-       (Map a b)
+       (Map a (Set a)) -- ^child relationship
+       (Map a b)       -- ^actual data
   deriving Show
 
 
@@ -20,7 +21,8 @@ root :: Ord a
      => a
      -> b
      -> Tree a b
-root k v = Tree Map.empty (Map.singleton k Set.empty) (Map.singleton k v)
+root k v = Tree Map.empty (Map.singleton k Set.empty) (Map.singleton k Set.empty)
+                (Map.singleton k v)
 
 insert :: Ord a
        => a
@@ -28,11 +30,13 @@ insert :: Ord a
        -> a
        -> Tree a b
        -> Tree a b
-insert elt v pElt (Tree parent lt kvs) =
+insert elt v pElt (Tree parent lt children kvs) =
   case not (elt `Map.member` lt) && pElt `Map.member` lt of
-    True -> Tree parent' lt' (Map.insert elt v kvs) where
+    True -> Tree parent' lt' children'' (Map.insert elt v kvs) where
       parent' = Map.insert elt pElt parent
       lt' = Map.insert elt (Set.insert pElt (lt ! pElt)) lt
+      children' = Map.insert pElt (Set.insert elt (children ! pElt)) children
+      children'' = Map.insert elt Set.empty children'
     False -> error "element already in lattice"
 
 lessThan :: Ord a
@@ -40,7 +44,7 @@ lessThan :: Ord a
          -> a
          -> Tree a b
          -> Bool
-lessThan e p (Tree parent lt _) = 
+lessThan e p (Tree parent lt _ _) = 
   case (Map.member e lt) && (Map.member p lt) of
     True -> Set.member p (lt ! e)
     False -> error "element/parent not in lattice"
@@ -51,17 +55,18 @@ member :: Ord a
        => a
        -> Tree a b
        -> Bool
-member p (Tree parent lt _) = Map.member p lt
+member p (Tree parent lt _ _) = Map.member p lt
 
 chain :: Ord a
       => a
       -> a
       -> Tree a b
       -> [(a, b)]
-chain from to (Tree parent lt kvs) = f from where
+chain from to (Tree parent lt _ kvs) = f from where
   f elt = case (Map.lookup elt parent, Map.lookup elt kvs) of
     (Nothing, Just v) -> [(elt, v)]
     (Just p, Just v) -> (elt, v) : (f p)
+    -- TODO: apparently these cases are non exhausive. Also where does to get used ??
 
 descendingChain from to lat = reverse (chain from to lat)
 
@@ -70,21 +75,21 @@ adjust :: Ord a
        -> a
        -> Tree a b
        -> Tree a b
-adjust f k (Tree m1 m2 kvs) = Tree m1 m2 (Map.adjust f k kvs)
+adjust f k (Tree m1 m2 m3 kvs) = Tree m1 m2 m3 (Map.adjust f k kvs)
 
 lookup :: Ord a => a -> Tree a b -> b
-lookup k (Tree _ _ kvs) = case Map.lookup k kvs of
+lookup k (Tree _ _ _ kvs) = case Map.lookup k kvs of
   Nothing -> error "fail"
   Just v -> v
 
 update :: Ord a => a -> b -> Tree a b -> Tree a b
-update k v (Tree m1 m2 kvs) = Tree m1 m2 (Map.insert k v kvs)
+update k v (Tree m1 m2 m3 kvs) = Tree m1 m2 m3 (Map.insert k v kvs)
 
 children :: Ord a
          => a
          -> Tree a b
          -> [(a, b)]
-children elt tr@(Tree parent lt kvs) =
-  case (Map.lookup elt lt) of
+children elt tr@(Tree parent _ chl kvs) = -- lt is NOT children ... it is all the parents
+  case (Map.lookup elt chl) of
     Nothing -> []
     Just children -> map (\ x -> (x, lookup x tr)) (Set.toList children)

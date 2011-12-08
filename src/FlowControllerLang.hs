@@ -8,6 +8,7 @@ module FlowControllerLang
   , currentReservationsM
   , tickM
   , getTimeM
+  , findSharesByFlowGroupM
   , evalDNP
   , fmlDNP
   , runDNP
@@ -66,6 +67,11 @@ tickM t = do
   StateM.put s'
   return True
 
+getTimeM :: DNP(Integer)
 getTimeM = do
   s <- StateM.get
   return (stateNow s)
+
+findSharesByFlowGroupM x1 = do
+  s <- StateM.get
+  return (findSharesByFlowGroup x1 s)
