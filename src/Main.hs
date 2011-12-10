@@ -6,7 +6,7 @@ import Data.Word
 import Parser
 import FlowControllerLang
 import FlowController (emptyState, State)
-
+import Test.HUnit hiding (State)
 import Server
 
 loop :: String -> State -> IO a
@@ -22,9 +22,9 @@ loop spk st = do
       loop spk st'
 
 runTestFile f = do
-  (res, dnp) <- parseFromTestFile f
-  putStrLn (show (evalDNP dnp))
-  putStrLn (show res)
+  test <- parseFromTestFile f
+  runTestTT test
+  return ()
 
 main = do
   args <- getArgs

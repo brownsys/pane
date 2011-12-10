@@ -11,6 +11,7 @@ import FlowControllerLang
 import FlowController hiding (tick)
 import Control.Monad.IO.Class
 import Control.Monad.Trans
+import Test.HUnit
 
 -- Based on:
 --   https://github.com/brownplt/webbits/blob/master/src/BrownPLT/JavaScript/Parser.hs
@@ -214,17 +215,21 @@ parseStmt spk = do
  
 parseTestStmt = do
   res <- boolean
+  p <- getPosition
   reserved "<-"
   spk <- identifier
   reserved ":"
   stmt <- parseStmt spk
-  return (res, stmt)
+  return (res, p, stmt)
 
 parseTestStmts = do
   tmp <- many parseTestStmt
   eof
-  let (res, ss) = unzip tmp
-  return (res, (sequence ss))
+  let (expected, positions, ss) = unzip3 tmp
+  let result = evalDNP (sequence ss)
+  let assertions = mapM_ (\(exp, pos, res) -> assertEqual (show pos) exp res) 
+                         (zip3 expected positions result)
+  return (TestCase assertions)
 
 parseCompleteString spk = do
   s <- (parseStmt spk)
@@ -241,7 +246,7 @@ parseStmtFromStdin spk = do
     Right cmd -> do
       return cmd
 
-parseFromTestFile :: String -> IO ([Bool], DNP [Bool])
+parseFromTestFile :: String -> IO Test
 parseFromTestFile filename = do
   str <- readFile filename
   case parse parseTestStmts filename str of
