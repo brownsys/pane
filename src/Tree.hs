@@ -89,7 +89,7 @@ children :: Ord a
          => a
          -> Tree a b
          -> [(a, b)]
-children elt tr@(Tree parent _ chl kvs) = -- lt is NOT children ... it is all the parents
+children elt tr@(Tree parent _ chl kvs) = 
   case (Map.lookup elt chl) of
     Nothing -> []
     Just children -> map (\ x -> (x, lookup x tr)) (Set.toList children)

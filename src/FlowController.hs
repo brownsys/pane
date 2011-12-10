@@ -241,6 +241,9 @@ tick t st@(State {acceptedResvs=byStart, activeResvs=byEnd, stateNow=now}) =
 
 currentReservations = PQ.toList.activeResvs
 
+-----------------------------
+-- Query Functions
+-----------------------------
 
 findSharesByFlowGroup :: FlowGroup -> State -> [(ShareRef, Share)]
 findSharesByFlowGroup fg st@(State {shareTree=sT}) =
@@ -249,5 +252,22 @@ findSharesByFlowGroup fg st@(State {shareTree=sT}) =
       let next = (foldl (++) [] (map (\x -> findInTree flow x tr)
                                   (Tree.children shareRef tr)))
         in case fg `isSubFlow` (shareFlows share) of
-          False -> next
+          False -> [] -- skip the children
           True -> (shareRef, share):next
+
+findSharesByUser :: User -> State -> [(ShareRef, Share)]
+findSharesByUser user st@(State {shareTree=sT}) =
+  findInTree user (rootShareRef, (Tree.lookup rootShareRef sT)) sT where
+    findInTree holder (shareRef, share) tr = 
+      let next = (foldl (++) [] (map (\x -> findInTree holder x tr)
+                                  (Tree.children shareRef tr)))
+        in case Set.member holder (shareHolders share) of
+          False -> next -- we want recursive descent when checking for users
+          True -> (shareRef, share):next
+
+-- TODO: Will need to become part of a larger function which finds all
+-- rules which apply to the specified FlowGroup, not just reservations.
+findResvsByFlowGroup :: FlowGroup -> State -> [Resv]
+findResvsByFlowGroup fg st@(State {acceptedResvs=accepted,activeResvs=active}) =
+  PQ.toList (PQ.filter (\x -> fg `isSubFlow` (resvFlows x)) active) ++
+    PQ.toList (PQ.filter (\x -> fg `isSubFlow` (resvFlows x)) accepted)
