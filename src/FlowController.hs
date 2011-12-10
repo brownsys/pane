@@ -203,7 +203,7 @@ reserve spk resv@(Resv shareRef flow start end size)
                (DiscreteLimit start) < end of
         False -> Nothing
         True ->
-          let chain = Tree.chain shareRef rootShareRef sT
+          let chain = Tree.chain shareRef sT
               f Nothing _ = Nothing
               f (Just sT) (thisShareName,thisShare@(Share {shareResv=resvs})) = 
                 let g (Resv { resvStart = start', resvEnd = end' }) =

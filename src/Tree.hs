@@ -59,16 +59,16 @@ member p (Tree parent lt _ _) = Map.member p lt
 
 chain :: Ord a
       => a
-      -> a
       -> Tree a b
       -> [(a, b)]
-chain from to (Tree parent lt _ kvs) = f from where
+chain from (Tree parent lt _ kvs) = f from where
   f elt = case (Map.lookup elt parent, Map.lookup elt kvs) of
     (Nothing, Just v) -> [(elt, v)]
     (Just p, Just v) -> (elt, v) : (f p)
-    -- TODO: apparently these cases are non exhausive. Also where does to get used ??
+    (Just p, Nothing) -> error "ill-formed tree: parent, but no value"
+    (Nothing, Nothing) -> error "element not in tree"
 
-descendingChain from to lat = reverse (chain from to lat)
+descendingChain from lat = reverse (chain from lat)
 
 adjust :: Ord a
        => (b -> b)
