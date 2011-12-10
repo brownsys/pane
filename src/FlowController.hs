@@ -8,7 +8,7 @@ import qualified Tree
 import Tree (Tree)
 import qualified PriorityQueue as PQ
 import PriorityQueue (PQ)
-import Data.Maybe (maybe)
+import Data.Maybe (maybe, mapMaybe)
 
 type Speaker = String
 
@@ -32,23 +32,22 @@ instance Ord Limit where
 
 type ShareRef = String
 
-data Resv = Resv {
-  resvShare :: ShareRef,
-  resvFlows :: FlowGroup,
-  resvStart :: Integer, -- invariant: start < end
-  resvEnd :: Limit,
-  resvSize :: Integer
+data Req = Req {
+  reqShare :: ShareRef,
+  reqFlows :: FlowGroup,
+  reqStart :: Integer, -- invariant: start < end
+  reqEnd :: Limit,
+  reqData :: ReqData
 } deriving (Show, Ord, Eq)
 
-resvStartOrder :: Resv -> Resv -> Bool
-resvStartOrder resv1 resv2 = resvStart resv1 <= resvStart resv2
-
-resvEndOrder :: Resv -> Resv -> Bool
-resvEndOrder resv1 resv2 = resvEnd resv1 <= resvEnd resv2
+data ReqData = ReqResv Integer
+             | ReqAllow
+             | ReqDeny
+             deriving (Eq, Ord, Show)
 
 data Share = Share {
   shareResvLimit :: Limit,
-  shareResv :: PQ Resv,
+  shareReq :: PQ Req,
   shareFlows :: FlowGroup,
   shareHolders :: Set Speaker
 --  shareStart :: Integer, -- invariant: start < end
@@ -61,10 +60,14 @@ type ShareTree = Tree ShareRef Share
 data State = State {
   shareTree :: ShareTree,
   stateSpeakers :: Set String,
-  acceptedResvs :: PQ Resv,
-  activeResvs :: PQ Resv,
+  acceptedReqs :: PQ Req,
+  activeReqs :: PQ Req,
   stateNow :: Integer
 } deriving Show
+
+-----------------------------
+-- Useful defined variables
+-----------------------------
 
 anyFlow = FlowGroup Set.all Set.all Set.all Set.all
 
@@ -74,17 +77,39 @@ rootSpeaker = "root"
 rootShareRef :: ShareRef
 rootShareRef = "rootShare"
 
-emptyShareResv = PQ.empty resvStartOrder
+emptyShareReq = PQ.empty reqStartOrder
 
 emptyState = 
   State (Tree.root rootShareRef
-                   (Share NoLimit emptyShareResv anyFlow
+                   (Share NoLimit emptyShareReq anyFlow
                    (Set.singleton rootSpeaker)))
         (Set.singleton rootSpeaker)
-        (PQ.empty resvStartOrder)
-        (PQ.empty resvEndOrder)
+        (PQ.empty reqStartOrder)
+        (PQ.empty reqEndOrder)
         0
         
+
+-----------------------------
+-- Helper Functions
+-----------------------------
+
+reqStartOrder :: Req -> Req -> Bool
+reqStartOrder req1 req2 = reqStart req1 <= reqStart req2
+
+reqEndOrder :: Req -> Req -> Bool
+reqEndOrder req1 req2 = reqEnd req1 <= reqEnd req2
+
+isResv :: Req -> Bool
+isResv req =
+  case (reqData req) of
+    (ReqResv _) -> True
+    otherwise -> False
+
+unReqResv :: ReqData -> Maybe Integer
+unReqResv rd =
+  case rd of
+    (ReqResv n) -> (Just n)
+    otherwise -> Nothing
 
 isSubFlow :: FlowGroup -> FlowGroup -> Bool
 isSubFlow (FlowGroup fs1 fr1 fsp1 fdp1) (FlowGroup fs2 fr2 fsp2 fdp2) =
@@ -98,6 +123,10 @@ isSubShare (Share resLim1 _ flows1 _)
           (Share resLim2 _ flows2 _) = 
   resLim1 <= resLim2 &&
   flows1 `isSubFlow` flows2
+
+-----------------------------
+-- API Functions
+-----------------------------
 
 createSpeaker :: Speaker -- ^name of new speaker
               -> State -- ^existing state
@@ -155,7 +184,7 @@ newShare spk parentName shareName shareFlows shareLimit
     let parentShare = Tree.lookup parentName sT
       in case Set.member spk (shareHolders parentShare) of
         True -> 
-          let newShare = Share shareLimit emptyShareResv shareFlows 
+          let newShare = Share shareLimit emptyShareReq shareFlows 
                                         (Set.singleton spk)
             in case newShare `isSubShare` parentShare of
                  True -> 
@@ -168,78 +197,80 @@ newShare spk parentName shareName shareFlows shareLimit
 
 injLimit n = DiscreteLimit n
 
-simulate :: PQ Resv -- ^ sorted by start time
+simulate :: PQ Req -- ^ sorted by start time
          -> [(Limit, Integer)] -- ^time and height
-simulate resvsByStart = simStep 0 resvsByStart (PQ.empty resvEndOrder) where 
+simulate reqsByStart = simStep 0 reqsByStart (PQ.empty reqEndOrder) where 
   simStep size byStart byEnd 
     | PQ.isEmpty byStart && PQ.isEmpty byEnd = []
     | otherwise =
-    let now = min (maybe NoLimit (injLimit.resvStart) (PQ.peek byStart))
-                  (maybe NoLimit resvEnd (PQ.peek byEnd))
+    let now = min (maybe NoLimit (injLimit.reqStart) (PQ.peek byStart))
+                  (maybe NoLimit reqEnd (PQ.peek byEnd))
         (startingNow, byStart') = PQ.dequeueWhile (\r ->
-                                         (injLimit.resvStart) r == now)
+                                         (injLimit.reqStart) r == now)
                                       byStart
-        (endingNow, byEnd') = PQ.dequeueWhile (\r -> resvEnd r == now)
+        (endingNow, byEnd') = PQ.dequeueWhile (\r -> reqEnd r == now)
                                     byEnd
         byEnd'' = foldr PQ.enqueue byEnd' startingNow
-        size' = size + sum (map resvSize startingNow)
-                     - sum (map resvSize endingNow)
+        size' = size + sum (mapMaybe (unReqResv.reqData) startingNow)
+                     - sum (mapMaybe (unReqResv.reqData) endingNow)
         in (now, size'):(simStep size' byStart' byEnd'')
 
 -- TODO: Make more general so it can be used in three functions:
 -- 1) IsAvailable  2)  HoldIfAvailable  3) ReserveIfAvailable (existing use)
 reserve :: Speaker
-        -> Resv
+        -> Req
         -> State
         -> Maybe State
-reserve spk resv@(Resv shareRef flow start end size) 
+reserve spk req@(Req shareRef flow start end rD)
         st@(State {shareTree = sT,
-                   acceptedResvs = accepted }) =
+                   acceptedReqs = accepted }) =
   if Tree.member shareRef sT then
     let share = Tree.lookup shareRef sT
       in case Set.member spk (shareHolders share) && 
                flow `isSubFlow` (shareFlows share) &&
-               start <= (stateNow st) &&
+               start >= (stateNow st) &&
                (DiscreteLimit start) < end of
         False -> Nothing
         True ->
           let chain = Tree.chain shareRef sT
               f Nothing _ = Nothing
-              f (Just sT) (thisShareName,thisShare@(Share {shareResv=resvs})) = 
-                let g (Resv { resvStart = start', resvEnd = end' }) =
+              f (Just sT) (thisShareName,thisShare@(Share {shareReq=reqs})) = 
+                let g (Req { reqStart = start', reqEnd = end' }) =
                          not (end' < (DiscreteLimit start) ||
                               (DiscreteLimit start') > end)
-                    simResvs = PQ.enqueue resv (PQ.filter g resvs)
-                    (_, sizes) = unzip (simulate simResvs)
+                    simReqs = PQ.enqueue req (PQ.filter g reqs)
+                    (_, sizes) = unzip (simulate simReqs)
+-- TODO: this next line is the specific test for reservations, rather than
+-- any type of request
                     in if injLimit (maximum sizes) > shareResvLimit thisShare
                        then
                           Nothing
                        else
-                          let thisShare' = thisShare { shareResv = PQ.enqueue
-                                                          resv resvs }
+                          let thisShare' = thisShare { shareReq = PQ.enqueue
+                                                          req reqs }
                             in Just (Tree.update thisShareName thisShare' sT)
             in case foldl f (Just sT) chain of
                  Nothing -> Nothing
                  Just sT' -> 
                    Just (tick 0 (st { shareTree = sT',
-                              acceptedResvs = PQ.enqueue resv accepted }))
+                              acceptedReqs = PQ.enqueue req accepted }))
   else
     Nothing
 
 tick :: Integer -> State -> State
-tick t st@(State {acceptedResvs=byStart, activeResvs=byEnd, stateNow=now}) =
-  st { acceptedResvs = byStart', activeResvs = byEnd'', stateNow = now' }
+tick t st@(State {acceptedReqs=byStart, activeReqs=byEnd, stateNow=now}) =
+  st { acceptedReqs = byStart', activeReqs = byEnd'', stateNow = now' }
   where now' = now + t
-        (startingNow, byStart') = PQ.dequeueWhile (\r -> resvStart r <= now')
+        (startingNow, byStart') = PQ.dequeueWhile (\r -> reqStart r <= now')
                                        byStart
-        (endingNow, byEnd') = PQ.dequeueWhile (\r -> resvEnd r
+        (endingNow, byEnd') = PQ.dequeueWhile (\r -> reqEnd r
                                        <= (injLimit now'))
                                        byEnd
 -- TODO: We should delete the endingNow reservations from the shareTree (optimization)
 -- TODO: After we can delete reservations, make it possible to delete shares
         byEnd'' = foldr PQ.enqueue byEnd' startingNow
 
-currentReservations = PQ.toList.activeResvs
+currentRequests = PQ.toList.activeReqs
 
 -----------------------------
 -- Query Functions
@@ -265,9 +296,7 @@ findSharesByUser user st@(State {shareTree=sT}) =
           False -> next -- we want recursive descent when checking for users
           True -> (shareRef, share):next
 
--- TODO: Will need to become part of a larger function which finds all
--- rules which apply to the specified FlowGroup, not just reservations.
-findResvsByFlowGroup :: FlowGroup -> State -> [Resv]
-findResvsByFlowGroup fg st@(State {acceptedResvs=accepted,activeResvs=active}) =
-  PQ.toList (PQ.filter (\x -> fg `isSubFlow` (resvFlows x)) active) ++
-    PQ.toList (PQ.filter (\x -> fg `isSubFlow` (resvFlows x)) accepted)
+findReqByFlowGroup :: FlowGroup -> State -> [Req]
+findReqByFlowGroup fg st@(State {acceptedReqs=accepted,activeReqs=active}) =
+  PQ.toList (PQ.filter (\x -> fg `isSubFlow` (reqFlows x)) active) ++
+    PQ.toList (PQ.filter (\x -> fg `isSubFlow` (reqFlows x)) accepted)

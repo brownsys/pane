@@ -191,7 +191,7 @@ resv = do
   share <- identifier
   fromTime <- from
   toTime <- to
-  return (Resv share fg fromTime toTime size)
+  return (Req share fg fromTime toTime (ReqResv size))
 
 reservation spk = do
   reserved "reserve"

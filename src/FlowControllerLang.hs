@@ -5,7 +5,7 @@ module FlowControllerLang
   , giveDefaultReferenceM
   , newShareM
   , reserveM
-  , currentReservationsM
+  , currentRequestsM
   , tickM
   , getTimeM
   , findSharesByFlowGroupM
@@ -55,10 +55,10 @@ newShareM x1 x2 x3 x4 x5 = boolWrapper (newShare x1 x2 x3 x4 x5)
 
 reserveM x1 x2 = boolWrapper (reserve x1 x2)
 
-currentReservationsM :: DNP ([Resv])
-currentReservationsM = do
+currentRequestsM :: DNP ([Req])
+currentRequestsM = do
   s <- StateM.get
-  return (currentReservations s)
+  return (currentRequests s)
 
 tickM :: Integer -> DNP Bool
 tickM t = do

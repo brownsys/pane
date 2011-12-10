@@ -10,9 +10,9 @@ import Set (Set)
 
 emitFML :: State
         -> String
-emitFML st = render (reservations (currentReservations st))
+emitFML st = render (requests (currentRequests st))
 
-reservations resvs = vcat $ map reservation resvs
+requests reqs = vcat $ map request reqs
 
 data Flow = Flow (Maybe User) (Maybe User) (Maybe Port) (Maybe Port)
 
@@ -37,8 +37,13 @@ expandFlowGroup (FlowGroup sendUser recvUser sendPort recvPort) =
             Just lst -> map Just lst
             Nothing -> [Nothing]
 
-reservation resv@(Resv {resvFlows=flowGroup, resvSize=n}) = 
-  vcat [ text "bandwidth(" <> text (show n) <> text ") <=" <+> flow  f
-           | f <- expandFlowGroup flowGroup ]
+request req@(Req {reqFlows=flowGroup, reqData=rd}) = 
+  case rd of
+    (ReqResv n) -> vcat [ text "bandwidth(" <> text (show n) <> text ") <=" <+> flow  f
+                      | f <- expandFlowGroup flowGroup ]
+    (ReqAllow) -> vcat [ text "allow <=" <+> flow f
+                      | f <- expandFlowGroup flowGroup ]
+    (ReqDeny) -> vcat [ text "deny <=" <+> flow f
+                      | f <- expandFlowGroup flowGroup ]
 
 --  text "bandwidth(" $$ text (show n) $$ text ") <=" $+$ flow f
