@@ -4,7 +4,7 @@ module FlowControllerLang
   , giveReferenceM
   , giveDefaultReferenceM
   , newShareM
-  , reserveM
+  , requestM
   , currentRequestsM
   , tickM
   , getTimeM
@@ -53,7 +53,7 @@ giveDefaultReferenceM fromSpk share = boolWrapper (giveDefaultReference fromSpk 
 
 newShareM x1 x2 x3 x4 x5 = boolWrapper (newShare x1 x2 x3 x4 x5)
 
-reserveM x1 x2 = boolWrapper (reserve x1 x2)
+requestM x1 x2 = boolWrapper (request x1 x2)
 
 currentRequestsM :: DNP ([Req])
 currentRequestsM = do

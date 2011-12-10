@@ -49,7 +49,8 @@ data Share = Share {
   shareResvLimit :: Limit,
   shareReq :: PQ Req,
   shareFlows :: FlowGroup,
-  shareHolders :: Set Speaker
+  shareHolders :: Set Speaker,
+  shareDepth :: Integer
 --  shareStart :: Integer, -- invariant: start < end
 --  shareEnd :: Limit,  TODO (?)
 } deriving (Show)
@@ -82,7 +83,7 @@ emptyShareReq = PQ.empty reqStartOrder
 emptyState = 
   State (Tree.root rootShareRef
                    (Share NoLimit emptyShareReq anyFlow
-                   (Set.singleton rootSpeaker)))
+                   (Set.singleton rootSpeaker) 0))
         (Set.singleton rootSpeaker)
         (PQ.empty reqStartOrder)
         (PQ.empty reqEndOrder)
@@ -105,6 +106,13 @@ isResv req =
     (ReqResv _) -> True
     otherwise -> False
 
+isAdmControl :: Req -> Bool
+isAdmControl req =
+  case (reqData req) of
+    ReqAllow -> True
+    ReqDeny -> True
+    otherwise -> False
+
 unReqResv :: ReqData -> Maybe Integer
 unReqResv rd =
   case rd of
@@ -119,10 +127,11 @@ isSubFlow (FlowGroup fs1 fr1 fsp1 fdp1) (FlowGroup fs2 fr2 fsp2 fdp2) =
   Set.isSubsetOf fdp1 fdp2
 
 isSubShare :: Share -> Share -> Bool
-isSubShare (Share resLim1 _ flows1 _)
-          (Share resLim2 _ flows2 _) = 
+isSubShare (Share resLim1 _ flows1 _ depth1)
+          (Share resLim2 _ flows2 _ depth2) = 
   resLim1 <= resLim2 &&
-  flows1 `isSubFlow` flows2
+  flows1 `isSubFlow` flows2 &&
+  depth1 > depth2
 
 -----------------------------
 -- API Functions
@@ -186,6 +195,7 @@ newShare spk parentName shareName shareFlows shareLimit
         True -> 
           let newShare = Share shareLimit emptyShareReq shareFlows 
                                         (Set.singleton spk)
+                                        (1 + shareDepth parentShare)
             in case newShare `isSubShare` parentShare of
                  True -> 
                    Just (st { shareTree =
@@ -216,12 +226,12 @@ simulate reqsByStart = simStep 0 reqsByStart (PQ.empty reqEndOrder) where
         in (now, size'):(simStep size' byStart' byEnd'')
 
 -- TODO: Make more general so it can be used in three functions:
--- 1) IsAvailable  2)  HoldIfAvailable  3) ReserveIfAvailable (existing use)
-reserve :: Speaker
+-- 1) IsAvailable  2)  HoldIfAvailable  3) RequestIfAvailable (existing use)
+request :: Speaker
         -> Req
         -> State
         -> Maybe State
-reserve spk req@(Req shareRef flow start end rD)
+request spk req@(Req shareRef flow start end rD)
         st@(State {shareTree = sT,
                    acceptedReqs = accepted }) =
   if Tree.member shareRef sT then

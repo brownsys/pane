@@ -2,7 +2,7 @@ module EmitFML
   ( emitFML
   ) where
 
-import FlowController
+import FlowController hiding (request)
 import Text.PrettyPrint.HughesPJ
 import qualified Data.Maybe as Maybe
 import qualified Set as Set

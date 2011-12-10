@@ -177,13 +177,16 @@ newShareStmt spk = do
   parent <- identifier
   return (newShareM spk parent name fg (DiscreteLimit size))
 
+-- TODO: Fancy time parsing. Examples: from 1730 to 1830, from 1730 to +60m,
+-- from Now to +60m, from Now to Forever
+
 from = (do { reserved "from"; n <- T.integer lex; return n }) <|> (return 0)
 
 to = (do { reserved "to"; n <- T.integer lex; return (DiscreteLimit n) }) 
      <|> (return NoLimit)
   
-
-resv = do
+reservation spk = do
+  reserved "reserve"
   fg <- flowGroup
   reservedOp "="
   size <- T.integer lex
@@ -191,25 +194,34 @@ resv = do
   share <- identifier
   fromTime <- from
   toTime <- to
-  return (Req share fg fromTime toTime (ReqResv size))
+  return (requestM spk (Req share fg fromTime toTime (ReqResv size)))
 
-reservation spk = do
-  reserved "reserve"
-  r <- resv
-  -- TODO: Here we want some kind of (maybe "from") & (maybe "to")
-  -- examples: from 1730 to 1830, from 1730 to +60m, from Now to +60m, from Now to Forever
-  -- WELL, NewShare would always have "from Now to Forever" at least as we've constructed
-  -- things so far. We also want NewShare to have tokenBucket (eventually) ... this is a
-  -- rate limit, rather than the fixed limit of "from"/"to"
-  -- OR, should it go in the boolExpr as *part* of the prinList, that is: user=blah,from=,to=
-  return (reserveM spk r)
+allow spk = do
+  reserved "allow"
+  fg <- flowGroup
+  reserved "on"
+  share <- identifier
+  fromTime <- from
+  toTime <- to
+  return (requestM spk (Req share fg fromTime toTime ReqAllow))
+
+deny spk = do
+  reserved "deny"
+  fg <- flowGroup
+  reserved "on"
+  share <- identifier
+  fromTime <- from
+  toTime <- to
+  return (requestM spk (Req share fg fromTime toTime ReqDeny))
+
 
 -----------------------------
 
--- TODO: Can we have a statement which returns something other than a DNP Bool? how?
+-- TODO: Can we have a statement which returns something other
+-- than a DNP Bool? how?
 parseStmt spk = do
-  stmt <- tick spk <|> addUser spk <|> newShareStmt spk <|> reservation spk <|> grantUse spk
-          <|> grantDefaultUse spk
+  stmt <- tick spk <|> addUser spk <|> newShareStmt spk <|> reservation spk
+          <|> allow spk <|> deny spk <|> grantUse spk <|> grantDefaultUse spk
   dot
   return stmt
  

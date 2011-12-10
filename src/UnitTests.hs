@@ -73,25 +73,25 @@ test10 = evalDNP $ do frag2
 
 test11 = evalDNP $ do
   b1 <- frag2 
-  b2 <- reserveM "root" (foreverReq "net0" anyFlow (ReqResv 300))
+  b2 <- requestM "root" (foreverReq "net0" anyFlow (ReqResv 300))
   return (b1 && not b2)
 
 test12 = evalDNP $ do
   b1 <- frag2
-  b2 <- reserveM "root" (foreverReq rootShareRef anyFlow (ReqResv 300))
+  b2 <- requestM "root" (foreverReq rootShareRef anyFlow (ReqResv 300))
   return (b1 && b2)
 
 test13 = evalDNP $ do
   b1 <- frag2
-  b2 <- reserveM "root" (foreverReq "net0" anyFlow (ReqResv 100))
-  b3 <- reserveM "root" (foreverReq "net0" anyFlow (ReqResv 100))
+  b2 <- requestM "root" (foreverReq "net0" anyFlow (ReqResv 100))
+  b3 <- requestM "root" (foreverReq "net0" anyFlow (ReqResv 100))
   return (b1 && b2 && b3)
 
 test14 = evalDNP $ do
   b1 <- frag2
-  b2 <- reserveM "root" (foreverReq "net0" anyFlow (ReqResv 100))
-  b3 <- reserveM "root" (foreverReq "net0" anyFlow (ReqResv 100))
-  b4 <- reserveM "root" (foreverReq "net0" anyFlow (ReqResv 100))
+  b2 <- requestM "root" (foreverReq "net0" anyFlow (ReqResv 100))
+  b3 <- requestM "root" (foreverReq "net0" anyFlow (ReqResv 100))
+  b4 <- requestM "root" (foreverReq "net0" anyFlow (ReqResv 100))
   return (b1 && b2 && b3 && not b4)
 
 
@@ -101,41 +101,41 @@ frag3 = do
   b3 <- newShareM "root" "net0" "adfShare" anyFlow 
            (DiscreteLimit 150)
   b4 <- giveReferenceM "root" "adfShare" "adf"
-  b5 <- reserveM "adf" (foreverReq "adfShare" anyFlow (ReqResv 100))
+  b5 <- requestM "adf" (foreverReq "adfShare" anyFlow (ReqResv 100))
   return (b1 && b2 && b3 && b4 && b5)
 
 test15 = evalDNP $ do frag3
 
 test16 = evalDNP $ do
   b1 <- frag3
-  b2 <- reserveM "root" (foreverReq "net0" anyFlow (ReqResv 100))
+  b2 <- requestM "root" (foreverReq "net0" anyFlow (ReqResv 100))
   return (b1 && b2)
 
 test16a = evalDNP $ do
   b1 <- frag3
-  b2 <- reserveM "root" (foreverReq "adfShare" anyFlow (ReqResv 50))
+  b2 <- requestM "root" (foreverReq "adfShare" anyFlow (ReqResv 50))
   return (b1 && b2)
 
 test16b = evalDNP $ do
   b1 <- frag3
-  b2 <- reserveM "root" (foreverReq "adfShare" anyFlow (ReqResv 51))
+  b2 <- requestM "root" (foreverReq "adfShare" anyFlow (ReqResv 51))
   return (b1 && not b2)
 
 test17 = evalDNP $ do
   b1 <- frag3
-  b2 <- reserveM "root" (foreverReq "net0" anyFlow (ReqResv 101))
+  b2 <- requestM "root" (foreverReq "net0" anyFlow (ReqResv 101))
   return (b1 && not b2)
 
 test18 = evalDNP $ do
   b1 <- frag3
-  b2 <- reserveM "adf" (foreverReq "adfShare" anyFlow (ReqResv 51))
+  b2 <- requestM "adf" (foreverReq "adfShare" anyFlow (ReqResv 51))
   return (b1 && not b2)
 
 frag4 = do
   b1 <- createSpeakerM "arjun"
   b2 <- newShareM "root" rootShareRef "hadoop-share" anyFlow (DiscreteLimit 100)
   b3 <- giveDefaultReferenceM "root" "hadoop-share"
-  b4 <- reserveM "arjun" (foreverReq "hadoop-share" anyFlow (ReqResv 25))
+  b4 <- requestM "arjun" (foreverReq "hadoop-share" anyFlow (ReqResv 25))
   return (b1 && b2 && b3 && b4)
 
 test19 = evalDNP $ do frag4
@@ -143,7 +143,7 @@ test19 = evalDNP $ do frag4
 test20 = evalDNP $ do
   b1 <- frag4
   b2 <- createSpeakerM "adf"
-  b3 <- reserveM "adf" (foreverReq "hadoop-share" anyFlow (ReqResv 25))
+  b3 <- requestM "adf" (foreverReq "hadoop-share" anyFlow (ReqResv 25))
   return (b1 && b2 && b3)
 
 arjunFlow = anyFlow { flowSend = Set.singleton "arjun" }
@@ -152,7 +152,7 @@ frag5 = do
   b1 <- createSpeakerM "arjun"
   b2 <- newShareM "root" rootShareRef "arjun-share" arjunFlow (DiscreteLimit 100)
   b3 <- giveReferenceM "root" "arjun-share" "arjun"
-  b4 <- reserveM "arjun" (foreverReq "arjun-share" arjunFlow (ReqResv 50))
+  b4 <- requestM "arjun" (foreverReq "arjun-share" arjunFlow (ReqResv 50))
   s  <- currentRequestsM
   let b5 = Set.fromList s == Set.singleton (
                                foreverReq "arjun-share" arjunFlow (ReqResv 50))
@@ -164,7 +164,7 @@ test21 = evalDNP $ frag5
 frag6 = do
   b1 <- frag5
   let arjunWebFlow = (arjunFlow { flowSrcPort = Set.singleton 80}) 
-  b2 <- reserveM "arjun" (foreverReq "arjun-share" arjunWebFlow (ReqResv 50))
+  b2 <- requestM "arjun" (foreverReq "arjun-share" arjunWebFlow (ReqResv 50))
   s  <- currentRequestsM
   let b3 = Set.fromList s == Set.fromList [
                            (foreverReq "arjun-share" arjunFlow  (ReqResv 50)),
@@ -175,13 +175,13 @@ test22 = evalDNP frag6
 
 test23 = evalDNP $ do
   b1 <- frag5
-  b2 <- reserveM "arjun" (foreverReq "arjun-share" anyFlow (ReqResv 50))
+  b2 <- requestM "arjun" (foreverReq "arjun-share" anyFlow (ReqResv 50))
   return (b1 && not b2)
 
 test24 = evalDNP $ do
   b1 <- frag2 -- root creates net0 share
   let req = Req rootShareRef anyFlow 0 (DiscreteLimit 10) (ReqResv 100)
-  b2 <- reserveM rootSpeaker req
+  b2 <- requestM rootSpeaker req
   s <- currentRequestsM
   let b3 = s == [req]
   tickM 5
@@ -198,7 +198,7 @@ test24 = evalDNP $ do
 test25 = evalDNP $ do
   b1 <- frag2
   let req = Req rootShareRef anyFlow 5 (DiscreteLimit 10) (ReqResv 100)
-  b2 <- reserveM rootSpeaker req
+  b2 <- requestM rootSpeaker req
   s <- currentRequestsM
   let b3 = s == []
   tickM 4
