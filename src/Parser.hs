@@ -226,6 +226,8 @@ parseTestStmts = do
   tmp <- many parseTestStmt
   eof
   let (expected, positions, ss) = unzip3 tmp
+--  let (result, st) = runDNP (sequence ss) emptyState
+--  let assertions = mapM_ (\(exp, pos, res) -> assertEqual (show st) exp res) 
   let result = evalDNP (sequence ss)
   let assertions = mapM_ (\(exp, pos, res) -> assertEqual (show pos) exp res) 
                          (zip3 expected positions result)
@@ -276,6 +278,7 @@ parseInteractive' spk inBuf action acc = do
         lift (action s acc)
   let pars acc = 
                  (do { eof; return acc }) <|>
+                 (do { T.whiteSpace lex; eof; return acc }) <|>
                  (do { acc' <- p acc; pars acc' })
   a <- runParserT (pars acc) () "network-in" inBuf 
   case a of

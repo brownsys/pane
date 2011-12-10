@@ -199,7 +199,7 @@ reserve spk resv@(Resv shareRef flow start end size)
     let share = Tree.lookup shareRef sT
       in case Set.member spk (shareHolders share) && 
                flow `isSubFlow` (shareFlows share) &&
-               start < (stateNow st) &&
+               start <= (stateNow st) &&
                (DiscreteLimit start) < end of
         False -> Nothing
         True ->
