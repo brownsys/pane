@@ -1,0 +1,30 @@
+True <- root : AddUser Arjun.
+True <- root : NewShare net0 reserve(*) <= 1600 on rootShare.
+True <- root : NewShare arjunShare reserve(user=Arjun) <= 1000 on net0.
+True <- root : GrantUse Arjun on arjunShare.
+True <- root : allow(user=Arjun, app=443) on net0.
+True <- root : allow(app=80) on net0.
+
+True <- Arjun : reserve(user=Arjun, app=1) = 300 on arjunShare.
+True <- Arjun : reserve(user=Arjun, app=2) = 400 on arjunShare.
+
+True <- root : deny(app=80) on net0. // overrides previous allow on app=80
+
+True <- Arjun : allow(user=Arjun, app=80) on arjunShare.
+
+True <- root : deny(*) on rootShare.
+
+False <- Arjun : allow(app=80) on arjunShare.
+
+True <- Arjun : deny(user=Arjun, app=443) on arjunShare.
+
+// Produces the following FML:
+// P2: deny <= (U_s = "Arjun", P_r = 443)
+// P2: allow <= (U_s = "Arjun", P_r = 80)
+// P1: deny <= (P_r = 80)
+// P1: allow <= (P_r = 80)
+// P1: allow <= (U_s = "Arjun", P_r = 443)
+// P0: deny <= ()
+// bandwidth(400) <= (U_s = "Arjun", P_r = 2)
+// bandwidth(300) <= (U_s = "Arjun", P_r = 1)
+

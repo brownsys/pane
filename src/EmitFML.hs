@@ -6,13 +6,21 @@ import FlowController hiding (request)
 import Text.PrettyPrint.HughesPJ
 import qualified Data.Maybe as Maybe
 import qualified Set as Set
+import Data.List
 import Set (Set)
 
 emitFML :: State
         -> String
-emitFML st = render (requests (currentRequests st))
+emitFML st = render (requests (currentRequests st) st)
 
-requests reqs = vcat $ map request reqs
+requests reqs st = admControl reqs st $$ nonAdmControl reqs st
+
+admControl reqs st =
+  let admReqs = filter isAdmControl reqs
+      admReqs' = sortBy (\x y -> compare (reqDepth y st) (reqDepth x st)) admReqs
+  in vcat $ map (\x -> request x st) admReqs'
+
+nonAdmControl reqs st = vcat $ map (\x -> request x st) (filter (not.isAdmControl) reqs)
 
 data Flow = Flow (Maybe User) (Maybe User) (Maybe Port) (Maybe Port)
 
@@ -37,13 +45,13 @@ expandFlowGroup (FlowGroup sendUser recvUser sendPort recvPort) =
             Just lst -> map Just lst
             Nothing -> [Nothing]
 
-request req@(Req {reqFlows=flowGroup, reqData=rd}) = 
+request req@(Req {reqFlows=flowGroup, reqData=rd}) st = 
   case rd of
     (ReqResv n) -> vcat [ text "bandwidth(" <> text (show n) <> text ") <=" <+> flow  f
                       | f <- expandFlowGroup flowGroup ]
-    (ReqAllow) -> vcat [ text "allow <=" <+> flow f
+    (ReqAllow) -> vcat [ text "P" <> text (show (reqDepth req st)) <> text ": allow <=" <+> flow f
                       | f <- expandFlowGroup flowGroup ]
-    (ReqDeny) -> vcat [ text "deny <=" <+> flow f
+    (ReqDeny) -> vcat [ text "P" <> text (show (reqDepth req st)) <> text ": deny <=" <+> flow f
                       | f <- expandFlowGroup flowGroup ]
 
 --  text "bandwidth(" $$ text (show n) $$ text ") <=" $+$ flow f

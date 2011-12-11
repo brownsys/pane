@@ -113,6 +113,11 @@ isAdmControl req =
     ReqDeny -> True
     otherwise -> False
 
+reqDepth :: Req -> State -> Integer
+reqDepth req state =
+  let share = Tree.lookup (reqShare req) (shareTree state)
+  in shareDepth share
+
 unReqResv :: ReqData -> Maybe Integer
 unReqResv rd =
   case rd of
@@ -227,6 +232,8 @@ simulate reqsByStart = simStep 0 reqsByStart (PQ.empty reqEndOrder) where
 
 -- TODO: Make more general so it can be used in three functions:
 -- 1) IsAvailable  2)  HoldIfAvailable  3) RequestIfAvailable (existing use)
+-- Also needs to be more general so it can be used for any resource which
+-- needs to be checked up the tree (eg, latency, rate-limit, etc.)
 request :: Speaker
         -> Req
         -> State
