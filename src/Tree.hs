@@ -1,5 +1,5 @@
 module Tree (Tree, root, insert, member, lessThan, lessThanOrEq, chain,
-  descendingChain, adjust, lookup, update, children) where
+  descendingChain, depth, adjust, lookup, update, children) where
 
 import Prelude hiding (lookup)
 import Data.Map (Map)
@@ -69,6 +69,15 @@ chain from (Tree parent lt _ kvs) = f from where
     (Nothing, Nothing) -> error "element not in tree"
 
 descendingChain from lat = reverse (chain from lat)
+
+depth :: Ord a
+      => a
+      -> Tree a b
+      -> Int
+depth elt (Tree _ lt _ _) =
+  case (Map.lookup elt lt) of
+    Nothing -> error "element not in tree"
+    Just x -> Set.size x
 
 adjust :: Ord a
        => (b -> b)

@@ -43,8 +43,7 @@ data Share = Share {
   shareResvLimit :: Limit,
   shareReq :: PQ Req,
   shareFlows :: FlowGroup,
-  shareHolders :: Set Speaker,
-  shareDepth :: Integer
+  shareHolders :: Set Speaker
 --  shareStart :: Integer, -- invariant: start < end
 --  shareEnd :: Limit,  TODO (?)
 } deriving (Show)
@@ -77,7 +76,7 @@ emptyShareReq = PQ.empty reqStartOrder
 emptyState = 
   State (Tree.root rootShareRef
                    (Share NoLimit emptyShareReq anyFlow
-                   (Set.singleton rootSpeaker) 0))
+                   (Set.singleton rootSpeaker)))
         (Set.singleton rootSpeaker)
         (PQ.empty reqStartOrder)
         (PQ.empty reqEndOrder)
@@ -107,10 +106,9 @@ isAdmControl req =
     ReqDeny -> True
     otherwise -> False
 
-reqDepth :: Req -> State -> Integer
+reqDepth :: Req -> State -> Int
 reqDepth req state =
-  let share = Tree.lookup (reqShare req) (shareTree state)
-  in shareDepth share
+  Tree.depth (reqShare req) (shareTree state)
 
 unReqResv :: ReqData -> Maybe Integer
 unReqResv rd =
@@ -126,11 +124,10 @@ isSubFlow (FlowGroup fs1 fr1 fsp1 fdp1) (FlowGroup fs2 fr2 fsp2 fdp2) =
   Set.isSubsetOf fdp1 fdp2
 
 isSubShare :: Share -> Share -> Bool
-isSubShare (Share resLim1 _ flows1 _ depth1)
-          (Share resLim2 _ flows2 _ depth2) = 
+isSubShare (Share resLim1 _ flows1 _)
+          (Share resLim2 _ flows2 _) = 
   resLim1 <= resLim2 &&
-  flows1 `isSubFlow` flows2 &&
-  depth1 > depth2
+  flows1 `isSubFlow` flows2
 
 -----------------------------
 -- API Functions
@@ -194,7 +191,6 @@ newShare spk parentName shareName shareFlows shareLimit
         True -> 
           let newShare = Share shareLimit emptyShareReq shareFlows 
                                         (Set.singleton spk)
-                                        (1 + shareDepth parentShare)
             in case newShare `isSubShare` parentShare of
                  True -> 
                    Just (st { shareTree =
