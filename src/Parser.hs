@@ -120,7 +120,7 @@ timeNotForever = now <|> absolute <|> relative
 time = timeNotForever <|> forever
   where forever = do { reserved "forever"; return Forever }
 
-from = (do { reserved "from"; timeNotForever }) <|> (return (Absolute 0))
+from = (do { reserved "from"; timeNotForever }) <|> (return (Relative 0))
 
 to = (do { reserved "to"; time }) <|> (return Forever)
 
