@@ -70,75 +70,6 @@ boolean = do reserved "True"
              return False
 
 
------------------------------
-
-{-
-  addNetwork = do
-  reserved "AddNetwork"
-  newPrin <- network
-  reservedOp "<:"
-  parentPrin <- network
-  return (AddNetwork newPrin parentPrin)
--}
-
-
-{-
-latency = do
-  reserved "latency"
-  p <- parens prinList
-  let l = Set.fromList p
-  return (Latency l)
-
-jitter = do
-  reserved "jitter"
-  p <- parens prinList
-  let j = Set.fromList p
-  return (Jitter j)
-
-ratelimit = do
-  reserved "ratelimit"
-  p <- parens prinList
-  let r = Set.fromList p
-  return (Ratelimit r)
--}
-
-{-
-op = (reservedOp "<=" >> return NumLEq) <|> (reservedOp "<" >> return NumLT)
-  <|> (reservedOp "=" >> return NumEq) <|> (reservedOp ">=" >> return NumGEq)
-  <|> (reservedOp ">" >> return NumGT)
-
-
-numExpr = number <|> latency <|> jitter <|> ratelimit
-
-numPred = do
-  e1 <- numExpr
-  o <- op
-  e2 <- numExpr
-  return (NumPred e1 o e2)
--}
-
-{- allow = do
-  reserved "allow"
-  p <- parens prinList
-  let s = Set.fromList p
-  return (Allow s)
-
-deny = do
-  reserved "deny"
-  p <- parens prinList
-  let s = Set.fromList p
-  return (Deny s)
-
-boolExpr = numPred <|> allow <|> deny
-
-
-boolStmt = do
-  e <- boolExpr
-  reserved "on"
-  share <- shareName
-  return (Stmt e share)
--}
-
 tick "root" = do
   reserved "Tick"
   t <- T.integer lex
@@ -238,8 +169,6 @@ parseTestStmts = do
   tmp <- many parseTestStmt
   eof
   let (expected, positions, ss) = unzip3 tmp
---  let (result, st) = runDNP (sequence ss) emptyState
---  let assertions = mapM_ (\(exp, pos, res) -> assertEqual (show st) exp res) 
   let result = evalDNP (sequence ss)
   let assertions = mapM_ (\(exp, pos, res) -> assertEqual (show pos) exp res) 
                          (zip3 expected positions result)
@@ -282,9 +211,7 @@ parseInteractive' :: String  -- ^speaker
                  -> a
                  -> IO a
 parseInteractive' spk inBuf action acc = do
---  putStrLn $ "Trying to parse " ++ inStream
   let p acc = do
---        lift $ putStrLn "Waiting to parse ..."
         T.whiteSpace lex
         s <- parseStmt spk
         lift (action s acc)
