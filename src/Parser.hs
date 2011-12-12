@@ -99,16 +99,36 @@ grantDefaultUse spk = do
   share <- identifier 
   return (giveDefaultReferenceM spk share)
 
+-- TODO: Obviously, this is redundant and perhaps doesn't make sense, but I
+-- want to leave open the question of whether this should be ternary (as in,
+-- yes/no/inherit-from-parent) or if not, which case should be the default when
+-- unspecified (perhaps 'canAllow' should be required, and 'cannotAllow' should
+-- be the default since it means user must grant this authority explicitly)
+canAllow = (do { reserved "canAllow"; (return True) }) <|>
+           (do { reserved "cannotAllow"; (return False) }) <|>
+           (return True)
+
+canDeny = (do { reserved "canDeny"; (return True) }) <|>
+          (do { reserved "cannotDeny"; (return False) }) <|>
+          (return True)
+
+resvLimit = do
+  reserved "reserve"
+  reservedOp "<="
+  size <- T.integer lex
+  return size
+
 newShareStmt spk = do
   reserved "NewShare"
   name <- identifier
-  reserved "reserve" -- TODO: should be some generic resource? (actually, case on resource)
+  reserved "with"
   fg <- flowGroup
-  reservedOp "<="
-  size <- T.integer lex
+  size <- resvLimit -- TODO: Is it possible to read these next 3 in any order?
+  ca <- canAllow
+  cd <- canDeny
   reserved "on"
   parent <- identifier
-  return (newShareM spk parent name fg (DiscreteLimit size))
+  return (newShareM spk parent name fg (DiscreteLimit size) ca cd)
 
 timeNotForever = now <|> absolute <|> relative
   where now      = do { reserved "now"; return (Relative 0) }

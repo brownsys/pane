@@ -1,6 +1,6 @@
 True <- root : AddUser Arjun.
-True <- root : NewShare net0 reserve(*) <= 1600 on rootShare.
-True <- root : NewShare arjunShare reserve(user=Arjun) <= 1000 on net0.
+True <- root : NewShare net0 with (*) reserve <= 1600 on rootShare.
+True <- root : NewShare arjunShare with (user=Arjun) reserve <= 1000 on net0.
 True <- root : GrantUse Arjun on arjunShare.
 True <- root : allow(user=Arjun, app=443) on net0.
 True <- root : allow(app=80) on net0.
@@ -18,7 +18,7 @@ False <- Arjun : allow(app=80) on arjunShare.
 
 True <- Arjun : deny(user=Arjun, app=443) on arjunShare.
 
-// Produces the following FML:
+// The above produces the following FML:
 // P2: deny <= (U_s = "Arjun", P_r = 443)
 // P2: allow <= (U_s = "Arjun", P_r = 80)
 // P1: deny <= (P_r = 80)
@@ -28,3 +28,27 @@ True <- Arjun : deny(user=Arjun, app=443) on arjunShare.
 // bandwidth(400) <= (U_s = "Arjun", P_r = 2)
 // bandwidth(300) <= (U_s = "Arjun", P_r = 1)
 
+True  <- root : AddUser adf.
+True  <- root : NewShare adfReserve with (user=adf) reserve <= 100 cannotAllow cannotDeny on net0.
+True  <- root : NewShare adfAllow with (user=adf) reserve <= 0 cannotDeny on net0.
+True  <- root : NewShare adfDeny with (user=adf) reserve <= 0 cannotAllow on net0.
+True  <- root : GrantUse adf on adfReserve.
+True  <- root : GrantUse adf on adfAllow.
+True  <- root : GrantUse adf on adfDeny.
+
+True  <- adf : reserve(user=adf, app=5) = 1 on adfReserve.
+False <- adf : reserve(user=adf, app=6) = 1 on adfAllow.
+False <- adf : reserve(user=adf, app=7) = 1 on adfDeny.
+
+False <- adf : allow(user=adf, app=5) on adfReserve.
+True  <- adf : allow(user=adf, app=6) on adfAllow.
+False <- adf : allow(user=adf, app=7) on adfDeny.
+
+False <- adf : deny(user=adf, app=5) on adfReserve.
+False <- adf : deny(user=adf, app=6) on adfAllow.
+True  <- adf : deny(user=adf, app=7) on adfDeny.
+
+False <- adf : NewShare adfSubReserve with (user=adf,app=5) reserve <= 50 on adfReserve.
+True  <- adf : NewShare adfSubReserve with (user=adf,app=5) reserve <= 50 cannotAllow cannotDeny on adfReserve.
+False <- adf : NewShare adfSubAllow with (user=adf,app=5) reserve <= 0 canDeny on adfAllow.
+False <- adf : NewShare adfSubDeny with (user=adf,app=5) reserve <= 0 canAllow on adfDeny.

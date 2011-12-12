@@ -40,12 +40,16 @@ data ReqData = ReqResv Integer
              deriving (Eq, Ord, Show)
 
 data Share = Share {
-  shareResvLimit :: Limit,
-  shareReq :: PQ Req,
-  shareFlows :: FlowGroup,
-  shareHolders :: Set Speaker
+  shareFlows :: FlowGroup,     -- set of flows in this share
+  shareHolders :: Set Speaker, -- users who can speak about this share
+  shareReq :: PQ Req,          -- queue of accepted requests, sort by start
 --  shareStart :: Integer, -- invariant: start < end
 --  shareEnd :: Limit,  TODO (?)
+
+  -- Restrictions on what this share can be used for
+  shareResvLimit :: Limit,
+  shareCanAllowFlows :: Bool,
+  shareCanDenyFlows :: Bool
 } deriving (Show)
 
 type ShareTree = Tree ShareRef Share
@@ -75,8 +79,8 @@ emptyShareReq = PQ.empty reqStartOrder
 
 emptyState = 
   State (Tree.root rootShareRef
-                   (Share NoLimit emptyShareReq anyFlow
-                   (Set.singleton rootSpeaker)))
+                   (Share anyFlow (Set.singleton rootSpeaker) emptyShareReq
+                   NoLimit True True))
         (Set.singleton rootSpeaker)
         (PQ.empty reqStartOrder)
         (PQ.empty reqEndOrder)
@@ -99,12 +103,20 @@ isResv req =
     (ReqResv _) -> True
     otherwise -> False
 
-isAdmControl :: Req -> Bool
-isAdmControl req =
+isAllow :: Req -> Bool
+isAllow req =
   case (reqData req) of
     ReqAllow -> True
+    otherwise -> False
+
+isDeny :: Req -> Bool
+isDeny req =
+  case (reqData req) of
     ReqDeny -> True
     otherwise -> False
+
+isAdmControl :: Req -> Bool
+isAdmControl req = (isAllow req) || (isDeny req)
 
 reqDepth :: Req -> State -> Int
 reqDepth req state =
@@ -124,10 +136,12 @@ isSubFlow (FlowGroup fs1 fr1 fsp1 fdp1) (FlowGroup fs2 fr2 fsp2 fdp2) =
   Set.isSubsetOf fdp1 fdp2
 
 isSubShare :: Share -> Share -> Bool
-isSubShare (Share resLim1 _ flows1 _)
-          (Share resLim2 _ flows2 _) = 
+isSubShare (Share flows1 _ _ resLim1 canAllow1 canDeny1)
+          (Share flows2 _ _ resLim2 canAllow2 canDeny2) = 
   resLim1 <= resLim2 &&
-  flows1 `isSubFlow` flows2
+  flows1 `isSubFlow` flows2 &&
+  not (canAllow1 && not canAllow2) && -- Fail if s1 has higher perms than s2
+  not (canDeny1 && not canDeny2)
 
 -----------------------------
 -- API Functions
@@ -181,16 +195,18 @@ newShare :: Speaker
            -> String
            -> FlowGroup
            -> Limit
+           -> Bool
+           -> Bool
            -> State
            -> Maybe State
-newShare spk parentName shareName shareFlows shareLimit
+newShare spk parentName shareName shareFlows shareLimit canAllow canDeny
            st@(State {shareTree = sT}) =
   if Tree.member parentName sT then
     let parentShare = Tree.lookup parentName sT
       in case Set.member spk (shareHolders parentShare) of
         True -> 
-          let newShare = Share shareLimit emptyShareReq shareFlows 
-                                        (Set.singleton spk)
+          let newShare = Share shareFlows (Set.singleton spk) emptyShareReq
+                                        shareLimit canAllow canDeny
             in case newShare `isSubShare` parentShare of
                  True -> 
                    Just (st { shareTree =
@@ -220,10 +236,56 @@ simulate reqsByStart = simStep 0 reqsByStart (PQ.empty reqEndOrder) where
                      - sum (mapMaybe (unReqResv.reqData) endingNow)
         in (now, size'):(simStep size' byStart' byEnd'')
 
+-- TODO: needs to be more general so it can be used for any resource which
+-- needs to be checked up the tree (eg, latency, rate-limit, etc.)
+recursiveRequest :: Req
+                 -> State
+                 -> Maybe State
+recursiveRequest req@(Req shareRef _ start end _)
+                 st@(State {shareTree = sT, acceptedReqs = accepted }) =
+  let chain = Tree.chain shareRef sT
+      f Nothing _ = Nothing
+      f (Just sT) (thisShareName,thisShare@(Share {shareReq=reqs})) = 
+        let g req'@(Req { reqStart = start', reqEnd = end' }) =
+                 (isResv req && isResv req') && -- TODO: generalize in future 
+                 not (end' < (DiscreteLimit start) ||
+                      (DiscreteLimit start') > end)
+            simReqs = PQ.enqueue req (PQ.filter g reqs)
+            (_, sizes) = unzip (simulate simReqs)
+-- TODO: this next line is the specific test for reservations, rather than
+-- any type of request
+            in if injLimit (maximum sizes) > shareResvLimit thisShare
+               then
+                  Nothing
+               else
+                  let thisShare' = thisShare { shareReq = PQ.enqueue
+                                                  req reqs }
+                    in Just (Tree.update thisShareName thisShare' sT)
+    in case foldl f (Just sT) chain of
+         Nothing -> Nothing
+         Just sT' -> 
+           Just (tick 0 (st { shareTree = sT',
+                      acceptedReqs = PQ.enqueue req accepted }))
+
+-- For resources which only need to be checked in their share (not up the tree)
+localRequest :: Req
+             -> State
+             -> Maybe State
+localRequest req@(Req shareRef _ _ _ _)
+             st@(State {shareTree = sT, acceptedReqs = accepted }) =
+  let share = Tree.lookup shareRef sT in
+    if (isAllow req && shareCanAllowFlows share) ||
+       (isDeny req && shareCanDenyFlows share)
+      then
+        let share' = share { shareReq = PQ.enqueue req (shareReq share) }
+            sT' = Tree.update shareRef share sT
+          in Just (tick 0 (st { shareTree = sT',
+                                acceptedReqs = PQ.enqueue req accepted }))
+      else
+        Nothing
+
 -- TODO: Make more general so it can be used in three functions:
 -- 1) IsAvailable  2)  HoldIfAvailable  3) RequestIfAvailable (existing use)
--- Also needs to be more general so it can be used for any resource which
--- needs to be checked up the tree (eg, latency, rate-limit, etc.)
 request :: Speaker
         -> Req
         -> State
@@ -238,29 +300,10 @@ request spk req@(Req shareRef flow start end rD)
                start >= (stateNow st) &&
                (DiscreteLimit start) < end of
         False -> Nothing
-        True ->
-          let chain = Tree.chain shareRef sT
-              f Nothing _ = Nothing
-              f (Just sT) (thisShareName,thisShare@(Share {shareReq=reqs})) = 
-                let g (Req { reqStart = start', reqEnd = end' }) =
-                         not (end' < (DiscreteLimit start) ||
-                              (DiscreteLimit start') > end)
-                    simReqs = PQ.enqueue req (PQ.filter g reqs)
-                    (_, sizes) = unzip (simulate simReqs)
--- TODO: this next line is the specific test for reservations, rather than
--- any type of request
-                    in if injLimit (maximum sizes) > shareResvLimit thisShare
-                       then
-                          Nothing
-                       else
-                          let thisShare' = thisShare { shareReq = PQ.enqueue
-                                                          req reqs }
-                            in Just (Tree.update thisShareName thisShare' sT)
-            in case foldl f (Just sT) chain of
-                 Nothing -> Nothing
-                 Just sT' -> 
-                   Just (tick 0 (st { shareTree = sT',
-                              acceptedReqs = PQ.enqueue req accepted }))
+        True -> case rD of
+                  ReqAllow -> localRequest req st 
+                  ReqDeny -> localRequest req st
+                  (ReqResv _) -> recursiveRequest req st
   else
     Nothing
 
@@ -290,7 +333,7 @@ findSharesByFlowGroup fg st@(State {shareTree=sT}) =
       let next = (foldl (++) [] (map (\x -> findInTree flow x tr)
                                   (Tree.children shareRef tr)))
         in case fg `isSubFlow` (shareFlows share) of
-          False -> [] -- skip the children
+          False -> [] -- skip the children b/c tree constructed with isSubFlow
           True -> (shareRef, share):next
 
 findSharesByUser :: User -> State -> [(ShareRef, Share)]

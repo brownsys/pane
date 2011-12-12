@@ -18,7 +18,8 @@ javascriptDef =
                 (oneOf "{}<>()~.,?:|&^=!+-*/%!") -- operator start
                 (oneOf "=<>|&+") -- operator rest
                 [ "Tick", "AddUser", "NewShare", "GrantUse", "on", "True", "False",
-                  "from", "to", "forever", "reserve", "allow", "deny"
+                  "from", "to", "forever", "reserve", "allow", "deny",
+                  "canAllow", "cannotAllow", "canDeny", "cannotDeny"
                 -- "DropUser", "AddNetwork", "DropNetwork"
                 ]
                 [ "*", "(", ")", ",", ":" ]
