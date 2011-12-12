@@ -9,6 +9,7 @@ import Tree (Tree)
 import qualified PriorityQueue as PQ
 import PriorityQueue (PQ)
 import Data.Maybe (maybe, mapMaybe)
+import Base
 
 type Speaker = String
 
@@ -21,13 +22,6 @@ data FlowGroup = FlowGroup {
   flowSrcPort ::  Set Port,
   flowDestPort :: Set Port
 } deriving (Ord, Eq, Show)
-
-data Limit = NoLimit | DiscreteLimit Integer deriving (Eq, Show)
-
-instance Ord Limit where
-  _ <= NoLimit = True
-  (DiscreteLimit m) <= (DiscreteLimit n) = m <= n
-  NoLimit <= (DiscreteLimit _) = False
 
 
 type ShareRef = String

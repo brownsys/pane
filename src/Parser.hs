@@ -1,5 +1,6 @@
 module Parser where
 
+import Base
 import Prelude hiding (lex)
 import Lexer
 import Syntax
@@ -18,6 +19,7 @@ import Test.HUnit
 
 -- Root : AddUser Arjun <: Root.
 -- Root : for Arjun Allow(*).
+nat = T.natural lex
 
 
 -- explicitly indicated user
@@ -108,14 +110,20 @@ newShareStmt spk = do
   parent <- identifier
   return (newShareM spk parent name fg (DiscreteLimit size))
 
--- TODO: Fancy time parsing. Examples: from 1730 to 1830, from 1730 to +60m,
--- from Now to +60m, from Now to Forever
+timeNotForever = now <|> absolute <|> relative
+  where now      = do { reserved "now"; return (Relative 0) }
+        absolute = do { n <- nat; return (Absolute n) }
+        relative = incr <|> decr
+        incr     = do { reservedOp "+"; n <- nat; return (Relative n) }
+        decr     = do { reservedOp "-"; n <- nat; return (Relative (-n)) }
 
-from = (do { reserved "from"; n <- T.integer lex; return n }) <|> (return 0)
+time = timeNotForever <|> forever
+  where forever = do { reserved "forever"; return Forever }
 
-to = (do { reserved "to"; n <- T.integer lex; return (DiscreteLimit n) }) 
-     <|> (return NoLimit)
-  
+from = (do { reserved "from"; timeNotForever }) <|> (return (Absolute 0))
+
+to = (do { reserved "to"; time }) <|> (return Forever)
+
 reservation spk = do
   reserved "reserve"
   fg <- flowGroup
@@ -125,7 +133,12 @@ reservation spk = do
   share <- identifier
   fromTime <- from
   toTime <- to
-  return (requestM spk (Req share fg fromTime toTime (ReqResv size)))
+  let cmd = do
+        now <- getTimeM
+        let absFrom = timeToInteger now fromTime
+        let absTo = timeToLimit now toTime
+        requestM spk (Req share fg absFrom absTo (ReqResv size))
+  return cmd
 
 allow spk = do
   reserved "allow"
@@ -134,7 +147,12 @@ allow spk = do
   share <- identifier
   fromTime <- from
   toTime <- to
-  return (requestM spk (Req share fg fromTime toTime ReqAllow))
+  let cmd = do
+        now <- getTimeM
+        let absFrom = timeToInteger now fromTime
+        let absTo = timeToLimit now toTime
+        requestM spk (Req share fg absFrom absTo ReqAllow)
+  return cmd
 
 deny spk = do
   reserved "deny"
@@ -143,7 +161,12 @@ deny spk = do
   share <- identifier
   fromTime <- from
   toTime <- to
-  return (requestM spk (Req share fg fromTime toTime ReqDeny))
+  let cmd = do
+        now <- getTimeM
+        let absFrom = timeToInteger now fromTime
+        let absTo = timeToLimit now toTime
+        requestM spk (Req share fg absFrom absTo ReqDeny)
+  return cmd
 
 
 -----------------------------

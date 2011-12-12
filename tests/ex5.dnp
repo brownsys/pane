@@ -1,0 +1,7 @@
+True <- root : NewShare net0 reserve(*) <= 2000 on rootShare.
+True <- root : reserve(*) = 2000 on net0 from now to 10.
+False <- root : reserve(*) = 1 on net0 from now.
+True <- root : Tick 5.
+False <- root : reserve(*) = 1 on net0 from now.
+True <- root : Tick 10.
+True <- root : reserve(*) = 1 on net0 from now.
