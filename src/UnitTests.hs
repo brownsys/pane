@@ -5,6 +5,7 @@ import FlowController
 import qualified Set
 import FlowControllerLang
 import Base
+import qualified TokenBucket as TB
 -- import EmitFML
 
 instance AssertionPredicable (Maybe a) where
@@ -40,18 +41,23 @@ test5 = evalDNP $ do
   return (b1 && b2)
 
 test6 = evalDNP $ do
-  b1 <- createSpeakerM "arjun" 
-  b2 <- newShareM "root" rootShareRef "arjun-share" anyFlow (DiscreteLimit 100) False False
+  b1 <- createSpeakerM "arjun"
+  let s = Share anyFlow (Set.singleton "root") emptyShareReq (DiscreteLimit 100)
+            False False TB.unlimited
+  b2 <- newShareM "root" rootShareRef "arjun-share" s
   b3 <- giveReferenceM "root" "arjun-share" "arjun"
   return (b1 && b2 && b3)
 
 frag1 limitForAdf = do
   b1 <- createSpeakerM "arjun"
   b2 <- createSpeakerM "adf"
-  b3 <- newShareM "root" rootShareRef "arjun-share" anyFlow (DiscreteLimit 100) False False
+  let s = Share anyFlow (Set.singleton "root") emptyShareReq (DiscreteLimit 100)
+            False False TB.unlimited
+  b3 <- newShareM "root" rootShareRef "arjun-share" s 
   b4 <- giveReferenceM "root" "arjun-share" "arjun"
-  b5 <- newShareM "arjun" "arjun-share" "adf-share" anyFlow (DiscreteLimit limitForAdf)
-                  False False
+  let s' = Share anyFlow (Set.singleton "arjun") emptyShareReq (DiscreteLimit limitForAdf)
+            False False TB.unlimited
+  b5 <- newShareM "arjun" "arjun-share" "adf-share" s' 
   b6 <- giveReferenceM "arjun" "adf-share" "adf"
   return (b1 && b2 && b3 && b4 && b5 && b6)
 
@@ -68,7 +74,9 @@ test9 =  evalDNP $ do
 
   
 frag2 = do
-  b1 <- newShareM "root" rootShareRef "net0" anyFlow (DiscreteLimit 200) True True
+  let s = Share anyFlow (Set.singleton "root") emptyShareReq (DiscreteLimit 200)
+            True True TB.unlimited
+  b1 <- newShareM "root" rootShareRef "net0" s
   return b1
 
 test10 = evalDNP $ do frag2
@@ -100,8 +108,9 @@ test14 = evalDNP $ do
 frag3 = do 
   b1 <- frag2
   b2 <- createSpeakerM "adf"
-  b3 <- newShareM "root" "net0" "adfShare" anyFlow 
-           (DiscreteLimit 150) False False
+  let s = Share anyFlow (Set.singleton "root") emptyShareReq (DiscreteLimit 150)
+            False False TB.unlimited
+  b3 <- newShareM "root" "net0" "adfShare" s
   b4 <- giveReferenceM "root" "adfShare" "adf"
   b5 <- requestM "adf" (foreverReq "adfShare" anyFlow (ReqResv 100))
   return (b1 && b2 && b3 && b4 && b5)
@@ -135,7 +144,9 @@ test18 = evalDNP $ do
 
 frag4 = do
   b1 <- createSpeakerM "arjun"
-  b2 <- newShareM "root" rootShareRef "hadoop-share" anyFlow (DiscreteLimit 100) False False
+  let s = Share anyFlow (Set.singleton "root") emptyShareReq (DiscreteLimit 100)
+            False False TB.unlimited
+  b2 <- newShareM "root" rootShareRef "hadoop-share" s
   b3 <- giveDefaultReferenceM "root" "hadoop-share"
   b4 <- requestM "arjun" (foreverReq "hadoop-share" anyFlow (ReqResv 25))
   return (b1 && b2 && b3 && b4)
@@ -152,7 +163,9 @@ arjunFlow = anyFlow { flowSend = Set.singleton "arjun" }
 
 frag5 = do
   b1 <- createSpeakerM "arjun"
-  b2 <- newShareM "root" rootShareRef "arjun-share" arjunFlow (DiscreteLimit 100) False False
+  let s = Share arjunFlow (Set.singleton "root") emptyShareReq (DiscreteLimit 100)
+            False False TB.unlimited
+  b2 <- newShareM "root" rootShareRef "arjun-share" s
   b3 <- giveReferenceM "root" "arjun-share" "arjun"
   b4 <- requestM "arjun" (foreverReq "arjun-share" arjunFlow (ReqResv 50))
   s  <- currentRequestsM

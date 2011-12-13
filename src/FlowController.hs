@@ -145,8 +145,8 @@ isSubShare (Share flows1 _ _ resLim1 canAllow1 canDeny1 _)
           (Share flows2 _ _ resLim2 canAllow2 canDeny2 _) = 
   resLim1 <= resLim2 &&
   flows1 `isSubFlow` flows2 &&
-  not (canAllow1 && not canAllow2) && -- Fail if s1 has higher perms than s2
-  not (canDeny1 && not canDeny2)
+  canAllow1 <= canAllow2 &&
+  canDeny1 <= canDeny2
 
 -----------------------------
 -- API Functions
@@ -198,27 +198,19 @@ giveDefaultReference from ref st@(State {shareTree=sT, stateSpeakers=refs}) =
 newShare :: Speaker
            -> ShareRef
            -> String
-           -> FlowGroup
-           -> Limit
-           -> Bool
-           -> Bool
-           -> TokenBucket
+           -> Share
            -> State
            -> Maybe State
-newShare spk parentName shareName shareFlows shareLimit canAllow canDeny resvBucket
+newShare spk parentName shareName newShare
            st@(State {shareTree = sT}) =
   if Tree.member parentName sT then
     let parentShare = Tree.lookup parentName sT
       in case Set.member spk (shareHolders parentShare) of
-        True -> 
-          let newShare = Share shareFlows (Set.singleton spk) emptyShareReq
-                                        shareLimit canAllow canDeny
-                                        resvBucket
-            in case newShare `isSubShare` parentShare of
-                 True -> 
-                   Just (st { shareTree =
-                            (Tree.insert shareName newShare parentName sT) } )
-                 False -> Nothing
+        True -> case newShare `isSubShare` parentShare of
+                  True -> 
+                    Just (st { shareTree =
+                             (Tree.insert shareName newShare parentName sT) } )
+                  False -> Nothing
         False -> Nothing
   else
     Nothing
@@ -244,6 +236,8 @@ simulate reqsByStart = simStep 0 reqsByStart (PQ.empty reqEndOrder) where
         in (now, size'):(simStep size' byStart' byEnd'')
 
 
+-- TODO: This is the heart of the token bucket/share math. needs fixes anyway. 
+-- needs to become general based on differences in rates
 consumeResvTokens start (DiscreteLimit end) resv share = 
   let n = (end - start) * resv in
     case TB.consume n (shareResvTokens share) of
@@ -259,7 +253,7 @@ consumeResvTokens _     _                   _    share =
 recursiveRequest :: Req
                  -> State
                  -> Maybe State
-recursiveRequest req@(Req shareRef _ start end (ReqResv resv))
+recursiveRequest req@(Req shareRef _ start end (ReqResv resv)) -- TODO: specific
                  st@(State {shareTree = sT, acceptedReqs = accepted }) =
   let chain = Tree.chain shareRef sT
       f Nothing _ = Nothing

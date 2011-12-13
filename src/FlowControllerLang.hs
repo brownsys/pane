@@ -51,7 +51,7 @@ giveReferenceM fromSpk share toSpk =
 
 giveDefaultReferenceM fromSpk share = boolWrapper (giveDefaultReference fromSpk share)
 
-newShareM x1 x2 x3 x4 x5 x6 x7 x8 = boolWrapper (newShare x1 x2 x3 x4 x5 x6 x7 x8)
+newShareM x1 x2 x3 x4 = boolWrapper (newShare x1 x2 x3 x4)
 
 requestM x1 x2 = boolWrapper (request x1 x2)
 

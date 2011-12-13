@@ -149,7 +149,9 @@ newShareStmt spk = do
   reserved "on"
   parent <- identifier
   resvBucket <- do { reserved "throttle"; tokenBucket } <|> return TB.unlimited
-  return (newShareM spk parent name fg (DiscreteLimit size) ca cd resvBucket)
+  let s = Share fg (Set.singleton spk) emptyShareReq (DiscreteLimit size)
+            ca cd resvBucket
+  return (newShareM spk parent name s)
 
 timeNotForever = now <|> absolute <|> relative
   where now      = do { reserved "now"; return (Relative 0) }
