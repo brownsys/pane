@@ -10,6 +10,9 @@ instance Ord Limit where
   (DiscreteLimit m) <= (DiscreteLimit n) = m <= n
   NoLimit <= (DiscreteLimit _) = False
 
+addLimits (DiscreteLimit m) (DiscreteLimit n) = DiscreteLimit (m + n)
+addLimits _                 _                 = NoLimit
+
 data Time
   = Relative Integer -- ^relative to now
   | Absolute Integer
