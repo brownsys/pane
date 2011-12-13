@@ -16,6 +16,8 @@ data Tree a b =
        (Map a b)       -- ^actual data
   deriving Show
 
+instance Ord a => Functor (Tree a) where
+  fmap f (Tree p tr child kvs) = Tree p tr child (fmap f kvs)
 
 root :: Ord a
      => a
