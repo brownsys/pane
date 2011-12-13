@@ -1,0 +1,36 @@
+True <- root : NewShare net0 with (*) reserve <= 2000 on rootShare.
+True <- root : AddUser adf.
+True <- root : NewShare hadup with (*) reserve <= 100 
+                              on net0 
+                              throttle bucket(0,100,10).
+True <- root : GrantUse adf on hadup.
+// requires an unbounded number of tokens
+False <- adf : reserve(*) = 1 on hadup.
+// token bucket was initialized with 0 tokens
+False <- adf : reserve(*) = 10 on hadup from now to +2.
+True <- root : Tick 1.
+// token bucket has only 10 tokens, 20 needed
+False <- adf : reserve(*) = 10 on hadup from now to +2.
+True <- root : Tick 1.
+True <- adf : reserve(*) = 10 on hadup from now to +2.
+// no more tokens at this time step
+False <- adf : reserve(*) = 1 on hadup from now to +1.
+True <- root : Tick 1.
+True <- adf : reserve(*) = 10 on hadup from now to +1.
+// no more tokens at this time step
+False <- adf : reserve(*) = 1 on hadup from now to +1.
+
+// Bursting test:
+True <- root : Tick 50.
+False <- adf : reserve(*) = 20 on hadup from now to +6.
+True  <- adf : reserve(*) = 20 on hadup from now to +5.
+False <- adf : reserve(*) = 1 on hadup from now to +1.
+
+// Can burst again
+True <- root : Tick 10.
+False <- adf : reserve(*) = 20 on hadup from now to +6.
+True  <- adf : reserve(*) = 20 on hadup from now to +5.
+False <- adf : reserve(*) = 1 on hadup from now to +1.
+
+
+

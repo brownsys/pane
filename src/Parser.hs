@@ -12,7 +12,9 @@ import FlowControllerLang
 import FlowController hiding (tick)
 import Control.Monad.IO.Class
 import Control.Monad.Trans
+import Control.Monad
 import Test.HUnit
+import qualified TokenBucket as TB
 
 -- Based on:
 --   https://github.com/brownplt/webbits/blob/master/src/BrownPLT/JavaScript/Parser.hs
@@ -20,6 +22,24 @@ import Test.HUnit
 -- Root : AddUser Arjun <: Root.
 -- Root : for Arjun Allow(*).
 nat = T.natural lex
+
+-- |'NoLimit' means different things in different contexts; supply a word for
+-- 'NoLimit'
+limit noLimitStr = 
+  (do { n <- nat; return (DiscreteLimit n) }) <|>
+  (do { reserved noLimitStr; return NoLimit })
+
+tokenBucket = do
+  reserved "bucket"
+  reservedOp "("
+  init <- limit "unlimited"
+  comma
+  capacity <- limit "unlimited"
+  comma
+  when (init > capacity) (fail "initial tokens exceeds capacity")
+  mintRate <- nat
+  reservedOp ")"
+  return (TB.new init capacity mintRate)
 
 
 -- explicitly indicated user
@@ -128,7 +148,8 @@ newShareStmt spk = do
   cd <- canDeny
   reserved "on"
   parent <- identifier
-  return (newShareM spk parent name fg (DiscreteLimit size) ca cd)
+  resvBucket <- do { reserved "throttle"; tokenBucket } <|> return TB.unlimited
+  return (newShareM spk parent name fg (DiscreteLimit size) ca cd resvBucket)
 
 timeNotForever = now <|> absolute <|> relative
   where now      = do { reserved "now"; return (Relative 0) }
