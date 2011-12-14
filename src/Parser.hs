@@ -334,8 +334,8 @@ parseInteractive' spk inBuf action acc = do
         s <- parseStmt spk
         lift (action s acc)
   let pars acc = 
-                 (do { eof; return acc }) <|>
-                 (do { T.whiteSpace lex; eof; return acc }) <|>
+                 try(do { eof; return acc }) <|>
+                 try(do { T.whiteSpace lex; eof; return acc }) <|>
                  (do { acc' <- p acc; pars acc' })
   a <- runParserT (pars acc) () "network-in" inBuf 
   case a of
