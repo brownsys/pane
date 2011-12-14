@@ -19,8 +19,6 @@ import qualified TokenBucket as TB
 -- Based on:
 --   https://github.com/brownplt/webbits/blob/master/src/BrownPLT/JavaScript/Parser.hs
 
--- Root : AddUser Arjun <: Root.
--- Root : for Arjun Allow(*).
 nat = T.natural lex
 
 -- |'NoLimit' means different things in different contexts; supply a word for
@@ -28,6 +26,11 @@ nat = T.natural lex
 limit noLimitStr = 
   (do { n <- nat; return (DiscreteLimit n) }) <|>
   (do { reserved noLimitStr; return NoLimit })
+
+boolean = do reserved "True"
+             return True
+      <|> do reserved "False"
+             return False
 
 tokenBucket = do
   reserved "bucket"
@@ -41,6 +44,9 @@ tokenBucket = do
   reservedOp ")"
   return (TB.new init capacity mintRate)
 
+-----------------------------
+-- Flow Group handling
+-----------------------------
 
 -- explicitly indicated user
 expUser = do
@@ -86,11 +92,50 @@ flowGroup = do
   let flowDestPort = maybeAll (catMaybes (map forApp p))
   return (FlowGroup flowSend Set.all Set.all flowDestPort)
 
-boolean = do reserved "True"
-             return True
-      <|> do reserved "False"
-             return False
+-----------------------------
+-- Share Permissions
+-----------------------------
 
+resvLimit = do
+  reserved "reserve"
+  reservedOp "<="
+  size <- T.integer lex
+  return (DiscreteLimit size)
+
+-- TODO: Obviously, this is redundant and perhaps doesn't make sense, but I
+-- want to leave open the question of whether this should be ternary (as in,
+-- yes/no/inherit-from-parent) or if not, which case should be the default when
+-- unspecified (perhaps 'allow=True' should be required, and 'allow=False' should
+-- be the default since it means user must grant this authority explicitly)
+allowPerm = (do
+  reserved "allow"
+  reservedOp "="
+  b <- boolean
+  return b) <|> (return True)
+
+denyPerm = (do
+  reserved "deny"
+  reservedOp "="
+  b <- boolean
+  return b) <|> (return True)
+
+-- perm = resvLimit <|> allowPerm <|> denyPerm 
+
+permList = do
+-- TODO: Convert to be able to specify in any order; need defaults when missing
+--  newPerm <- sepBy perm comma
+  lim <- resvLimit
+  ca <- allowPerm
+  cd <- denyPerm
+  return (lim, ca, cd)
+
+sharePerms = do
+  p <- brackets permList
+  return p
+
+-----------------------------
+-- System Management Functions
+-----------------------------
 
 tick "root" = do
   reserved "Tick"
@@ -106,52 +151,38 @@ addUser "root" = do
 
 addUser _ = fail "user other than root tried to add user"
 
-grantUse spk = do
-  reserved "GrantUse"
+-----------------------------
+-- Share Management Functions
+-----------------------------
+
+grant spk = do
+  reserved "Grant"
+  share <- identifier
+  reserved "to"
   newUser <- identifier
-  reserved "on"
-  share <- identifier 
   return (giveReferenceM spk share newUser)
 
-grantDefaultUse spk = do
-  reserved "GrantDefaultUse"
-  reserved "on"
+grantDefault spk = do
+  reserved "GrantDefault"
   share <- identifier 
   return (giveDefaultReferenceM spk share)
-
--- TODO: Obviously, this is redundant and perhaps doesn't make sense, but I
--- want to leave open the question of whether this should be ternary (as in,
--- yes/no/inherit-from-parent) or if not, which case should be the default when
--- unspecified (perhaps 'canAllow' should be required, and 'cannotAllow' should
--- be the default since it means user must grant this authority explicitly)
-canAllow = (do { reserved "canAllow"; (return True) }) <|>
-           (do { reserved "cannotAllow"; (return False) }) <|>
-           (return True)
-
-canDeny = (do { reserved "canDeny"; (return True) }) <|>
-          (do { reserved "cannotDeny"; (return False) }) <|>
-          (return True)
-
-resvLimit = do
-  reserved "reserve"
-  reservedOp "<="
-  size <- T.integer lex
-  return size
 
 newShareStmt spk = do
   reserved "NewShare"
   name <- identifier
-  reserved "with"
+  reserved "for"
   fg <- flowGroup
-  size <- resvLimit -- TODO: Is it possible to read these next 3 in any order?
-  ca <- canAllow
-  cd <- canDeny
+  (lim, ca, cd) <- sharePerms
   reserved "on"
   parent <- identifier
   resvBucket <- do { reserved "throttle"; tokenBucket } <|> return TB.unlimited
-  let s = Share fg (Set.singleton spk) emptyShareReq (DiscreteLimit size)
+  let s = Share fg (Set.singleton spk) emptyShareReq lim
             ca cd resvBucket
   return (newShareM spk parent name s)
+
+-----------------------------
+-- Helper Functions for Verbs
+-----------------------------
 
 timeNotForever = now <|> absolute <|> relative
   where now      = do { reserved "now"; return (Relative 0) }
@@ -166,6 +197,10 @@ time = timeNotForever <|> forever
 from = (do { reserved "from"; timeNotForever }) <|> (return (Relative 0))
 
 to = (do { reserved "to"; time }) <|> (return Forever)
+
+-----------------------------
+-- Verb Functions
+-----------------------------
 
 reservation spk = do
   reserved "reserve"
@@ -213,12 +248,14 @@ deny spk = do
 
 
 -----------------------------
+-- Top-level Parsing Functions
+-----------------------------
 
 -- TODO: Can we have a statement which returns something other
 -- than a DNP Bool? how?
 parseStmt spk = do
   stmt <- tick spk <|> addUser spk <|> newShareStmt spk <|> reservation spk
-          <|> allow spk <|> deny spk <|> grantUse spk <|> grantDefaultUse spk
+          <|> allow spk <|> deny spk <|> grant spk <|> grantDefault spk
   dot
   return stmt
  

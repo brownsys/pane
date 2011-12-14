@@ -17,9 +17,9 @@ javascriptDef =
                 (alphaNum <|> oneOf "$_") -- identifier rest
                 (oneOf "{}<>()~.,?:|&^=!+-*/%!") -- operator start
                 (oneOf "=<>|&+") -- operator rest
-                [ "Tick", "AddUser", "NewShare", "GrantUse", "on", "True", "False",
+                [ "Tick", "AddUser", "NewShare", "Grant", "on", "True", "False",
                   "from", "to", "forever", "reserve", "allow", "deny",
-                  "canAllow", "cannotAllow", "canDeny", "cannotDeny"
+                  "GrantDefault", "for"
                 -- "DropUser", "AddNetwork", "DropNetwork"
                 ]
                 [ "*", "(", ")", ",", ":" ]

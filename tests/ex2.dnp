@@ -1,17 +1,17 @@
 True  <- root : AddUser Arjun.
-True  <- root : NewShare arjunShare with (user=Arjun) reserve <= 1000 on rootShare.
+True  <- root : NewShare forArjun for (user=Arjun) [reserve <= 1000] on rootShare.
 // TODO: really, this is: "arjunSENDShare" .. there will be another share for
 // arjunRECVshare and arjun's hostSENDshare and hostRECVshare, the later might be only for
 // admission control
-True  <- root : GrantUse Arjun on arjunShare.
-True  <- Arjun : reserve(user=Arjun) = 300 on arjunShare.
-False <- Arjun : reserve(user=Arjun) = 2000 on arjunShare. // exceeds mask
+True  <- root : Grant forArjun to Arjun.
+True  <- Arjun : reserve(user=Arjun) = 300 on forArjun.
+False <- Arjun : reserve(user=Arjun) = 2000 on forArjun. // exceeds mask
 
 True  <- root : AddUser Andrew.
 
-False <- Arjun : reserve(user=Andrew) = 100 on arjunShare. // no permission on other user
-False <- Arjun : reserve(app=443) = 500 on arjunShare. // no permissions on apps in general
-True  <- Arjun : reserve(user=Arjun,app=443) = 500 on arjunShare.
+False <- Arjun : reserve(user=Andrew) = 100 on forArjun. // no permission on other user
+False <- Arjun : reserve(app=443) = 500 on forArjun. // no permissions on apps in general
+True  <- Arjun : reserve(user=Arjun,app=443) = 500 on forArjun.
 
 True  <- root : AddUser Shriram.
 
@@ -21,10 +21,10 @@ True  <- root : AddUser Shriram.
 // root : reserve(user=Shriram) = 2000. // valid, Shriram's reserve is now 2000
 
 // Next line is false because user=Shriram is NOT a subflow of user=Arjun !
-False  <- Arjun : NewShare shriramShare with (user=Shriram) reserve <= 500 on arjunShare.
+False  <- Arjun : NewShare forShriram for (user=Shriram) [reserve <= 500] on forArjun.
 
 // Let's have some fun with capabilities:
 
-True <- Arjun : GrantUse Shriram on arjunShare.
-True <- Shriram : reserve(user=Arjun) = 50 on arjunShare.
-False <- Shriram : reserve(user=Shriram) = 1 on arjunShare.
+True <- Arjun : Grant forArjun to Shriram.
+True <- Shriram : reserve(user=Arjun) = 50 on forArjun.
+False <- Shriram : reserve(user=Shriram) = 1 on forArjun.

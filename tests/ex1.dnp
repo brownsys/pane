@@ -1,14 +1,16 @@
-True  <- root : NewShare net0 with (*) reserve <= 3000 on rootShare. // Physical limit of network
+True  <- root : NewShare net0 for (*) [reserve <= 3000] on rootShare. // Physical limit of network
+
 // True  <- root : NewShare net0 latency(*) >= 20 on rootShare. // 20ms longest path in ntwk 
 // True  <- root : NewShare net0 jitter(*) >= 10 on rootShare. // physical limit
 // True  <- root : NewShare net0 ratelimit(*) >= 0 on rootShare. // probably redundant
 
 True  <- root : AddUser Arjun.
-True  <- root : NewShare arjunShare with (user = Arjun) reserve <= 1000 on net0. // Add token bucket. eg, 1 min of reserve time every 6 minutes, up to 20 minutes in bucket ... tokenBucket 1min per 6min max 20min.
-True  <- root : GrantUse Arjun on arjunShare.
-True  <- Arjun : reserve(user = Arjun) = 300 on arjunShare.
-True  <- root : reserve(user = Arjun) = 500 on arjunShare.
-False <- Arjun : reserve(user = Arjun) = 2000 on arjunShare. // FAIL by rule 2
+True  <- root : NewShare forArjun for (user = Arjun) [reserve <= 1000] on net0. // Add token bucket. eg, 1 min of reserve time every 6 minutes, up to 20 minutes in bucket ... tokenBucket 1min per 6min max 20min.
+
+True  <- root : Grant forArjun to Arjun.
+True  <- Arjun : reserve(user = Arjun) = 300 on forArjun.
+True  <- root : reserve(user = Arjun) = 500 on forArjun.
+False <- Arjun : reserve(user = Arjun) = 2000 on forArjun. // FAIL by rule 2
 
 // How do we create applications? Do they need to be registered?
 
