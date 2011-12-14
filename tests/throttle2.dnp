@@ -1,0 +1,12 @@
+True <- root : NewShare net0 for (*) [reserve <= 2000] on rootShare.
+
+True <- root : NewShare derp for (*) [reserve <= 2000]
+                             on net0 
+                             // initial-tokens, max-tokens, new-tokens-per-tick
+                             throttle bucket(0,200,10).
+True <- root : Tick 20. // fill the bucket
+True <- root : reserve(*) = 20 on derp from now to +10. // consumes 20 * 10 tokens.
+False <- root : reserve(*) = 1 on derp. // fails, no tokens
+True <- root : Tick 15.
+False <- root : reserve(*) = 1 on derp. // fails, would require inf. tokens
+True <- root : reserve(*) = 1 on net0. // net0 is not throttled
