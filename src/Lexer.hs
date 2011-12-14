@@ -19,7 +19,7 @@ javascriptDef =
                 (oneOf "=<>|&+") -- operator rest
                 [ "Tick", "AddUser", "NewShare", "Grant", "on", "True", "False",
                   "from", "to", "forever", "reserve", "allow", "deny",
-                  "GrantDefault", "for"
+                  "GrantDefault", "for", "strict", "partial"
                 -- "DropUser", "AddNetwork", "DropNetwork"
                 ]
                 [ "*", "(", ")", ",", ":" ]

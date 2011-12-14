@@ -56,7 +56,8 @@ data Req = Req {
   reqFlows :: FlowGroup,
   reqStart :: Integer, -- invariant: start < end
   reqEnd :: Limit,
-  reqData :: ReqData
+  reqData :: ReqData,
+  reqStrict :: Bool
 } deriving (Show, Ord, Eq)
 
 data ReqData = ReqResv Integer

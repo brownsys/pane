@@ -23,12 +23,13 @@ instance ToJSON FlowGroup where
            ]
 
 instance ToJSON Req where
-  toJSON (Req share flows start end typ) =
+  toJSON (Req share flows start end typ strict) =
     object [ ("share", toJSON share)
            , ("flows", toJSON flows)
            , ("start", toJSON start)
            , ("end", toJSON end)
            , ("data", toJSON typ)
+           , ("strict", toJSON strict)
            ]
 
 instance ToJSON ReqData where

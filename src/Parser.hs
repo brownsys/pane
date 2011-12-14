@@ -202,11 +202,18 @@ to = (do { reserved "to"; time }) <|> (return Forever)
 -- Verb Functions
 -----------------------------
 
+-- TODO: This might be clearer if it is "strict reserve(..." and
+-- "partial reserve(..." but I don't know the parser well-enough
+strict = (do { reserved "strict"; return True }) <|>
+         (do { reserved "partial"; return False }) <|>
+         (return True) -- choosing defaults again...
+
 reserve spk = do
   reserved "reserve"
   fg <- flowGroup
   reservedOp "="
   size <- T.integer lex
+  s <- strict
   reserved "on"
   share <- identifier
   fromTime <- from
@@ -215,12 +222,13 @@ reserve spk = do
         now <- getTimeM
         let absFrom = timeToInteger now fromTime
         let absTo = timeToLimit now toTime
-        requestM spk (Req share fg absFrom absTo (ReqResv size))
+        requestM spk (Req share fg absFrom absTo (ReqResv size) s)
   return cmd
 
 allow spk = do
   reserved "allow"
   fg <- flowGroup
+  s <- strict
   reserved "on"
   share <- identifier
   fromTime <- from
@@ -229,12 +237,13 @@ allow spk = do
         now <- getTimeM
         let absFrom = timeToInteger now fromTime
         let absTo = timeToLimit now toTime
-        requestM spk (Req share fg absFrom absTo ReqAllow)
+        requestM spk (Req share fg absFrom absTo ReqAllow s)
   return cmd
 
 deny spk = do
   reserved "deny"
   fg <- flowGroup
+  s <- strict
   reserved "on"
   share <- identifier
   fromTime <- from
@@ -243,7 +252,7 @@ deny spk = do
         now <- getTimeM
         let absFrom = timeToInteger now fromTime
         let absTo = timeToLimit now toTime
-        requestM spk (Req share fg absFrom absTo ReqDeny)
+        requestM spk (Req share fg absFrom absTo ReqDeny s)
   return cmd
 
 

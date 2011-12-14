@@ -120,6 +120,12 @@ isSubShare (Share flows1 _ _ resLim1 canAllow1 canDeny1 _)
   canAllow1 <= canAllow2 &&
   canDeny1 <= canDeny2
 
+isSubShareWRefs :: ShareRef -> ShareRef -> ShareTree -> Bool
+isSubShareWRefs sr1 sr2 sT =
+  let s1 = Tree.lookup sr1 sT
+      s2 = Tree.lookup sr2 sT in
+    isSubShare s1 s2
+
 -----------------------------
 -- API Functions
 -----------------------------
@@ -225,11 +231,11 @@ consumeResvTokens _     _                   _    share =
 recursiveRequest :: Req
                  -> State
                  -> Maybe State
-recursiveRequest req@(Req shareRef _ start end (ReqResv resv)) -- TODO: specific
+recursiveRequest req@(Req shareRef _ start end (ReqResv resv) _) -- TODO: specific
                  st@(State {shareTree = sT, acceptedReqs = accepted }) =
   let chain = Tree.chain shareRef sT
       f Nothing _ = Nothing
-      f (Just sT) (thisShareName,thisShare@(Share {shareReq=reqs})) = 
+      f (Just sT) (thisShareName, thisShare@(Share {shareReq=reqs})) = 
         let g req'@(Req { reqStart = start', reqEnd = end' }) =
                  (isResv req && isResv req') && -- TODO: generalize in future 
                  not (end' < (DiscreteLimit start) ||
@@ -255,7 +261,7 @@ recursiveRequest req@(Req shareRef _ start end (ReqResv resv)) -- TODO: specific
 localRequest :: Req
              -> State
              -> Maybe State
-localRequest req@(Req shareRef _ _ _ _)
+localRequest req@(Req shareRef _ _ _ _ _)
              st@(State {shareTree = sT, acceptedReqs = accepted }) =
   let share = Tree.lookup shareRef sT in
     if (isAllow req && shareCanAllowFlows share) ||
@@ -268,13 +274,32 @@ localRequest req@(Req shareRef _ _ _ _)
       else
         Nothing
 
+-- For strict application of allow/deny: 1) check if any existing admission 
+-- control statements in non-parent shares apply 2) if none do, then it is
+-- ok to proceed to local request
+strictAdmControl :: Req
+                 -> State
+                 -> Maybe State
+strictAdmControl req@(Req shareRef flow _ _ _ _)
+                 st@(State {shareTree = sT }) =
+  let isNonParent (Req sR' _ _ _ _ _) =
+        -- the only shares that should return false are parents of shareRef
+        not (isSubShareWRefs shareRef sR' sT) -- || shareRef == sR'
+  in case filter (\x -> isNonParent x && isAdmControl x && 
+                        -- only care if allow blocked by deny, and vice versa
+                        ((reqData req) /= (reqData x)))
+                 (findReqWithSubFlow flow st) of
+    [] -> localRequest req st
+    _ -> Nothing -- TODO: Return why strict failed
+
+
 -- TODO: Make more general so it can be used in three functions:
 -- 1) IsAvailable  2)  HoldIfAvailable  3) RequestIfAvailable (existing use)
 request :: Speaker
         -> Req
         -> State
         -> Maybe State
-request spk req@(Req shareRef flow start end rD)
+request spk req@(Req shareRef flow start end rD strict)
         st@(State {shareTree = sT,
                    acceptedReqs = accepted }) =
   if Tree.member shareRef sT then
@@ -284,10 +309,17 @@ request spk req@(Req shareRef flow start end rD)
                start >= (stateNow st) &&
                (DiscreteLimit start) < end of
         False -> Nothing
-        True -> case rD of
-                  ReqAllow -> localRequest req st 
-                  ReqDeny -> localRequest req st
-                  (ReqResv _) -> recursiveRequest req st
+        True -> case strict of
+                  True -> case rD of
+                             -- TODO: need to send reason why if request rejected
+                             (ReqResv _) -> recursiveRequest req st
+                             ReqAllow -> strictAdmControl req st
+                             ReqDeny -> strictAdmControl req st
+                  False -> case rD of
+                             -- TODO: need to send explanation of what happened
+                             ReqAllow -> localRequest req st
+                             ReqDeny -> localRequest req st
+                             _ -> error "FAIL. PARTIAL RESERVE UNIMPLEMENTED."
   else
     Nothing
 
@@ -345,3 +377,8 @@ findReqByFlowGroup :: FlowGroup -> State -> [Req]
 findReqByFlowGroup fg st@(State {acceptedReqs=accepted,activeReqs=active}) =
   PQ.toList (PQ.filter (\x -> fg `isSubFlow` (reqFlows x)) active) ++
     PQ.toList (PQ.filter (\x -> fg `isSubFlow` (reqFlows x)) accepted)
+
+findReqWithSubFlow :: FlowGroup -> State -> [Req]
+findReqWithSubFlow fg st@(State {acceptedReqs=accepted,activeReqs=active}) =
+  PQ.toList (PQ.filter (\x -> (reqFlows x) `isSubFlow` fg) active) ++
+    PQ.toList (PQ.filter (\x -> (reqFlows x) `isSubFlow` fg) accepted)
