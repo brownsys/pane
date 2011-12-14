@@ -8,6 +8,7 @@ import qualified Data.Maybe as Maybe
 import qualified Set as Set
 import Data.List
 import Set (Set)
+import Base
 
 emitFML :: State
         -> String

@@ -14,6 +14,7 @@ module FlowControllerLang
   , runDNP
   ) where
 
+import Base
 import qualified Control.Monad.State as StateM
 import EmitFML
 import FlowController

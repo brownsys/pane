@@ -13,34 +13,6 @@ import Base
 import TokenBucket (TokenBucket)
 import qualified TokenBucket as TB
 
-type Speaker = String
-
-type User = String
-type Port = Integer
-
-data FlowGroup = FlowGroup {
-  flowSend :: Set User,
-  flowRecv :: Set User,
-  flowSrcPort ::  Set Port,
-  flowDestPort :: Set Port
-} deriving (Ord, Eq, Show)
-
-
-type ShareRef = String
-
-data Req = Req {
-  reqShare :: ShareRef,
-  reqFlows :: FlowGroup,
-  reqStart :: Integer, -- invariant: start < end
-  reqEnd :: Limit,
-  reqData :: ReqData
-} deriving (Show, Ord, Eq)
-
-data ReqData = ReqResv Integer
-             | ReqAllow
-             | ReqDeny
-             deriving (Eq, Ord, Show)
-
 data Share = Share {
   shareFlows :: FlowGroup,     -- set of flows in this share
   shareHolders :: Set Speaker, -- users who can speak about this share
