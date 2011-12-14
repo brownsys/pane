@@ -276,9 +276,11 @@ parseTestStmts = do
   tmp <- many parseTestStmt
   eof
   let (expected, positions, ss) = unzip3 tmp
-  let result = evalDNP (sequence ss)
-  let assertions = mapM_ (\(exp, pos, res) -> assertEqual (show pos) exp res) 
-                         (zip3 expected positions result)
+  let f (exp, pos, result) = do
+          assertEqual (show pos) exp result
+  let assertions = do
+        results <- evalDNP (sequence ss)
+        mapM_ f (zip3 expected positions results)
   return (TestCase assertions)
 
 parseCompleteString spk = do

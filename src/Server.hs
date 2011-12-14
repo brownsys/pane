@@ -30,22 +30,23 @@ serverMain port state = withSocketsDo $ do
     setSocketOption sock ReuseAddr 1
     bindSocket sock (SockAddrInet (PortNum (htons port)) iNADDR_ANY)
     listen sock 2
-    stateRef <- newIORef state    
+    stateRef <- newMVar state    
     serverLoop sock stateRef
 
 
 serverAction cmd stRef = do
-  (b, st') <- atomicModifyIORef stRef -- TODO: use a real lock so emitFML is inside as well
-         (\st -> let (result, st') = runDNP cmd st in (st', (result, st')))
-  case b of
+  st <- takeMVar stRef -- block if empty
+  (result, st) <- runDNP cmd st
+  case result of
     True -> do
       putStrLn "--> ACCEPTED"
-      let (t, _) = runDNP getTimeM st'
+      (t, _) <- runDNP getTimeM st
       putStrLn ("--> BEGIN NEW FML CONFIGURATION. TIME = " ++ (show t))
-      putStrLn (emitFML st')
+      putStrLn (emitFML st)
       putStrLn "--> END NEW FML CONFIGURATION"
     False -> do
       putStrLn "--> REJECTED"
+  putMVar stRef st -- we have it, so will never block
   return stRef
 
 authUser conn st = do

@@ -1,6 +1,11 @@
 module Base where
 
+import System.IO.Unsafe
+import Data.IORef
 import Set (Set)
+
+isTracing :: IORef Bool
+isTracing = unsafePerformIO (newIORef False)
 
 data Limit 
   = NoLimit 

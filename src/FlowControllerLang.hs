@@ -14,22 +14,30 @@ module FlowControllerLang
   , runDNP
   ) where
 
+import Control.Monad
+import Data.IORef
 import Base
 import qualified Control.Monad.State as StateM
 import EmitFML
 import FlowController
 import Set(Set)
+import qualified Data.ByteString.Lazy as BS
+import qualified Data.Aeson as Aeson
+import Control.Monad.Trans
+import StateDump
 
-type DNP a = StateM.State State a
+type DNP a = StateM.StateT State IO a
 
-evalDNP :: DNP a -> a
-evalDNP m = StateM.evalState m emptyState
+evalDNP :: DNP a -> IO a
+evalDNP m = StateM.evalStateT m emptyState
 
-runDNP = StateM.runState
+runDNP = StateM.runStateT
 
 
-fmlDNP :: DNP a -> String
-fmlDNP m = emitFML (StateM.execState m emptyState)
+fmlDNP :: DNP a -> IO String
+fmlDNP m = do
+  st <- StateM.execStateT m emptyState
+  return (emitFML st)
 
 boolWrapper exp = do
   s <- StateM.get
@@ -63,7 +71,9 @@ currentRequestsM = do
 
 tickM :: Integer -> DNP Bool
 tickM t = do
+  showState <- lift (readIORef isTracing)
   s <- StateM.get
+  when showState $ lift (BS.putStrLn (Aeson.encode s))
   let s' = tick t s
   StateM.put s'
   return True
