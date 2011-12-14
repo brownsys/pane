@@ -13,7 +13,7 @@ module Set
 
 import Prelude hiding (all)
 import qualified Data.Set
-
+import Data.Aeson
 
 data Set a
   = FiniteSet (Data.Set.Set a)
@@ -25,6 +25,9 @@ instance Ord a => Ord (Set a) where
   (FiniteSet s1) <= (FiniteSet s2) = s1 <= s2
   All <= (FiniteSet _) = False
 
+instance ToJSON a => ToJSON (Set a) where
+  toJSON (FiniteSet set) = toJSON set
+  toJSON All             = String "All"
 
 all :: Set a
 all = All

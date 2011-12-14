@@ -13,6 +13,7 @@ module PriorityQueue
 import Data.List (span)
 import qualified Prelude
 import Prelude hiding (filter)
+import Data.Aeson
 
 data PQ a = PQ { 
   leq :: a -> a -> Bool,
@@ -21,6 +22,9 @@ data PQ a = PQ {
 
 instance Show a => Show (PQ a) where
   show pq = show (items pq)
+
+instance ToJSON a => ToJSON (PQ a) where
+  toJSON pq = toJSON (items pq)
 
 empty :: (a -> a -> Bool)
       -> PQ a
