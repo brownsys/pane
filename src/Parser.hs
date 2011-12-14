@@ -9,7 +9,7 @@ import qualified Text.Parsec.Token as T
 import qualified Set as Set
 import Data.Maybe (catMaybes)
 import FlowControllerLang
-import FlowController hiding (tick)
+import FlowController hiding (tick, newShare)
 import Control.Monad.IO.Class
 import Control.Monad.Trans
 import Control.Monad
@@ -167,7 +167,7 @@ grantDefault spk = do
   share <- identifier 
   return (giveDefaultReferenceM spk share)
 
-newShareStmt spk = do
+newShare spk = do
   reserved "NewShare"
   name <- identifier
   reserved "for"
@@ -202,7 +202,7 @@ to = (do { reserved "to"; time }) <|> (return Forever)
 -- Verb Functions
 -----------------------------
 
-reservation spk = do
+reserve spk = do
   reserved "reserve"
   fg <- flowGroup
   reservedOp "="
@@ -253,9 +253,13 @@ deny spk = do
 
 -- TODO: Can we have a statement which returns something other
 -- than a DNP Bool? how?
+
+verb spk = reserve spk <|> allow spk <|> deny spk
+shareManage spk = newShare spk <|> grant spk <|> grantDefault spk
+sysManage spk = tick spk <|> addUser spk
+
 parseStmt spk = do
-  stmt <- tick spk <|> addUser spk <|> newShareStmt spk <|> reservation spk
-          <|> allow spk <|> deny spk <|> grant spk <|> grantDefault spk
+  stmt <- verb spk <|> shareManage spk <|> sysManage spk
   dot
   return stmt
  
