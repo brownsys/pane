@@ -114,6 +114,13 @@ isSubFlow (FlowGroup fs1 fr1 fsp1 fdp1) (FlowGroup fs2 fr2 fsp2 fdp2) =
   Set.isSubsetOf fsp1 fsp2 &&
   Set.isSubsetOf fdp1 fdp2
 
+isIntersectingFlow :: FlowGroup -> FlowGroup -> Bool
+isIntersectingFlow (FlowGroup fs1 fr1 fsp1 fdp1) (FlowGroup fs2 fr2 fsp2 fdp2) =
+  not (Set.null (Set.intersection fs1 fs2)) &&
+  not (Set.null (Set.intersection fr1 fr2)) &&
+  not (Set.null (Set.intersection fsp1 fsp2)) &&
+  not (Set.null (Set.intersection fdp1 fdp2))
+
 isSubShare :: Share -> Share -> Bool
 isSubShare (Share _ flows1 _ _ resLim1 canAllow1 canDeny1 _)
           (Share _ flows2 _ _ resLim2 canAllow2 canDeny2 _) = 
@@ -289,7 +296,7 @@ strictAdmControl req@(Req shareRef flow _ _ _ _)
   in case filter (\x -> isNonParent x && isAdmControl x && 
                         -- only care if allow blocked by deny, and vice versa
                         ((reqData req) /= (reqData x)))
-                 (findReqWithSubFlow flow st) of
+                 (findReqByIntersectingFG flow st) of
     [] -> localRequest req st
     _ -> Nothing -- TODO: Return why strict failed
 
@@ -383,3 +390,8 @@ findReqWithSubFlow :: FlowGroup -> State -> [Req]
 findReqWithSubFlow fg st@(State {acceptedReqs=accepted,activeReqs=active}) =
   PQ.toList (PQ.filter (\x -> (reqFlows x) `isSubFlow` fg) active) ++
     PQ.toList (PQ.filter (\x -> (reqFlows x) `isSubFlow` fg) accepted)
+
+findReqByIntersectingFG :: FlowGroup -> State -> [Req]
+findReqByIntersectingFG fg st@(State {acceptedReqs=accepted,activeReqs=active}) =
+  PQ.toList (PQ.filter (\x -> fg `isIntersectingFlow` (reqFlows x)) active) ++
+    PQ.toList (PQ.filter (\x -> fg `isIntersectingFlow` (reqFlows x)) accepted)
