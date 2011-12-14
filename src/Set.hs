@@ -9,9 +9,11 @@ module Set
   , member
   , fromList
   , toList
+  , intersection
+  , null
   ) where
 
-import Prelude hiding (all)
+import Prelude hiding (all, null)
 import qualified Data.Set
 import Data.Aeson
 
@@ -44,6 +46,12 @@ isSubsetOf (FiniteSet s1) (FiniteSet s2) = Data.Set.isSubsetOf s1 s2
 isSubsetOf _ All = True
 isSubsetOf All (FiniteSet _) = False
 
+intersection :: Ord a => Set a -> Set a -> Set a
+intersection (FiniteSet s1) (FiniteSet s2)=FiniteSet (Data.Set.intersection s1 s2)
+intersection (FiniteSet s1) All = (FiniteSet s1)
+intersection All (FiniteSet s2) = (FiniteSet s2)
+intersection All All = All
+
 empty :: Set a
 empty = FiniteSet Data.Set.empty
 
@@ -59,3 +67,7 @@ fromList lst = (FiniteSet (Data.Set.fromList lst))
 
 toList All = Nothing
 toList (FiniteSet s) = Just (Data.Set.toList s)
+
+null :: Set a -> Bool
+null All = False
+null (FiniteSet s) = Data.Set.null s
