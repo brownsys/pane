@@ -46,15 +46,6 @@ function makeSharesTree(state) {
   return f(state.shares);
 }
 
-
-var r = shareSeriesData(instant.shares.item);
-var n = r.n, // number of layers
-    m = r.m, // number of samples per layer
-    data = r.rows,
-    labels = r.labels;
-
-
-console.log(document.body.clientWidth, document.body.clientHeight);
 var w = document.body.clientWidth,
     h = document.body.clientHeight;
 
@@ -63,17 +54,15 @@ var mainVis = new pv.Panel();
 mainVis.width(w)
    .height(h);
 
-mainVis.def("series", r);
+mainVis.def("series", { rows: [], labels: [], m: 0, n: 0 });
 
-var stack;
+var stack, hRule, vRule;
 function setupVis(vis) {
-   x = pv.Scale.linear(0, m - 1).range(0, Math.floor(w * 0.8)),
-    y = pv.Scale.linear(0, 100 * n).range(0, h);
+   x = pv.Scale.linear(0, 1).range(0, Math.floor(w * 0.8)),
+    y = pv.Scale.linear(0, 1).range(0, h);
     stack = vis.add(pv.Layout.Stack);
     stack
     .layers(function() { return mainVis.series().rows; })
-    //.order("inside-out")
-    //.offset("wiggle")
     .x(x.by(pv.index))
     .y(y)
     .layer.add(pv.Area)
@@ -85,20 +74,20 @@ function setupVis(vis) {
           // TODO: Hacked to just show flow user
      return JSON.parse(mainVis.series().labels[this.parent.index]).srcUser[0]; });
 
-vis.add(pv.Rule)
-    .data(x.ticks())
+  hRule = vis.add(pv.Rule);
+  hRule.data(x.ticks())
     .left(x)
     .lineWidth(1)
     .strokeStyle(function(d)  { return d ? "#eee" : "#000"; })
      .anchor("center").add(pv.Label)
     .text(x.tickFormat);
 
-vis.add(pv.Rule)
-    .data(y.ticks())
-    .bottom(y)
-    .strokeStyle(function(d) { return d ? "#eee" : "#000"; })
-  .anchor("center").add(pv.Label)
-    .text(y.tickFormat);
+  vRule = vis.add(pv.Rule);
+  vRule.data(y.ticks())
+       .bottom(y)
+       .strokeStyle(function(d) { return d ? "#eee" : "#000"; })
+       .anchor("center").add(pv.Label)
+                        .text(y.tickFormat);
 
 };
 
@@ -111,15 +100,24 @@ function setupShareTree(vis) {
      .nodes(sharesTree.root("Shares").nodes())
   
   sharesLayout.link.add(pv.Line);
+
+  var selectedNode = null;
   
   sharesLayout.node.add(pv.Dot)
-      .fillStyle(function(n) { return n.firstChild ? "#aec7e8" : "#ff7f0e" })
+      .fillStyle(function(n) { return n === selectedNode ? "#f00" : "#fff" })
       .events("all").event("click", function(n) {
+        selectedNode = n;
         var share = allShares[n.nodeName];
         mainVis.series(share);
-        stack.x(pv.Scale.linear(0, share.m - 1).range(0, w).by(pv.index));
-        stack.y(pv.Scale.linear(0, 100 * share.n).range(0, h));
-        stack.render();
+        var x = pv.Scale.linear(0, share.m - 1).range(0, w);
+        var y = pv.Scale.linear(0, 100 * share.n).range(0, h);
+        hRule.data(x.ticks());
+        hRule.left(x);
+        vRule.data(y.ticks());
+        vRule.bottom(y);
+        stack.x(x.by(pv.index));
+        stack.y(y);
+        mainVis.render();
        });
   
   sharesLayout.label.add(pv.Label);
