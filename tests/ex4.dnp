@@ -9,10 +9,14 @@ True <- Arjun : reserve(user=Arjun, app=1) = 300 on forArjun.
 True <- Arjun : reserve(user=Arjun, app=2) = 400 on forArjun.
 
 True <- root : deny(app=80) on net0. // overrides previous allow on app=80
+// TODO: We can fail this by adding "|| shareRef == sR'" to the isNonParent function
+// do we want to do that and then require the user to uninstall "allow(app=80)"
+// ... this is a conflict between allow and deny in same share.
 
 True <- Arjun : allow(user=Arjun, app=80) on forArjun.
 
-True <- root : deny(*) on rootShare.
+False <- root : deny(*) on rootShare. // TODO: eventually, we expect a reason why this failed
+True  <- root : deny(*) partial on rootShare.
 
 False <- Arjun : allow(app=80) on forArjun.
 

@@ -16,7 +16,7 @@ unexpectedState (Just _) = Nothing
 unexpectedState Nothing = Just emptyState
 
 foreverReq shareRef flow rd =
- Req shareRef flow 0 NoLimit rd 
+ Req shareRef flow 0 NoLimit rd True
 
 test1 = evalDNP $ do
   createSpeakerM "arjun"
@@ -195,7 +195,7 @@ test23 = evalDNP $ do
 
 test24 = evalDNP $ do
   b1 <- frag2 -- root creates net0 share
-  let req = Req rootShareRef anyFlow 0 (DiscreteLimit 10) (ReqResv 100)
+  let req = Req rootShareRef anyFlow 0 (DiscreteLimit 10) (ReqResv 100) True
   b2 <- requestM rootSpeaker req
   s <- currentRequestsM
   let b3 = s == [req]
@@ -212,7 +212,7 @@ test24 = evalDNP $ do
 
 test25 = evalDNP $ do
   b1 <- frag2
-  let req = Req rootShareRef anyFlow 5 (DiscreteLimit 10) (ReqResv 100)
+  let req = Req rootShareRef anyFlow 5 (DiscreteLimit 10) (ReqResv 100) True
   b2 <- requestM rootSpeaker req
   s <- currentRequestsM
   let b3 = s == []
