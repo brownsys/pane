@@ -54,6 +54,7 @@ var n = r.n, // number of layers
     labels = r.labels;
 
 
+console.log(document.body.clientWidth, document.body.clientHeight);
 var w = document.body.clientWidth,
     h = document.body.clientHeight;
 
@@ -66,7 +67,7 @@ mainVis.def("series", r);
 
 var stack;
 function setupVis(vis) {
-   x = pv.Scale.linear(0, m - 1).range(0, w),
+   x = pv.Scale.linear(0, m - 1).range(0, Math.floor(w * 0.8)),
     y = pv.Scale.linear(0, 100 * n).range(0, h);
     stack = vis.add(pv.Layout.Stack);
     stack
@@ -124,11 +125,11 @@ function setupShareTree(vis) {
   sharesLayout.label.add(pv.Label);
 }
 
-var treePanel = mainVis.add(pv.Panel);
+var treePanel = mainVis.add(pv.Panel).width(w * 0.2).left(0);
 setupShareTree(treePanel);
 
 
-setupVis(mainVis.add(pv.Panel));
+setupVis(mainVis.add(pv.Panel).width(Math.floor(w * 0.8)).left(w * 0.2));
 
 mainVis.render();
 
