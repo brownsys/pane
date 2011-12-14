@@ -73,7 +73,8 @@ tickM :: Integer -> DNP Bool
 tickM t = do
   showState <- lift (readIORef isTracing)
   s <- StateM.get
-  when showState $ lift (BS.putStrLn (Aeson.encode s))
+  let bs = BS.concat ["var instant = ", Aeson.encode s, ";\n"]
+  when showState $ lift $ BS.writeFile "dump.js" bs
   let s' = tick t s
   StateM.put s'
   return True
