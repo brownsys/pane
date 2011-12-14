@@ -43,7 +43,8 @@ instance ToJSON a => ToJSON (Tree.Tree a) where
 
 instance ToJSON Share where
   toJSON share = object
-    [ ("flows", toJSON (shareFlows share))
+    [ ("name", toJSON (shareName share))
+    , ("flows", toJSON (shareFlows share))
     , ("holders", toJSON (shareHolders share))
     , ("req", toJSON (shareReq share))
     , ("resvLimit", toJSON (shareResvLimit share))

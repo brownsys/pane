@@ -14,6 +14,7 @@ import TokenBucket (TokenBucket)
 import qualified TokenBucket as TB
 
 data Share = Share {
+  shareName :: ShareRef,       -- ^must match name in the 'ShareTree'
   shareFlows :: FlowGroup,     -- set of flows in this share
   shareHolders :: Set Speaker, -- users who can speak about this share
   shareReq :: PQ Req,          -- queue of accepted requests, sort by start
@@ -55,8 +56,9 @@ rootShareRef = "rootShare"
 emptyShareReq = PQ.empty reqStartOrder
 
 emptyState = 
-  State (Tree.root rootShareRef
-                   (Share anyFlow (Set.singleton rootSpeaker) emptyShareReq
+  State (Tree.root 
+           rootShareRef
+           (Share rootShareRef anyFlow (Set.singleton rootSpeaker) emptyShareReq
                    NoLimit True True TB.unlimited))
         (Set.singleton rootSpeaker)
         (PQ.empty reqStartOrder)
@@ -113,8 +115,8 @@ isSubFlow (FlowGroup fs1 fr1 fsp1 fdp1) (FlowGroup fs2 fr2 fsp2 fdp2) =
   Set.isSubsetOf fdp1 fdp2
 
 isSubShare :: Share -> Share -> Bool
-isSubShare (Share flows1 _ _ resLim1 canAllow1 canDeny1 _)
-          (Share flows2 _ _ resLim2 canAllow2 canDeny2 _) = 
+isSubShare (Share _ flows1 _ _ resLim1 canAllow1 canDeny1 _)
+          (Share _ flows2 _ _ resLim2 canAllow2 canDeny2 _) = 
   resLim1 <= resLim2 &&
   flows1 `isSubFlow` flows2 &&
   canAllow1 <= canAllow2 &&
@@ -175,11 +177,10 @@ giveDefaultReference from ref st@(State {shareTree=sT, stateSpeakers=refs}) =
 
 newShare :: Speaker
            -> ShareRef
-           -> String
            -> Share
            -> State
            -> Maybe State
-newShare spk parentName shareName newShare
+newShare spk parentName newShare@(Share { shareName = shareName })
            st@(State {shareTree = sT}) =
   if Tree.member parentName sT then
     let parentShare = Tree.lookup parentName sT

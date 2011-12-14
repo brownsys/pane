@@ -176,9 +176,9 @@ newShare spk = do
   reserved "on"
   parent <- identifier
   resvBucket <- do { reserved "throttle"; tokenBucket } <|> return TB.unlimited
-  let s = Share fg (Set.singleton spk) emptyShareReq lim
+  let s = Share name fg (Set.singleton spk) emptyShareReq lim
             ca cd resvBucket
-  return (newShareM spk parent name s)
+  return (newShareM spk parent s)
 
 -----------------------------
 -- Helper Functions for Verbs
