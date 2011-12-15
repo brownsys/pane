@@ -9,4 +9,4 @@ done
 
 
 
-echo "Testing complete."
+echo -en "\rTesting complete.\n"

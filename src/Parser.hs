@@ -290,7 +290,7 @@ parseTestStmts = do
   let assertions = do
         results <- evalDNP (sequence ss)
         mapM_ f (zip3 expected positions results)
-  return (TestCase assertions)
+  return assertions
 
 parseCompleteString spk = do
   s <- (parseStmt spk)
@@ -307,7 +307,7 @@ parseStmtFromStdin spk = do
     Right cmd -> do
       return cmd
 
-parseFromTestFile :: String -> IO Test
+parseFromTestFile :: String -> IO (IO ())
 parseFromTestFile filename = do
   str <- readFile filename
   case parse parseTestStmts filename str of

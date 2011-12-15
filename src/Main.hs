@@ -42,9 +42,8 @@ loop spk st = do
       loop spk st'
 
 runTestFile f = do
-  test <- parseFromTestFile f
-  runTestTT test
-  return ()
+  runTests <- parseFromTestFile f
+  runTests
 
 doTrace (Trace:rest) = do
   writeIORef isTracing True
