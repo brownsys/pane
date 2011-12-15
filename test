@@ -2,14 +2,17 @@
 
 cd tests
 mkdir out 2> /dev/null
+ln -s ../vis out/vis 2> /dev/null
+
+echo -n "sources = [" > out/list.js
 
 for file in *.dnp
 do
   echo -en "\rTest $file ... "
   ../dnp -t out/$file.js -f $file
   tput el1
+  echo -en "\"$file.js\", " >> out/list.js
 done
 
-
-
+echo "];" >> out/list.js
 echo -en "\rTesting complete.\n"

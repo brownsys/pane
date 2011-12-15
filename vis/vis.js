@@ -1,3 +1,7 @@
+var gridColor = 'rgba(14,14,14,0.1)';
+
+var emptyInstant = { shares: { item: { name: 'rootShare', req: [] }, children: [] } };
+
 function shareSeriesData(share) {
   var start = pv.min(share.req, function(v) { return v.start; });
   var end = pv.max(share.req, function(v) { return v.end; });
@@ -35,6 +39,7 @@ function sharesSeries(shareTree, dict) {
 }
 
 var allShares = { };
+var instant = emptyInstant;
 sharesSeries(instant.shares, allShares);
 
 function makeSharesTree(state) {
@@ -54,12 +59,13 @@ var mainVis = new pv.Panel();
 mainVis.width(w)
    .height(h);
 
-mainVis.def("series", { rows: [], labels: [], m: 0, n: 0 });
+var emptySeries = { rows: [], labels: [], m: 0, n: 0 };
+mainVis.def("series", emptySeries);
 
 var stack, hRule, vRule;
 function setupVis(vis) {
-   x = pv.Scale.linear(0, 1).range(0, Math.floor(w * 0.8)),
-    y = pv.Scale.linear(0, 1).range(0, h);
+    var x = pv.Scale.linear(0, 1).range(0, Math.floor(w * 0.7)),
+        y = pv.Scale.linear(0, 1).range(0, h);
     stack = vis.add(pv.Layout.Stack);
     stack
     .layers(function() { return mainVis.series().rows; })
@@ -78,26 +84,24 @@ function setupVis(vis) {
   hRule.data(x.ticks())
     .left(x)
     .lineWidth(1)
-    .strokeStyle(function(d)  { return d ? "#eee" : "#000"; })
+    .strokeStyle(function(d)  { return d ? gridColor : "#000"; })
      .anchor("center").add(pv.Label)
     .text(x.tickFormat);
 
   vRule = vis.add(pv.Rule);
   vRule.data(y.ticks())
        .bottom(y)
-       .strokeStyle(function(d) { return d ? "#eee" : "#000"; })
+       .strokeStyle(function(d) { return d ? gridColor : "#000"; })
        .anchor("center").add(pv.Label)
                         .text(y.tickFormat);
 
 };
 
 
+var sharesLayout;
 function setupShareTree(vis) {
-  var sharesTree = pv.dom(makeSharesTree(instant));
-  
-  
-  var sharesLayout = vis.add(pv.Layout.Indent)
-     .nodes(sharesTree.root("Shares").nodes())
+  sharesLayout = vis.add(pv.Layout.Indent);
+  sharesLayout.nodes(pv.dom(makeSharesTree(instant)).root("Shares").nodes());
   
   sharesLayout.link.add(pv.Line);
 
@@ -106,7 +110,7 @@ function setupShareTree(vis) {
   sharesLayout.node.add(pv.Dot)
       .fillStyle(function(n) { return n === selectedNode ? "#f00" : "#fff" })
       .events("all").event("click", function(n) {
-        selectedNode = n;
+        selectedNode = n; console.log(n.nodeName);
         var share = allShares[n.nodeName];
         mainVis.series(share);
         var x = pv.Scale.linear(0, share.m - 1).range(0, w);
@@ -123,11 +127,56 @@ function setupShareTree(vis) {
   sharesLayout.label.add(pv.Label);
 }
 
-var treePanel = mainVis.add(pv.Panel).width(w * 0.2).left(0);
+
+var srcVis = mainVis.add(pv.Panel)
+  .left(0)
+  .width(w * 0.1);
+ 
+srcVis
+  .events('all')
+  .event('mousedown', pv.Behavior.pan())
+  .event('pan',  function() {
+    this.transform().x = 0;
+    srcVis.render();
+  });
+  
+var srcGrid = srcVis.add(pv.Layout.Grid);
+srcGrid.rows(sources.map(function(v) { return [v]; })).cell
+  .height(20)
+  .add(pv.Label)
+  .events('all')
+  .event('click', function(v) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', "/" + v, true);
+    xhr.onreadystatechange = function(evt) {
+      if (xhr.readyState === 4) {
+        if (xhr.status === 200) {
+          allShares = { };
+          window.instant = emptyInstant;
+          allShares = { };
+          eval(xhr.responseText); // bad karma
+          window.instant = instant;
+          sharesSeries(instant.shares, allShares);
+          mainVis.series(emptySeries);
+          sharesLayout.reset();
+          sharesLayout.nodes(pv.dom(makeSharesTree(instant)).root(v).nodes());
+          mainVis.render();
+        }
+        else {
+          debugger;
+        }
+      }
+    };
+    xhr.send(null);
+  });
+
+
+var treePanel = mainVis.add(pv.Panel).width(w * 0.2).left(w * 0.1);
 setupShareTree(treePanel);
 
 
-setupVis(mainVis.add(pv.Panel).width(Math.floor(w * 0.8)).left(w * 0.2));
+
+setupVis(mainVis.add(pv.Panel).width(Math.floor(w * 0.7)).left(w * 0.3));
 
 mainVis.render();
 
