@@ -35,13 +35,13 @@ tick t bucket@(TokenBucket curr lim mrate _) = bucket { currTokens = curr' }
 
 -- Designed to allow simulating this bucket to infinite time
 tickLim (DiscreteLimit l) b = tick l b
-tickLim NoLimit bucket@(TokenBucket curr lim mrate _) =
-  case mrate >= 0 of
-    True  -> bucket { currTokens = lim }
-    False -> case curr == NoLimit of
-               True  -> bucket -- infinity minus infinity is still infinity
-               -- HACK to indicate bucket will be empty at forever:
-               False -> bucket { currTokens = (DiscreteLimit (-1)) }
+tickLim NoLimit bucket@(TokenBucket curr lim mrate _)
+  | mrate  > 0 = bucket { currTokens = lim }
+  | mrate == 0 = bucket -- currTokens will stay fixed
+  | otherwise  = case curr == NoLimit of
+                   True  -> bucket -- infinity minus infinity is still infinity
+                   -- HACK to indicate bucket will be empty at forever:
+                   False -> bucket { currTokens = (DiscreteLimit (-1)) }
 
 -- Adjusts the mintRate by the specified amount, cannot exceed fillRate
 updateRate :: Integer -> TokenBucket -> TokenBucket
