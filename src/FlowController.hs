@@ -204,35 +204,38 @@ newShare spk parentName newShare@(Share { shareName = shareName })
 injLimit n = DiscreteLimit n
 
 simulate :: PQ Req -- ^ sorted by start time
-         -> [(Limit, Integer)] -- ^time and height
-simulate reqsByStart = simStep 0 reqsByStart (PQ.empty reqEndOrder) where 
-  simStep size byStart byEnd 
-    | PQ.isEmpty byStart && PQ.isEmpty byEnd = []
-    | otherwise =
-    let now = min (maybe NoLimit (injLimit.reqStart) (PQ.peek byStart))
-                  (maybe NoLimit reqEnd (PQ.peek byEnd))
-        (startingNow, byStart') = PQ.dequeueWhile (\r ->
-                                         (injLimit.reqStart) r == now)
-                                      byStart
-        (endingNow, byEnd') = PQ.dequeueWhile (\r -> reqEnd r == now)
-                                    byEnd
-        byEnd'' = foldr PQ.enqueue byEnd' startingNow
-        size' = size + sum (mapMaybe (unReqResv.reqData) startingNow)
-                     - sum (mapMaybe (unReqResv.reqData) endingNow)
-        in (now, size'):(simStep size' byStart' byEnd'')
+         -> TokenBucket
+         -> Integer -- ^ the actual state of time when the simulation started
+         -> Req    -- ^ the new request which is being considered
+         -> [(Limit, Integer, TokenBucket)] -- ^time, height of resv bw, TB
+simulate reqsByStart shareTB trueNow newR =
+  simStep (injLimit trueNow) 0 shareTB reqsByStart (PQ.empty reqEndOrder) newR where 
+    simStep now size tb byStart byEnd newReq
+      | PQ.isEmpty byStart && PQ.isEmpty byEnd = []
+      | otherwise =
+      let now' = min (maybe NoLimit (injLimit.reqStart) (PQ.peek byStart))
+                    (maybe NoLimit reqEnd (PQ.peek byEnd))
+          (startingNow, byStart') = PQ.dequeueWhile (\r ->
+                                           (injLimit.reqStart) r == now')
+                                        byStart
+          (endingNow, byEnd') = PQ.dequeueWhile (\r -> reqEnd r == now')
+                                      byEnd
+          byEnd'' = foldr PQ.enqueue byEnd' startingNow
+          bwDelta = sum (mapMaybe (unReqResv.reqData) startingNow)
+                  - sum (mapMaybe (unReqResv.reqData) endingNow)
+          size' = size + bwDelta
+          tb'   = TB.tickLim (now' `subLimits` now) tb
+          tb''  = case (now' > (DiscreteLimit trueNow)) of
+                    True -> TB.updateRate (-bwDelta) tb'
+                    -- Be careful not to simulate events which occurred:
+                    False  -> case (injLimit (reqStart newReq) == now') of
+                                True -> TB.updateRate (-bwDelta') tb where
+                                          bwDelta' = sum (mapMaybe
+                                                          (unReqResv.reqData)
+                                                          [newReq])
+                                False -> tb
+          in (now', size', tb''):(simStep now' size' tb'' byStart' byEnd'' newReq)
 
-
--- TODO: This is the heart of the token bucket/share math. needs fixes anyway. 
--- needs to become general based on differences in rates
-consumeResvTokens start (DiscreteLimit end) resv share = 
-  let n = (end - start) * resv in
-    case TB.consume n (shareResvTokens share) of
-      Just bucket -> Just (share { shareResvTokens = bucket })
-      Nothing     -> Nothing
-consumeResvTokens _     _                   _    share =
-  case TB.currTokens (shareResvTokens share) == NoLimit of
-    True  -> Just share
-    False -> Nothing 
 
 -- TODO: needs to be more general so it can be used for any resource which
 -- needs to be checked up the tree (eg, latency, rate-limit, etc.)
@@ -249,16 +252,18 @@ recursiveRequest req@(Req shareRef _ start end (ReqResv resv) _) -- TODO: specif
                  not (end' < (DiscreteLimit start) ||
                       (DiscreteLimit start') > end)
             simReqs = PQ.enqueue req (PQ.filter g reqs)
-            (_, sizes) = unzip (simulate simReqs) in
--- TODO: this next line is the specific test for reservations, rather than
+            (_, sizes, tbs) = unzip3 (simulate simReqs (shareResvTokens thisShare)
+                                      (stateNow st) req) in
+-- TODO: these next lines are the specific tests for reservations, rather than
 -- any type of request
           if injLimit (maximum sizes) > shareResvLimit thisShare then
             Nothing
           else
-            let thisShare' = thisShare { shareReq = PQ.enqueue req reqs } in
-              case consumeResvTokens start end resv thisShare' of
-                Just share''' -> Just (Tree.update thisShareName share''' sT)
-                Nothing       -> Nothing
+            if minimum (map TB.currTokens tbs) < injLimit (0) then
+              Nothing
+            else
+              let thisShare' = thisShare { shareReq = PQ.enqueue req reqs } in
+                  Just (Tree.update thisShareName thisShare' sT)
     in case foldl f (Just sT) chain of
          Nothing -> Nothing
          Just sT' -> 
@@ -331,19 +336,39 @@ request spk req@(Req shareRef flow start end rD strict)
   else
     Nothing
 
-tickShare :: Integer -> Share -> Share
-tickShare t share@(Share { shareResvTokens = resvToks }) =
-  share { shareResvTokens = TB.tick t resvToks }
+tickShare :: Integer -> [Req] -> [Req] -> Share -> Share
+tickShare t starting ending share@(Share { shareResvTokens = resvToks }) =
+  share { shareResvTokens = resvToks'' } where
+    resvToks'  = TB.tick t resvToks
+    starting'  = filter (\x -> reqShare x == shareName share) starting
+    ending'    = filter (\x -> reqShare x == shareName share) ending
+    resvToks'' = TB.updateRate (sum (mapMaybe (unReqResv.reqData) ending')
+                              - sum (mapMaybe (unReqResv.reqData) starting'))
+                              resvToks'
 
+-- Starting & ending reservations now have a side-effect on the
+-- token buckets, so we need to execute each start and end event at
+-- the appropriate time
 tick :: Integer -> State -> State
-tick t st@(State { shareTree    = shares,
+tick 0 st = tickInternal 0 st 
+tick 1 st = tickInternal 1 st
+tick t st = tick (t - nextEvent) (tickInternal nextEvent st) where
+  byStart   = acceptedReqs st
+  byEnd     = activeReqs st
+  nextEvent = case min (maybe NoLimit (injLimit.reqStart) (PQ.peek byStart))
+                       (maybe NoLimit reqEnd (PQ.peek byEnd)) of
+                DiscreteLimit n -> (n - stateNow st)
+                NoLimit -> t
+
+tickInternal :: Integer -> State -> State
+tickInternal t st@(State { shareTree    = shares,
                    acceptedReqs = byStart,
                    activeReqs   = byEnd, 
                    stateNow     = now }) =
   st { acceptedReqs = byStart',
        activeReqs   = byEnd'',
        stateNow     = now',
-       shareTree = fmap (tickShare t) shares
+       shareTree = fmap (tickShare t startingNow endingNow) shares
      } 
   where now' = now + t
         (startingNow, byStart') =  PQ.dequeueWhile (\r -> reqStart r <= now')

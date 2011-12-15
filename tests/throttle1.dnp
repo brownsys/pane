@@ -4,32 +4,39 @@ True <- root : NewShare hadoop for (*) [reserve <= 100 ]
                               on net0 
                               throttle bucket(0,100,10).
 True <- root : Grant hadoop to adf.
-// requires an unbounded number of tokens
-False <- adf : reserve(*) = 1 on hadoop.
+// requires one token per tick
+True <- adf : reserve(*) = 1 on hadoop.
 // token bucket was initialized with 0 tokens
-False <- adf : reserve(*) = 10 on hadoop from now to +2.
+//False <- adf : reserve(*) = 10 on hadoop from now to +2.
 True <- root : Tick 1.
-// token bucket has only 10 tokens, 20 needed
-False <- adf : reserve(*) = 10 on hadoop from now to +2.
+
+// token bucket has 9 tokens, receives (10-1)=9 on each tick
+False <- adf : reserve(*) = 14 on hadoop from now to +2. // Note: 13 succeeds 
 True <- root : Tick 1.
+// token bucket has 18 tokens, receives (10-1)=9 per tick
 True <- adf : reserve(*) = 10 on hadoop from now to +2.
-// no more tokens at this time step
-False <- adf : reserve(*) = 1 on hadoop from now to +1.
+
+// token bucket has 18 tokens, receives (10-11)=-1 per tick
+False <- adf : reserve(*) = 18 on hadoop from now to +1.
 True <- root : Tick 1.
+// token bucket has 17 tokens, receives (10-11)=-1 per tick
 True <- adf : reserve(*) = 10 on hadoop from now to +1.
-// no more tokens at this time step
-False <- adf : reserve(*) = 1 on hadoop from now to +1.
+// token bucket has 17 tokens, receives (10-21)=-11 per tick
+False <- adf : reserve(*) = 7 on hadoop from now to +1.
 
 // Bursting test:
 True <- root : Tick 50.
-False <- adf : reserve(*) = 20 on hadoop from now to +6.
-True  <- adf : reserve(*) = 20 on hadoop from now to +5.
+// token bucket has 100 tokens, receives (10-1) = 9 per tick
+False <- adf : reserve(*) = 26 on hadoop from now to +6.
+True  <- adf : reserve(*) = 29 on hadoop from now to +5.
 False <- adf : reserve(*) = 1 on hadoop from now to +1.
 
+True <- root : Tick 5.
+
 // Can burst again
-True <- root : Tick 10.
-False <- adf : reserve(*) = 20 on hadoop from now to +6.
-True  <- adf : reserve(*) = 20 on hadoop from now to +5.
+True <- root : Tick 12.
+False <- adf : reserve(*) = 26 on hadoop from now to +6.
+True  <- adf : reserve(*) = 29 on hadoop from now to +5.
 False <- adf : reserve(*) = 1 on hadoop from now to +1.
 
 
