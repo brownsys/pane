@@ -1,9 +1,12 @@
 #!/bin/bash
 
-for file in tests/*.dnp
+cd tests
+mkdir out 2> /dev/null
+
+for file in *.dnp
 do
   echo -en "\rTest $file ... "
-  ./dnp -f $file
+  ../dnp -t out/$file.js -f $file
   tput el1
 done
 

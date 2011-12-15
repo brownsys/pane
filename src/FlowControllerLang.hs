@@ -71,10 +71,13 @@ currentRequestsM = do
 
 tickM :: Integer -> DNP Bool
 tickM t = do
-  showState <- lift (readIORef isTracing)
   s <- StateM.get
-  let bs = BS.concat ["var instant = ", Aeson.encode s, ";\n"]
-  when showState $ lift $ BS.writeFile "dump.js" bs
+  showStateHandle <- lift (readIORef traceFile)
+  case showStateHandle of
+    Nothing -> return ()
+    Just handle -> do
+      let str = BS.concat ["var instant = ", Aeson.encode s, ";\n"]
+      lift $ BS.hPutStr handle str
   let s' = tick t s
   StateM.put s'
   return True

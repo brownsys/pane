@@ -3,9 +3,10 @@ module Base where
 import System.IO.Unsafe
 import Data.IORef
 import Set (Set)
+import System.IO (Handle)
 
-isTracing :: IORef Bool
-isTracing = unsafePerformIO (newIORef False)
+traceFile :: IORef (Maybe Handle)
+traceFile = unsafePerformIO (newIORef Nothing)
 
 data Limit 
   = NoLimit 
