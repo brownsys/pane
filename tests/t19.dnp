@@ -1,0 +1,4 @@
+True <- root : AddUser arjun.
+True <- root : NewShare hadoopShare for (*) [reserve<=100] on rootShare.
+True <- root : GrantDefault hadoopShare.
+True <- arjun : reserve(*) = 25 on hadoopShare.

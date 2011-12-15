@@ -1,0 +1,12 @@
+#!/bin/bash
+
+for file in tests/*.dnp
+do
+  echo -en "\rTest $file ... "
+  ./dnp -f $file
+  tput el1
+done
+
+
+
+echo "Testing complete."

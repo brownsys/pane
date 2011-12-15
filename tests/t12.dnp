@@ -1,0 +1,2 @@
+True <- root : NewShare net0 for (*) [reserve <= 200] on rootShare.
+True <- root : reserve(*) = 300 on rootShare.

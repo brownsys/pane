@@ -1,0 +1,13 @@
+True <- root : AddUser arjun.
+True <- root : NewShare arjunShare for (user=arjun) [reserve <= 100] on rootShare.
+True <- root : Grant arjunShare to arjun.
+True <- arjun : reserve (user=arjun) = 50 on arjunShare.
+True <- arjun : reserve(user=arjun,app=80) = 50 on arjunShare.
+/* TODO: the in-Haskell test checked that
+
+  Set.fromList s == Set.fromList [
+                  (foreverReq "arjun-share" arjunFlow  (ReqResv 50)),
+                  (foreverReq "arjun-share" arjunWebFlow (ReqResv 50))]
+  
+  We can do this (or something similar) once we return the free/busy schedule.
+*/

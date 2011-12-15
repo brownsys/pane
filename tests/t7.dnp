@@ -1,0 +1,7 @@
+True <- root : AddUser arjun.
+True <- root : AddUser adf.
+True <- root : NewShare arjunShare for (*) [reserve<=100] on rootShare.
+True <- root : Grant arjunShare to arjun.
+False <- arjun : NewShare adfShare for (*) [reserve <= 200] on arjunShare.
+False <- arjun : Grant adfShare to adf.
+

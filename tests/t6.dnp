@@ -1,0 +1,3 @@
+True <- root : AddUser arjun.
+True <- root : NewShare arjunShare for (*) [reserve<=100] on rootShare.
+True <- root : Grant arjunShare to arjun.

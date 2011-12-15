@@ -1,0 +1,6 @@
+True <- root : NewShare net0 for (*) [reserve <= 200] on rootShare.
+True <- root : AddUser adf.
+True <- root : NewShare adfShare for (*) [reserve <= 150] on net0.
+True <- root : Grant adfShare to adf.
+True <- adf : reserve(*) = 100 on adfShare.
+False <- adf : reserve(*) = 51 on adfShare.

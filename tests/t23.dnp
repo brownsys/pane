@@ -1,0 +1,5 @@
+True <- root : AddUser arjun.
+True <- root : NewShare arjunShare for (user=arjun) [reserve <= 100] on rootShare.
+True <- root : Grant arjunShare to arjun.
+True <- arjun : reserve (user=arjun) = 50 on arjunShare.
+False <- arjun : reserve (*) = 50 on arjunShare.

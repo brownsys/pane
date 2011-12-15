@@ -1,0 +1,16 @@
+True <- root : NewShare net0 for (*) [reserve <= 200] on rootShare.
+// Original test case inspected the flows in rootshare. We use net0 instead
+// and try to exceed the limit on net0.
+True <- root : reserve(*) = 10 on net0 from 5 to 10.
+True <- root : reserve(*) = 200 on net0 from now to +1.
+True <- root : Tick 4.
+True <- root : reserve(*) = 200 on net0 from now to +1.
+True <- root : Tick 1.
+False <- root : reserve(*) = 191 on net0 from now to +1.
+True <- root : Tick 4.
+False <- root : reserve(*) = 191 on net0 from now to +1.
+True <- root : Tick 1.
+True <- root : reserve(*) = 200 on net0 from now to +1.
+
+
+
