@@ -96,7 +96,7 @@ flowGroup = do
 -- Share Permissions
 -----------------------------
 
-resvLimit = do
+resvUB = do
   reserved "reserve"
   reservedOp "<="
   size <- T.integer lex
@@ -119,15 +119,22 @@ denyPerm = (do
   b <- boolean
   return b) <|> (return True)
 
--- perm = resvLimit <|> allowPerm <|> denyPerm 
+resvLB = (do
+  reserved "reserve"
+  reservedOp ">="
+  size <- T.integer lex
+  return (DiscreteLimit size)) <|> (return (DiscreteLimit 0))
+
+-- perm = resvUB <|> resvLB <|> allowPerm <|> denyPerm
 
 permList = do
 -- TODO: Convert to be able to specify in any order; need defaults when missing
 --  newPerm <- sepBy perm comma
-  lim <- resvLimit
+  rub <- resvUB
   ca <- allowPerm
   cd <- denyPerm
-  return (lim, ca, cd)
+  rul <- resvLB
+  return (rub, ca, cd, rul)
 
 sharePerms = do
   p <- brackets permList
@@ -172,11 +179,11 @@ newShare spk = do
   name <- identifier
   reserved "for"
   fg <- flowGroup
-  (lim, ca, cd) <- sharePerms
+  (rub, ca, cd, rul) <- sharePerms
   reserved "on"
   parent <- identifier
   resvBucket <- do { reserved "throttle"; tokenBucket } <|> return TB.unlimited
-  let s = Share name fg (Set.singleton spk) emptyShareReq lim
+  let s = Share name fg (Set.singleton spk) emptyShareReq rub rul
             ca cd resvBucket
   return (newShareM spk parent s)
 

@@ -1,0 +1,22 @@
+True <- root : NewShare net0 for (*) [reserve <= 2000] on rootShare.
+
+True <- root : NewShare foo for (*) [reserve <= 100 reserve >= 20]
+                             on net0 
+                             // initial-tokens, max-tokens, new-tokens-per-tick
+                             throttle bucket(0,200,10).
+
+True <- root : Tick 20. // fill the bucket
+
+False <- root : reserve(*) = 15 on foo.
+False <- root : reserve(*) = 15 on foo from now to +1.
+
+False <- root : reserve(*) = 20 on foo from now to +21.
+True <- root : reserve(*) = 20 on foo from now to +20.
+
+True <- root : Tick 20.
+
+False <- root : reserve(*) = 20 on foo from now to +1.
+
+True <- root : Tick 1.
+
+True <- root : reserve(*) = 20 on foo from now to +1.

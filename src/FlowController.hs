@@ -22,7 +22,8 @@ data Share = Share {
 --  shareEnd :: Limit,  TODO (?)
 
   -- Restrictions on what this share can be used for
-  shareResvLimit :: Limit,
+  shareResvUB :: Limit,
+  shareResvLB :: Limit,
   shareCanAllowFlows :: Bool,
   shareCanDenyFlows :: Bool,
   -- |'shareResvTokens' throttles the frequency of reservations. For a reservation
@@ -59,7 +60,7 @@ emptyState =
   State (Tree.root 
            rootShareRef
            (Share rootShareRef anyFlow (Set.singleton rootSpeaker) emptyShareReq
-                   NoLimit True True TB.unlimited))
+                   NoLimit (DiscreteLimit 0) True True TB.unlimited))
         (Set.singleton rootSpeaker)
         (PQ.empty reqStartOrder)
         (PQ.empty reqEndOrder)
@@ -122,9 +123,10 @@ isIntersectingFlow (FlowGroup fs1 fr1 fsp1 fdp1) (FlowGroup fs2 fr2 fsp2 fdp2) =
   not (Set.null (Set.intersection fdp1 fdp2))
 
 isSubShare :: Share -> Share -> Bool
-isSubShare (Share _ flows1 _ _ resLim1 canAllow1 canDeny1 _)
-          (Share _ flows2 _ _ resLim2 canAllow2 canDeny2 _) = 
-  resLim1 <= resLim2 &&
+isSubShare (Share _ flows1 _ _ resUB1 resLB1 canAllow1 canDeny1 _)
+          (Share _ flows2 _ _ resUB2 resLB2 canAllow2 canDeny2 _) = 
+  resUB1 <= resUB2 &&
+  resLB1 >= resLB2 &&
   flows1 `isSubFlow` flows2 &&
   canAllow1 <= canAllow2 &&
   canDeny1 <= canDeny2
@@ -255,14 +257,13 @@ recursiveRequest req@(Req shareRef _ start end (ReqResv resv) _) -- TODO: specif
                                       (stateNow st) req) in
 -- TODO: these next lines are the specific tests for reservations, rather than
 -- any type of request
-          if injLimit (maximum sizes) > shareResvLimit thisShare then
+          if (injLimit (maximum sizes) > shareResvUB thisShare) ||
+               (injLimit resv < shareResvLB thisShare) ||
+               (minimum (map TB.currTokens tbs) < injLimit (0)) then
             Nothing
           else
-            if minimum (map TB.currTokens tbs) < injLimit (0) then
-              Nothing
-            else
-              let thisShare' = thisShare { shareReq = PQ.enqueue req reqs } in
-                  Just (Tree.update thisShareName thisShare' sT)
+            let thisShare' = thisShare { shareReq = PQ.enqueue req reqs } in
+                Just (Tree.update thisShareName thisShare' sT)
     in case foldl f (Just sT) chain of
          Nothing -> Nothing
          Just sT' -> 

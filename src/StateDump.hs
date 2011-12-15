@@ -47,7 +47,8 @@ instance ToJSON Share where
     , ("flows", toJSON (shareFlows share))
     , ("holders", toJSON (shareHolders share))
     , ("req", toJSON (shareReq share))
-    , ("resvLimit", toJSON (shareResvLimit share))
+    , ("resvUB", toJSON (shareResvUB share))
+    , ("resvLB", toJSON (shareResvLB share))
     , ("canAllow", toJSON (shareCanAllowFlows share))
     , ("canDeny", toJSON (shareCanDenyFlows share))
     ]
