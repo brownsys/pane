@@ -8,7 +8,7 @@ import qualified Tree
 import Tree (Tree)
 import qualified PriorityQueue as PQ
 import PriorityQueue (PQ)
-import Data.Maybe (maybe, mapMaybe)
+import Data.Maybe (maybe, mapMaybe, fromMaybe)
 import Base
 import TokenBucket (TokenBucket)
 import qualified TokenBucket as TB
@@ -224,17 +224,16 @@ simulate reqsByStart shareTB trueNow newR =
           bwDelta = sum (mapMaybe (unReqResv.reqData) startingNow)
                   - sum (mapMaybe (unReqResv.reqData) endingNow)
           size' = size + bwDelta
-          tb'   = TB.tickLim (now' `subLimits` now) tb
-          tb''  = case (now' > (DiscreteLimit trueNow)) of
-                    True -> TB.updateRate (-bwDelta) tb'
+          tb'   = case (now' > (DiscreteLimit trueNow)) of
+                    True -> TB.updateRate (-bwDelta) (TB.tickLim
+                                                      (now' `subLimits` now) tb)
                     -- Be careful not to simulate events which occurred:
                     False  -> case (injLimit (reqStart newReq) == now') of
                                 True -> TB.updateRate (-bwDelta') tb where
-                                          bwDelta' = sum (mapMaybe
-                                                          (unReqResv.reqData)
-                                                          [newReq])
+                                          bwDelta' = fromMaybe 0 (unReqResv
+                                                       (reqData newReq))
                                 False -> tb
-          in (now', size', tb''):(simStep now' size' tb'' byStart' byEnd'' newReq)
+          in (now', size', tb'):(simStep now' size' tb' byStart' byEnd'' newReq)
 
 
 -- TODO: needs to be more general so it can be used for any resource which
