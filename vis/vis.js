@@ -5,6 +5,9 @@ var emptyInstant = { shares: { item: { name: 'rootShare', req: [] }, children: [
 function shareSeriesData(share) {
   var start = pv.min(share.req, function(v) { return v.start; });
   var end = pv.max(share.req, function(v) { return v.end; });
+  if (share.req.some(function(v) { return v.end === null; })) {
+    end = end + 10;
+  }
   var flows = pv.uniq(share.req, function(v) { return JSON.stringify(v.flows); });
   var labels = [];
   var rows = pv.range(flows.length).map(function(flowIndex) {
@@ -17,7 +20,7 @@ function shareSeriesData(share) {
 
     return pv.range(start, end).map(function(t) {
       var timeResvs = flowResvs.filter(function(v) { 
-        return v.start <= t && v.end >= t; 
+        return v.start <= t && (v.end === null || v.end >= t); 
       });
       return pv.sum(timeResvs, function(v) { return v.data.reserve; });
     });
@@ -110,10 +113,10 @@ function setupShareTree(vis) {
   sharesLayout.node.add(pv.Dot)
       .fillStyle(function(n) { return n === selectedNode ? "#f00" : "#fff" })
       .events("all").event("click", function(n) {
-        selectedNode = n; console.log(n.nodeName);
+        selectedNode = n;
         var share = allShares[n.nodeName];
         mainVis.series(share);
-        var x = pv.Scale.linear(0, share.m - 1).range(0, w);
+        var x = pv.Scale.linear(0, share.m - 1).range(0, w * 0.7);
         var y = pv.Scale.linear(0, 100 * share.n).range(0, h);
         hRule.data(x.ticks());
         hRule.left(x);
