@@ -7,7 +7,7 @@ True <- root : Grant hadoop to adf.
 // requires one token per tick
 True <- adf : reserve(*) = 1 on hadoop.
 // token bucket was initialized with 0 tokens
-//False <- adf : reserve(*) = 10 on hadoop from now to +2.
+False <- adf : reserve(*) = 10 on hadoop from now to +2.
 True <- root : Tick 1.
 
 // token bucket has 9 tokens, receives (10-1)=9 on each tick
