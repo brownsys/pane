@@ -21,6 +21,10 @@ instance Ord Limit where
 addLimits (DiscreteLimit m) (DiscreteLimit n) = DiscreteLimit (m + n)
 addLimits _                 _                 = NoLimit
 
+subLimits (DiscreteLimit m) (DiscreteLimit n) = DiscreteLimit (m - n)
+subLimits NoLimit NoLimit = error "uh oh. what should we do?"
+subLimits _                 _                 = NoLimit
+
 data Time
   = Relative Integer -- ^relative to now
   | Absolute Integer
