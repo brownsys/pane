@@ -358,7 +358,7 @@ tick t st = tick (t - nextEvent) (tickInternal nextEvent st) where
   byEnd     = activeReqs st
   nextEvent = case min (maybe NoLimit (injLimit.reqStart) (PQ.peek byStart))
                        (maybe NoLimit reqEnd (PQ.peek byEnd)) of
-                DiscreteLimit n -> (n - stateNow st)
+                DiscreteLimit n -> min (n - stateNow st) t
                 NoLimit -> t
 
 -- |Note that 't' may be negative

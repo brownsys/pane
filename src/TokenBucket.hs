@@ -34,7 +34,7 @@ tick t bucket@(TokenBucket curr lim mrate _) = bucket { currTokens = curr' }
 
 -- Designed to allow simulating this bucket to infinite time
 tickBy (DiscreteLimit l) b
-  -- | l < 0     = error $ "tickBy (DiscreteLimit " ++ show l ++ ") _"
+  | l < 0     = error $ "tickBy (DiscreteLimit " ++ show l ++ ") _"
   | otherwise = tick l b
 tickBy NoLimit bucket@(TokenBucket curr lim mrate _)
   | mrate  > 0 = bucket { currTokens = lim }
