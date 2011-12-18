@@ -1,5 +1,6 @@
 module FlowController where
 
+import Debug.Trace
 import Set (Set)
 import qualified Set
 import Data.Map (Map)
@@ -359,6 +360,7 @@ tick t st = tick (t - nextEvent) (tickInternal nextEvent st) where
                 DiscreteLimit n -> (n - stateNow st)
                 NoLimit -> t
 
+-- |Note that 't' may be negative
 tickInternal :: Integer -> State -> State
 tickInternal t st@(State { shareTree    = shares,
                    acceptedReqs = byStart,

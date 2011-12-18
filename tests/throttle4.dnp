@@ -1,0 +1,27 @@
+True <- root : NewShare net0 for (*) [reserve <= 2000] on rootShare
+                                 throttle bucket(0, 200, 10).
+
+// t = 0
+
+
+// for 0 <= t <= 9, mintRate_t == 0 and currTokens_t == 0
+//
+True <- root : reserve(*) = 10 on net0 from 0 to 99. 
+True <- root : Tick 5.
+
+// for t == 10,  mintRate_t == 10 and currTokens_t == 0
+//
+// Since the event above is in the future, tickShare calls TB.tickBy
+// with negative time, putting extra tokens into the bucket.
+//
+True <- root : reserve(*) = 10 on net0 from 100 to 101.
+
+True <- root : Tick 94.
+
+True <- root : reserve(*) = 30 on net0 from 102 to 103.
+
+
+
+
+
+
