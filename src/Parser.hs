@@ -133,8 +133,8 @@ permList = do
   rub <- resvUB
   ca <- allowPerm
   cd <- denyPerm
-  rul <- resvLB
-  return (rub, ca, cd, rul)
+  rlb <- resvLB
+  return (rub, ca, cd, rlb)
 
 sharePerms = do
   p <- brackets permList
@@ -179,11 +179,11 @@ newShare spk = do
   name <- identifier
   reserved "for"
   fg <- flowGroup
-  (rub, ca, cd, rul) <- sharePerms
+  (rub, ca, cd, rlb) <- sharePerms
   reserved "on"
   parent <- identifier
   resvBucket <- do { reserved "throttle"; tokenBucket } <|> return TB.unlimited
-  let s = Share name fg (Set.singleton spk) emptyShareReq rub rul
+  let s = Share name fg (Set.singleton spk) emptyShareReq rub rlb
             ca cd resvBucket
   return (newShareM spk parent s)
 
