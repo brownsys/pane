@@ -325,7 +325,7 @@ simulate reqsByStart shareTB trueNow newR =
                   - sum (mapMaybe (unReqResv.reqData) endingNow)
           size' = size + bwDelta
           tb'   = case (now' > (DiscreteLimit trueNow)) of
-                    True -> TB.updateRate (-bwDelta) (TB.tickLim
+                    True -> TB.updateRate (-bwDelta) (TB.tickBy
                                                       (now' `subLimits` now) tb)
                     -- Be careful not to simulate events which occurred:
                     False  -> case (injLimit (reqStart newReq) == now') of
@@ -338,7 +338,7 @@ simulate reqsByStart shareTB trueNow newR =
 tickShare :: Integer -> [Req] -> [Req] -> Share -> Share
 tickShare t starting ending share@(Share { shareResvTokens = resvToks }) =
   share { shareResvTokens = resvToks'' } where
-    resvToks'  = TB.tick t resvToks
+    resvToks'  = TB.tickBy (DiscreteLimit t) resvToks
     starting'  = filter (\x -> reqShare x == shareName share) starting
     ending'    = filter (\x -> reqShare x == shareName share) ending
     resvToks'' = TB.updateRate (sum (mapMaybe (unReqResv.reqData) ending')

@@ -2,8 +2,7 @@ module TokenBucket
   ( TokenBucket
   , unlimited
   , new
-  , tick
-  , tickLim
+  , tickBy
   , updateRate
   , currTokens
   ) where
@@ -34,8 +33,10 @@ tick t bucket@(TokenBucket curr lim mrate _) = bucket { currTokens = curr' }
                 -- unbounded with lim bounded.
 
 -- Designed to allow simulating this bucket to infinite time
-tickLim (DiscreteLimit l) b = tick l b
-tickLim NoLimit bucket@(TokenBucket curr lim mrate _)
+tickBy (DiscreteLimit l) b
+  | l < 0     = error $ "tickBy (DiscreteLimit " ++ show l ++ ") _"
+  | otherwise = tick l b
+tickBy NoLimit bucket@(TokenBucket curr lim mrate _)
   | mrate  > 0 = bucket { currTokens = lim }
   | mrate == 0 = bucket -- currTokens will stay fixed
   | otherwise  = case curr == NoLimit of
