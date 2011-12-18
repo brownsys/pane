@@ -207,7 +207,7 @@ injLimit n = DiscreteLimit n
 
 simulate :: PQ Req -- ^ sorted by start time
          -> TokenBucket
-         -> Integer -- ^ the actual state of time when the simulation started
+         -> Integer -- ^ simulation starting time
          -> Req    -- ^ the new request which is being considered
          -> [(Limit, Integer, TokenBucket)] -- ^time, height of resv bw, TB
 simulate reqsByStart shareTB trueNow newR =
