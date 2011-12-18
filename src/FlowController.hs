@@ -205,39 +205,6 @@ newShare spk parentName newShare@(Share { shareName = shareName })
 
 injLimit n = DiscreteLimit n
 
-simulate :: PQ Req -- ^ sorted by start time
-         -> TokenBucket
-         -> Integer -- ^ simulation starting time
-         -> Req    -- ^ the new request which is being considered
-         -> [(Limit, Integer, TokenBucket)] -- ^time, height of resv bw, TB
-simulate reqsByStart shareTB trueNow newR =
-  simStep (injLimit trueNow) 0 shareTB reqsByStart (PQ.empty reqEndOrder) newR where 
-    simStep now size tb byStart byEnd newReq
-      | PQ.isEmpty byStart && PQ.isEmpty byEnd = []
-      | otherwise =
-      let now' = min (maybe NoLimit (injLimit.reqStart) (PQ.peek byStart))
-                    (maybe NoLimit reqEnd (PQ.peek byEnd))
-          (startingNow, byStart') = PQ.dequeueWhile (\r ->
-                                           (injLimit.reqStart) r == now')
-                                        byStart
-          (endingNow, byEnd') = PQ.dequeueWhile (\r -> reqEnd r == now')
-                                      byEnd
-          byEnd'' = foldr PQ.enqueue byEnd' startingNow
-          bwDelta = sum (mapMaybe (unReqResv.reqData) startingNow)
-                  - sum (mapMaybe (unReqResv.reqData) endingNow)
-          size' = size + bwDelta
-          tb'   = case (now' > (DiscreteLimit trueNow)) of
-                    True -> TB.updateRate (-bwDelta) (TB.tickLim
-                                                      (now' `subLimits` now) tb)
-                    -- Be careful not to simulate events which occurred:
-                    False  -> case (injLimit (reqStart newReq) == now') of
-                                True -> TB.updateRate (-bwDelta') tb where
-                                          bwDelta' = fromMaybe 0 (unReqResv
-                                                       (reqData newReq))
-                                False -> tb
-          in (now', size', tb'):(simStep now' size' tb' byStart' byEnd'' newReq)
-
-
 -- TODO: needs to be more general so it can be used for any resource which
 -- needs to be checked up the tree (eg, latency, rate-limit, etc.)
 recursiveRequest :: Req
@@ -335,6 +302,38 @@ request spk req@(Req shareRef flow start end rD strict)
                              _ -> error "FAIL. PARTIAL RESERVE UNIMPLEMENTED."
   else
     Nothing
+
+simulate :: PQ Req -- ^ sorted by start time
+         -> TokenBucket
+         -> Integer -- ^ simulation starting time
+         -> Req    -- ^ the new request which is being considered
+         -> [(Limit, Integer, TokenBucket)] -- ^time, height of resv bw, TB
+simulate reqsByStart shareTB trueNow newR =
+  simStep (injLimit trueNow) 0 shareTB reqsByStart (PQ.empty reqEndOrder) newR where 
+    simStep now size tb byStart byEnd newReq
+      | PQ.isEmpty byStart && PQ.isEmpty byEnd = []
+      | otherwise =
+      let now' = min (maybe NoLimit (injLimit.reqStart) (PQ.peek byStart))
+                    (maybe NoLimit reqEnd (PQ.peek byEnd))
+          (startingNow, byStart') = PQ.dequeueWhile (\r ->
+                                           (injLimit.reqStart) r == now')
+                                        byStart
+          (endingNow, byEnd') = PQ.dequeueWhile (\r -> reqEnd r == now')
+                                      byEnd
+          byEnd'' = foldr PQ.enqueue byEnd' startingNow
+          bwDelta = sum (mapMaybe (unReqResv.reqData) startingNow)
+                  - sum (mapMaybe (unReqResv.reqData) endingNow)
+          size' = size + bwDelta
+          tb'   = case (now' > (DiscreteLimit trueNow)) of
+                    True -> TB.updateRate (-bwDelta) (TB.tickLim
+                                                      (now' `subLimits` now) tb)
+                    -- Be careful not to simulate events which occurred:
+                    False  -> case (injLimit (reqStart newReq) == now') of
+                                True -> TB.updateRate (-bwDelta') tb where
+                                          bwDelta' = fromMaybe 0 (unReqResv
+                                                       (reqData newReq))
+                                False -> tb
+          in (now', size', tb'):(simStep now' size' tb' byStart' byEnd'' newReq)
 
 tickShare :: Integer -> [Req] -> [Req] -> Share -> Share
 tickShare t starting ending share@(Share { shareResvTokens = resvToks }) =
