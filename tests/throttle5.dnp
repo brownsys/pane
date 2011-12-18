@@ -1,0 +1,24 @@
+True <- root : NewShare net0 for (*) [reserve <= 2000] on rootShare
+                                 throttle bucket(0, 200, 10).
+
+
+True <- root : reserve(*) = 1 on net0 from 0 to 10. 
+
+// Now, when t reaches 10, currToks will be (10 * 10) - (1 * 10) = 90
+
+True <- root : reserve(*) = 9 on net0 from 1 to 10.
+
+// Now, when t reaches 10, currToks will be 90 - (9 * 9) = 9
+
+
+False <- root : reserve(*) = 90 on net0 from 11 to 12.
+
+// The bug we have is in this line:
+// https://github.com/brown-csci1680/dnp-project/commit/4e34cf6b284ca355c4d9f75f5616f69afb077488#L1R255
+// When checking the reservation, the simulation begins at Tick 11, but with
+// the token bucket of Tick 0. The logic in lines 228-232 accounts for the new
+// reservation's effect on the token bucket. But it does not account for the
+// "ending effects" of the active reservations.
+//
+// I think the only way to fix this is to really play out the whole schedule.
+// (i.e., effectively iterate with tick and get rid of simulate.)
