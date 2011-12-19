@@ -1,6 +1,23 @@
-module FlowController where
+module FlowController
+  ( State
+  , emptyState
+  , emptyShareReq
+  , createSpeaker
+  , giveReference
+  , giveDefaultReference
+  , newShare
+  , request
+  , tick
+  , isAdmControl
+  , currentRequests
+  , reqDepth
+  , stateNow
+  , findSharesByFlowGroup
+  , Share (..)
+  ) where
 
 import Debug.Trace
+import Data.Aeson
 import Set (Set)
 import qualified Set
 import Data.Map (Map)
@@ -422,3 +439,27 @@ findReqByIntersectingFG :: FlowGroup -> State -> [Req]
 findReqByIntersectingFG fg st@(State {acceptedReqs=accepted,activeReqs=active}) =
   PQ.toList (PQ.filter (\x -> fg `isIntersectingFlow` (reqFlows x)) active) ++
     PQ.toList (PQ.filter (\x -> fg `isIntersectingFlow` (reqFlows x)) accepted)
+
+
+--
+--
+--
+
+instance ToJSON Share where
+  toJSON share = object
+    [ ("name", toJSON (shareName share))
+    , ("flows", toJSON (shareFlows share))
+    , ("holders", toJSON (shareHolders share))
+    , ("req", toJSON (shareReq share))
+    , ("resvUB", toJSON (shareResvUB share))
+    , ("resvLB", toJSON (shareResvLB share))
+    , ("canAllow", toJSON (shareCanAllowFlows share))
+    , ("canDeny", toJSON (shareCanDenyFlows share))
+    ]
+instance ToJSON State where
+  toJSON (State shares speakers accepted active now) = object
+    [ ("shares", toJSON (Tree.expose shares))
+    , ("speakers", toJSON speakers)
+    , ("accepted", toJSON accepted)
+    , ("now", toJSON now)
+    ]

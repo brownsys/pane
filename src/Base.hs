@@ -4,6 +4,8 @@ import System.IO.Unsafe
 import Data.IORef
 import Set (Set)
 import System.IO (Handle)
+import Data.Aeson
+import qualified Data.Tree as Tree
 
 traceFile :: IORef (Maybe Handle)
 traceFile = unsafePerformIO (newIORef Nothing)
@@ -69,3 +71,34 @@ data ReqData = ReqResv Integer
              | ReqAllow
              | ReqDeny
              deriving (Eq, Ord, Show)
+
+instance ToJSON Limit where
+  toJSON NoLimit           = Null
+  toJSON (DiscreteLimit n) = toJSON n
+
+instance ToJSON FlowGroup where
+  toJSON (FlowGroup srcUser destUser srcPort destPort) =
+    object [ ("srcUser", toJSON srcUser)
+           , ("destUser", toJSON destUser)
+           , ("srcPort", toJSON srcPort)
+           , ("destPort", toJSON destPort)
+           ]
+
+instance ToJSON Req where
+  toJSON (Req share flows start end typ strict) =
+    object [ ("share", toJSON share)
+           , ("flows", toJSON flows)
+           , ("start", toJSON start)
+           , ("end", toJSON end)
+           , ("data", toJSON typ)
+           , ("strict", toJSON strict)
+           ]
+
+instance ToJSON ReqData where
+  toJSON (ReqResv n) = object [ ("reserve", toJSON n) ]
+  toJSON ReqAllow    = object [ ("allow", Bool True) ]
+  toJSON ReqDeny     = object [ ("deny", Bool False) ]
+
+instance ToJSON a => ToJSON (Tree.Tree a) where
+  toJSON (Tree.Node val children) = 
+    object [ ("item", toJSON val), ("children", toJSON children) ]

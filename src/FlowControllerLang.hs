@@ -24,7 +24,6 @@ import Set(Set)
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.Aeson as Aeson
 import Control.Monad.Trans
-import StateDump
 
 type DNP a = StateM.StateT State IO a
 

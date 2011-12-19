@@ -14,7 +14,6 @@ import FlowControllerLang
 import FlowController (emptyState, State)
 import Test.HUnit hiding (State)
 import Server
-import qualified StateDump
 import Base
 
 data Argument
