@@ -14,8 +14,10 @@ module FlowController
   , stateNow
   , findSharesByFlowGroup
   , Share (..)
+  , querySchedule
   ) where
 
+import Control.Monad
 import Debug.Trace
 import Data.Aeson
 import Set (Set)
@@ -321,6 +323,28 @@ request spk req@(Req shareRef flow start end rD strict)
                              _ -> error "FAIL. PARTIAL RESERVE UNIMPLEMENTED."
   else
     Nothing
+
+-- |'querySchedule speaker share state' returns the reservation schedule on 'share'
+-- to 'speaker'. The reservation schedule is a list of 3-tuples,
+-- '(timestamp, bandwidth-available, tokens-available)'. The list is ordered by
+-- 'timestamp'.
+--
+-- The operation fails if 'speaker' does not hold a reference to 'share'.
+querySchedule :: Speaker
+              -> ShareRef
+              -> State
+              -> Maybe [(Limit, Limit, Limit)]
+querySchedule speaker shareName (State { shareTree = shares, stateNow = now }) = do
+  let share = Tree.lookup shareName shares
+  when (not (Set.member speaker (shareHolders share)))
+    (fail "does not hold share")
+  let reqs = PQ.filter (\req -> reqStart req >= now) (shareReq share)
+  let dummyReq = Req shareName anyFlow now NoLimit ReqDeny False
+  let sched = simulate reqs (shareResvTokens share) now dummyReq
+  let available = shareResvUB share
+  let f (t, bwUsed, toks) = 
+        (t, available `subLimits` DiscreteLimit bwUsed, TB.currTokens toks)
+  return (map f sched)
 
 simulate :: PQ Req -- ^ sorted by start time
          -> TokenBucket

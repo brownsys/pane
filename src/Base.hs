@@ -6,9 +6,27 @@ import Set (Set)
 import System.IO (Handle)
 import Data.Aeson
 import qualified Data.Tree as Tree
+import Text.PrettyPrint.HughesPJ
+
 
 traceFile :: IORef (Maybe Handle)
 traceFile = unsafePerformIO (newIORef Nothing)
+
+data DNPResult
+  = BoolResult Bool
+  | ScheduleResult [(Limit, Limit, Limit)]
+  deriving Eq
+
+renderResult (BoolResult b)       = text (show b)
+renderResult (ScheduleResult lst) = vcat (len:(map f lst))
+  where len = text (show (length lst))
+        f (t, bw, toks) = renderLimit t <+> renderLimit bw <+> renderLimit toks
+
+renderLimit (DiscreteLimit n) = text (show n)
+renderLimit NoLimit           = text "inf"
+
+instance Show DNPResult where
+  show r = render (renderResult r)
 
 data Limit 
   = NoLimit 

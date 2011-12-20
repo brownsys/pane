@@ -16,6 +16,7 @@ import FlowController (State)
 import EmitFML
 import Control.Concurrent
 import Data.IORef
+import Base
 
 foreign import ccall unsafe "htons" htons :: Word16 -> Word16
 
@@ -34,18 +35,21 @@ serverMain port state = withSocketsDo $ do
     serverLoop sock stateRef
 
 
-serverAction cmd stRef = do
+serverAction conn cmd stRef = do
   st <- takeMVar stRef -- block if empty
   (result, st) <- runDNP cmd st
   case result of
-    True -> do
+    BoolResult True -> do
       putStrLn "--> ACCEPTED"
       (t, _) <- runDNP getTimeM st
       putStrLn ("--> BEGIN NEW FML CONFIGURATION. TIME = " ++ (show t))
       putStrLn (emitFML st)
       putStrLn "--> END NEW FML CONFIGURATION"
-    False -> do
+    BoolResult False -> do
       putStrLn "--> REJECTED"
+    otherwise -> do
+      putStrLn "Schedule returned"
+  Network.Socket.send conn (show result)
   putMVar stRef st -- we have it, so will never block
   return stRef
 
@@ -59,7 +63,7 @@ authUser conn st = do
 processLoop spk conn st msg = do
   putStr (spk ++ " : ")
   putStrLn msg
-  st' <- parseInteractive' spk msg serverAction st
+  st' <- parseInteractive' spk msg (serverAction conn) st
   msg' <- recv conn 1024
   processLoop spk conn st' (C.unpack msg')
 

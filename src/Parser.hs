@@ -215,6 +215,11 @@ strict = (do { reserved "strict"; return True }) <|>
          (do { reserved "partial"; return False }) <|>
          (return True) -- choosing defaults again...
 
+parseQuerySchedule speaker = do
+  reserved "schedule"
+  shareName <- identifier
+  return (queryScheduleM speaker shareName)
+
 reserve spk = do
   reserved "reserve"
   fg <- flowGroup
@@ -267,10 +272,7 @@ deny spk = do
 -- Top-level Parsing Functions
 -----------------------------
 
--- TODO: Can we have a statement which returns something other
--- than a DNP Bool? how?
-
-verb spk = reserve spk <|> allow spk <|> deny spk
+verb spk = reserve spk <|> allow spk <|> deny spk <|> parseQuerySchedule spk
 shareManage spk = newShare spk <|> grant spk <|> grantDefault spk
 sysManage spk = tick spk <|> addUser spk
 
@@ -278,9 +280,12 @@ parseStmt spk = do
   stmt <- verb spk <|> shareManage spk <|> sysManage spk
   dot
   return stmt
+
+dnpResult = 
+  (do { b <- boolean; return (BoolResult b) })
  
 parseTestStmt = do
-  res <- boolean
+  res <- dnpResult
   p <- getPosition
   reserved "<-"
   spk <- identifier
@@ -304,13 +309,13 @@ parseCompleteString spk = do
   eof
   return s
 
-parseStmtFromStdin :: String -> IO (DNP Bool)
+parseStmtFromStdin :: String -> IO (DNP DNPResult)
 parseStmtFromStdin spk = do
   str <- getLine
   case parse (parseCompleteString spk) "<stdin>" str of
     Left err -> do
       putStrLn ("Parse failed: " ++ show err)
-      return (return False)
+      return (return (BoolResult False))
     Right cmd -> do
       return cmd
 
@@ -321,18 +326,18 @@ parseFromTestFile filename = do
     Left err -> fail (show err)
     Right stmts -> return stmts
 
-parseStmtFromString :: String -> String -> IO (DNP Bool)
+parseStmtFromString :: String -> String -> IO (DNP DNPResult)
 parseStmtFromString spk str = do
   case parse (parseCompleteString spk) "<string>" str of
     Left err -> do
       putStrLn ("Parse failed: " ++ show err)
-      return (return False)
+      return (return (BoolResult False))
     Right cmd -> do
       return cmd
 
 parseInteractive' :: String  -- ^speaker
                  -> String  -- ^input stream
-                 -> (DNP Bool -> a -> IO a)
+                 -> (DNP DNPResult -> a -> IO a)
                  -> a
                  -> IO a
 parseInteractive' spk inBuf action acc = do

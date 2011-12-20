@@ -25,22 +25,8 @@ data Argument
 argSpec =
   [ Option ['t'] ["trace"] (ReqArg Trace "FILE") "trace file"
   , Option ['f'] ["test"] (ReqArg Test "FILE") "run test case"
-  , Option ['i'] ["interactive"] (ReqArg Interactive "SPEAKER") "???"
   , Option ['s'] ["server"] (ReqArg (Server . read) "PORT") "server"
   ]
-
-
-loop :: String -> State -> IO a
-loop spk st = do
-  putStr (spk ++ "$ ")
-  hFlush stdout
-  cmd <- parseStmtFromStdin spk
-  (b, st') <- runDNP cmd st
-  case b of
-    True -> loop spk st'
-    False -> do
-      putStrLn "epic fail whale"
-      loop spk st'
 
 runTestFile f = do
   runTests <- parseFromTestFile f
@@ -53,7 +39,6 @@ doTrace (Trace path:rest) = do
 doTrace lst = return lst
 
 action [Test file] = runTestFile file
-action [Interactive spk] = loop spk emptyState
 action [Server port] = serverMain port emptyState
 action _ = fail "too many args"
 

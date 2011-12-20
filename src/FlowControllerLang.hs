@@ -9,6 +9,7 @@ module FlowControllerLang
   , tickM
   , getTimeM
   , findSharesByFlowGroupM
+  , queryScheduleM
   , evalDNP
   , fmlDNP
   , runDNP
@@ -41,19 +42,19 @@ fmlDNP m = do
 boolWrapper exp = do
   s <- StateM.get
   case exp s of
-    Nothing -> return False
+    Nothing -> return (BoolResult False)
     Just s' -> do
       StateM.put s'
-      return True
+      return (BoolResult True)
 
 
-createSpeakerM :: Speaker -> DNP Bool
+createSpeakerM :: Speaker -> DNP DNPResult
 createSpeakerM spk = boolWrapper (createSpeaker spk)
 
 giveReferenceM :: Speaker
               -> ShareRef
               -> Speaker
-              -> DNP Bool
+              -> DNP DNPResult
 giveReferenceM fromSpk share toSpk = 
   boolWrapper (giveReference fromSpk share toSpk)
 
@@ -68,7 +69,15 @@ currentRequestsM = do
   s <- StateM.get
   return (currentRequests s)
 
-tickM :: Integer -> DNP Bool
+queryScheduleM :: Speaker -> ShareRef -> DNP DNPResult
+queryScheduleM speaker shareName = do
+  state <- StateM.get
+  case querySchedule speaker shareName state of
+    Nothing -> return (BoolResult False)
+    Just sched -> return (ScheduleResult sched)
+  
+
+tickM :: Integer -> DNP DNPResult
 tickM t = do
   s <- StateM.get
   showStateHandle <- lift (readIORef traceFile)
@@ -79,7 +88,7 @@ tickM t = do
       lift $ BS.hPutStr handle str
   let s' = tick t s
   StateM.put s'
-  return True
+  return (BoolResult True)
 
 getTimeM :: DNP(Integer)
 getTimeM = do
