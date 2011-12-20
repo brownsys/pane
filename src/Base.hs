@@ -18,9 +18,10 @@ data DNPResult
   deriving Eq
 
 renderResult (BoolResult b)       = text (show b)
-renderResult (ScheduleResult lst) = vcat (len:(map f lst))
+renderResult (ScheduleResult lst) = cat $ punctuate (text "; ") $ (len:(map f lst))
   where len = text (show (length lst))
-        f (t, bw, toks) = renderLimit t <+> renderLimit bw <+> renderLimit toks
+        f (t, bw, toks) = cat $ punctuate (text ",") $ 
+                            [renderLimit t,  renderLimit bw, renderLimit toks]
 
 renderLimit (DiscreteLimit n) = text (show n)
 renderLimit NoLimit           = text "inf"
