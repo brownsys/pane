@@ -211,9 +211,10 @@ injLimit n = DiscreteLimit n
 recursiveRequest :: Req
                  -> State
                  -> Maybe State
-recursiveRequest req@(Req shareRef _ start end (ReqResv resv) _) -- TODO: specific
+recursiveRequest req@(Req shareRef _ _ end (ReqResv resv) _) -- TODO: specific
                  st@(State {shareTree = sT, acceptedReqs = accepted }) =
   let chain = Tree.chain shareRef sT
+      start = stateNow st
       f Nothing _ = Nothing
       f (Just sT) (thisShareName, thisShare@(Share {shareReq=reqs})) = 
         let g req'@(Req { reqStart = start', reqEnd = end' }) =
