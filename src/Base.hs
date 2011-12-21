@@ -48,7 +48,8 @@ addLimits _                 _                 = NoLimit
 
 subLimits (DiscreteLimit m) (DiscreteLimit n) = DiscreteLimit (m - n)
 subLimits NoLimit NoLimit = error "uh oh. what should we do?"
-subLimits _                 _                 = NoLimit
+subLimits NoLimit (DiscreteLimit n) = NoLimit
+subLimits (DiscreteLimit n) NoLimit = error "uh oh. another strange case."
 
 data Time
   = Relative Integer -- ^relative to now

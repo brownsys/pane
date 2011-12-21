@@ -345,7 +345,12 @@ getSchedule speaker shareName (State { shareTree = shares, stateNow = now }) = d
   let available = shareResvUB share
   let f (t, bwUsed, toks) = 
         (t, available `subLimits` DiscreteLimit bwUsed, TB.currTokens toks)
-  return (map f sched)
+  let tmp = map f sched
+  -- TODO: doing this is a bit hackish; is this the best way to let the client
+  -- know the available bandwidth on a share with no reservations?
+  case tmp of
+    [] -> return [(injLimit now, available, TB.currTokens (shareResvTokens share))]
+    _  -> return tmp
 
 simulate :: PQ Req -- ^ sorted by start time
          -> TokenBucket
