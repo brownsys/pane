@@ -45,7 +45,7 @@ action _ = fail "too many args"
 mainBody = do
   rawArgs <- getArgs
   let (args, options, errors) = getOpt RequireOrder argSpec rawArgs
-  unless (null errors) $ do { mapM_ (putStrLn.show) errors; fail "bad args" }
+  unless (null errors) $ do { mapM_ putStrLn errors; fail "bad args" }
   args <- doTrace args
   action args
 
