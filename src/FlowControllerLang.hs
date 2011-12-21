@@ -8,8 +8,9 @@ module FlowControllerLang
   , currentRequestsM
   , tickM
   , getTimeM
-  , findSharesByFlowGroupM
-  , queryScheduleM
+  , listShareRefsByFlowGroupM
+  , listShareRefsByUserM
+  , getScheduleM
   , evalDNP
   , fmlDNP
   , runDNP
@@ -69,10 +70,10 @@ currentRequestsM = do
   s <- StateM.get
   return (currentRequests s)
 
-queryScheduleM :: Speaker -> ShareRef -> DNP DNPResult
-queryScheduleM speaker shareName = do
+getScheduleM :: Speaker -> ShareRef -> DNP DNPResult
+getScheduleM speaker shareName = do
   state <- StateM.get
-  case querySchedule speaker shareName state of
+  case getSchedule speaker shareName state of
     Nothing -> return (BoolResult False)
     Just sched -> return (ScheduleResult sched)
   
@@ -95,6 +96,12 @@ getTimeM = do
   s <- StateM.get
   return (stateNow s)
 
-findSharesByFlowGroupM x1 = do
+listShareRefsByFlowGroupM :: FlowGroup -> DNP DNPResult
+listShareRefsByFlowGroupM x1 = do
   s <- StateM.get
-  return (findSharesByFlowGroup x1 s)
+  return (ShareRefsResult (listShareRefsByFlowGroup x1 s))
+
+listShareRefsByUserM :: Speaker -> DNP DNPResult
+listShareRefsByUserM x1 = do
+  s <- StateM.get
+  return (ShareRefsResult (listShareRefsByUser x1 s))

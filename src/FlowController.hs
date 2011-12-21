@@ -12,9 +12,10 @@ module FlowController
   , currentRequests
   , reqDepth
   , stateNow
-  , findSharesByFlowGroup
+  , listShareRefsByFlowGroup
+  , listShareRefsByUser
   , Share (..)
-  , querySchedule
+  , getSchedule
   ) where
 
 import Control.Monad
@@ -289,7 +290,7 @@ strictAdmControl req@(Req shareRef flow _ _ _ _)
   in case filter (\x -> isNonParent x && isAdmControl x && 
                         -- only care if allow blocked by deny, and vice versa
                         ((reqData req) /= (reqData x)))
-                 (findReqByIntersectingFG flow st) of
+                 (listReqByIntersectingFG flow st) of
     [] -> localRequest req st
     _ -> Nothing -- TODO: Return why strict failed
 
@@ -324,17 +325,17 @@ request spk req@(Req shareRef flow start end rD strict)
   else
     Nothing
 
--- |'querySchedule speaker share state' returns the reservation schedule on 'share'
+-- |'getSchedule speaker share state' returns the reservation schedule on 'share'
 -- to 'speaker'. The reservation schedule is a list of 3-tuples,
 -- '(timestamp, bandwidth-available, tokens-available)'. The list is ordered by
 -- 'timestamp'.
 --
 -- The operation fails if 'speaker' does not hold a reference to 'share'.
-querySchedule :: Speaker
+getSchedule :: Speaker
               -> ShareRef
               -> State
               -> Maybe [(Limit, Limit, Limit)]
-querySchedule speaker shareName (State { shareTree = shares, stateNow = now }) = do
+getSchedule speaker shareName (State { shareTree = shares, stateNow = now }) = do
   let share = Tree.lookup shareName shares
   when (not (Set.member speaker (shareHolders share)))
     (fail "does not hold share")
@@ -430,38 +431,38 @@ currentRequests = PQ.toList.activeReqs
 -- Query Functions
 -----------------------------
 
-findSharesByFlowGroup :: FlowGroup -> State -> [(ShareRef, Share)]
-findSharesByFlowGroup fg st@(State {shareTree=sT}) =
+listShareRefsByFlowGroup :: FlowGroup -> State -> [ShareRef]
+listShareRefsByFlowGroup fg st@(State {shareTree=sT}) =
   findInTree fg (rootShareRef, (Tree.lookup rootShareRef sT)) sT where
     findInTree flow (shareRef, share) tr = 
       let next = (foldl (++) [] (map (\x -> findInTree flow x tr)
                                   (Tree.children shareRef tr)))
         in case fg `isSubFlow` (shareFlows share) of
           False -> [] -- skip the children b/c tree constructed with isSubFlow
-          True -> (shareRef, share):next
+          True -> shareRef:next
 
-findSharesByUser :: User -> State -> [(ShareRef, Share)]
-findSharesByUser user st@(State {shareTree=sT}) =
+listShareRefsByUser :: User -> State -> [ShareRef]
+listShareRefsByUser user st@(State {shareTree=sT}) =
   findInTree user (rootShareRef, (Tree.lookup rootShareRef sT)) sT where
     findInTree holder (shareRef, share) tr = 
       let next = (foldl (++) [] (map (\x -> findInTree holder x tr)
                                   (Tree.children shareRef tr)))
         in case Set.member holder (shareHolders share) of
           False -> next -- we want recursive descent when checking for users
-          True -> (shareRef, share):next
+          True -> shareRef:next
 
-findReqByFlowGroup :: FlowGroup -> State -> [Req]
-findReqByFlowGroup fg st@(State {acceptedReqs=accepted,activeReqs=active}) =
+listReqByFlowGroup :: FlowGroup -> State -> [Req]
+listReqByFlowGroup fg st@(State {acceptedReqs=accepted,activeReqs=active}) =
   PQ.toList (PQ.filter (\x -> fg `isSubFlow` (reqFlows x)) active) ++
     PQ.toList (PQ.filter (\x -> fg `isSubFlow` (reqFlows x)) accepted)
 
-findReqWithSubFlow :: FlowGroup -> State -> [Req]
-findReqWithSubFlow fg st@(State {acceptedReqs=accepted,activeReqs=active}) =
+listReqWithSubFlow :: FlowGroup -> State -> [Req]
+listReqWithSubFlow fg st@(State {acceptedReqs=accepted,activeReqs=active}) =
   PQ.toList (PQ.filter (\x -> (reqFlows x) `isSubFlow` fg) active) ++
     PQ.toList (PQ.filter (\x -> (reqFlows x) `isSubFlow` fg) accepted)
 
-findReqByIntersectingFG :: FlowGroup -> State -> [Req]
-findReqByIntersectingFG fg st@(State {acceptedReqs=accepted,activeReqs=active}) =
+listReqByIntersectingFG :: FlowGroup -> State -> [Req]
+listReqByIntersectingFG fg st@(State {acceptedReqs=accepted,activeReqs=active}) =
   PQ.toList (PQ.filter (\x -> fg `isIntersectingFlow` (reqFlows x)) active) ++
     PQ.toList (PQ.filter (\x -> fg `isIntersectingFlow` (reqFlows x)) accepted)
 

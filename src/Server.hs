@@ -48,7 +48,7 @@ serverAction conn cmd stRef = do
     BoolResult False -> do
       putStrLn "--> REJECTED"
     otherwise -> do
-      putStrLn "Schedule returned"
+      putStrLn "Response returned"
   Network.Socket.send conn (show result)
   putMVar stRef st -- we have it, so will never block
   return stRef

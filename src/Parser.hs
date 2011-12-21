@@ -9,7 +9,7 @@ import qualified Text.Parsec.Token as T
 import qualified Set as Set
 import Data.Maybe (catMaybes)
 import FlowControllerLang
-import FlowController hiding (tick, newShare)
+import FlowController hiding (tick, newShare, getSchedule)
 import Control.Monad.IO.Class
 import Control.Monad.Trans
 import Control.Monad
@@ -188,6 +188,24 @@ newShare spk = do
   return (newShareM spk parent s)
 
 -----------------------------
+-- Query Functions
+-----------------------------
+
+getSchedule speaker = do
+  reserved "GetSchedule"
+  shareName <- identifier
+  return (getScheduleM speaker shareName)
+
+listShares speaker = do
+  reserved "ListShares"
+  return (listShareRefsByUserM speaker)
+
+listSharesByFlowGroup = do
+  reserved "ListSharesByFlowGroup"
+  fg <- flowGroup
+  return (listShareRefsByFlowGroupM fg)
+
+-----------------------------
 -- Helper Functions for Verbs
 -----------------------------
 
@@ -214,11 +232,6 @@ to = (do { reserved "to"; time }) <|> (return Forever)
 strict = (do { reserved "strict"; return True }) <|>
          (do { reserved "partial"; return False }) <|>
          (return True) -- choosing defaults again...
-
-parseQuerySchedule speaker = do
-  reserved "schedule"
-  shareName <- identifier
-  return (queryScheduleM speaker shareName)
 
 reserve spk = do
   reserved "reserve"
@@ -272,12 +285,13 @@ deny spk = do
 -- Top-level Parsing Functions
 -----------------------------
 
-verb spk = reserve spk <|> allow spk <|> deny spk <|> parseQuerySchedule spk
+verb spk = reserve spk <|> allow spk <|> deny spk
 shareManage spk = newShare spk <|> grant spk <|> grantDefault spk
 sysManage spk = tick spk <|> addUser spk
+query spk = getSchedule spk <|> listShares spk <|> listSharesByFlowGroup
 
 parseStmt spk = do
-  stmt <- verb spk <|> shareManage spk <|> sysManage spk
+  stmt <- verb spk <|> shareManage spk <|> sysManage spk <|> query spk
   dot
   return stmt
 

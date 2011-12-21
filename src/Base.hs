@@ -15,6 +15,7 @@ traceFile = unsafePerformIO (newIORef Nothing)
 data DNPResult
   = BoolResult Bool
   | ScheduleResult [(Limit, Limit, Limit)]
+  | ShareRefsResult [ShareRef]
   deriving Eq
 
 renderResult (BoolResult b)       = text (show b)
@@ -22,6 +23,9 @@ renderResult (ScheduleResult lst) = cat $ punctuate (text "; ") $ (len:(map f ls
   where len = text (show (length lst))
         f (t, bw, toks) = cat $ punctuate (text ",") $ 
                             [renderLimit t,  renderLimit bw, renderLimit toks]
+renderResult (ShareRefsResult lst) =
+  cat $ punctuate (text "; ") $ (len:(map text lst))
+  where len = text (show (length lst))
 
 renderLimit (DiscreteLimit n) = text (show n)
 renderLimit NoLimit           = text "inf"
