@@ -2,25 +2,25 @@ True <- root : AddUser Arjun.
 True <- root : NewShare net0 for (*) [reserve <= 1600] on rootShare.
 True <- root : NewShare forArjun for (user=Arjun) [reserve <= 1000] on net0.
 True <- root : Grant forArjun to Arjun.
-True <- root : allow(user=Arjun, app=443) on net0.
-True <- root : allow(app=80) on net0.
+True <- root : allow(user=Arjun, dstPort=443) on net0.
+True <- root : allow(dstPort=80) on net0.
 
-True <- Arjun : reserve(user=Arjun, app=1) = 300 on forArjun.
-True <- Arjun : reserve(user=Arjun, app=2) = 400 on forArjun.
+True <- Arjun : reserve(user=Arjun, dstPort=1) = 300 on forArjun.
+True <- Arjun : reserve(user=Arjun, dstPort=2) = 400 on forArjun.
 
-True <- root : deny(app=80) on net0. // overrides previous allow on app=80
+True <- root : deny(dstPort=80) on net0. // overrides previous allow on dstPort=80
 // TODO: We can fail this by adding "|| shareRef == sR'" to the isNonParent function
-// do we want to do that and then require the user to uninstall "allow(app=80)"
+// do we want to do that and then require the user to uninstall "allow(dstPort=80)"
 // ... this is a conflict between allow and deny in same share.
 
-True <- Arjun : allow(user=Arjun, app=80) on forArjun.
+True <- Arjun : allow(user=Arjun, dstPort=80) on forArjun.
 
 False <- root : deny(*) on rootShare. // TODO: eventually, we expect a reason why this failed
 True  <- root : deny(*) partial on rootShare.
 
-False <- Arjun : allow(app=80) on forArjun.
+False <- Arjun : allow(dstPort=80) on forArjun.
 
-True <- Arjun : deny(user=Arjun, app=443) on forArjun.
+True <- Arjun : deny(user=Arjun, dstPort=443) on forArjun.
 
 // The above produces the following FML:
 // P2: deny <= (U_s = "Arjun", P_r = 443)
@@ -40,19 +40,19 @@ True  <- root : Grant adfReserve to adf.
 True  <- root : Grant adfAllow to adf.
 True  <- root : Grant adfDeny to adf.
 
-True  <- adf : reserve(user=adf, app=5) = 1 on adfReserve.
-False <- adf : reserve(user=adf, app=6) = 1 on adfAllow.
-False <- adf : reserve(user=adf, app=7) = 1 on adfDeny.
+True  <- adf : reserve(user=adf, dstPort=5) = 1 on adfReserve.
+False <- adf : reserve(user=adf, dstPort=6) = 1 on adfAllow.
+False <- adf : reserve(user=adf, dstPort=7) = 1 on adfDeny.
 
-False <- adf : allow(user=adf, app=5) on adfReserve.
-True  <- adf : allow(user=adf, app=6) on adfAllow.
-False <- adf : allow(user=adf, app=7) on adfDeny.
+False <- adf : allow(user=adf, dstPort=5) on adfReserve.
+True  <- adf : allow(user=adf, dstPort=6) on adfAllow.
+False <- adf : allow(user=adf, dstPort=7) on adfDeny.
 
-False <- adf : deny(user=adf, app=5) on adfReserve.
-False <- adf : deny(user=adf, app=6) on adfAllow.
-True  <- adf : deny(user=adf, app=7) on adfDeny.
+False <- adf : deny(user=adf, dstPort=5) on adfReserve.
+False <- adf : deny(user=adf, dstPort=6) on adfAllow.
+True  <- adf : deny(user=adf, dstPort=7) on adfDeny.
 
-False <- adf : NewShare adfSubReserve for (user=adf,app=5) [reserve <= 50] on adfReserve.
-True  <- adf : NewShare adfSubReserve for (user=adf,app=5) [reserve <= 50 allow=False deny=False] on adfReserve.
-False <- adf : NewShare adfSubAllow for (user=adf,app=5) [reserve <= 0 deny=True] on adfAllow.
-False <- adf : NewShare adfSubDeny for (user=adf,app=5) [reserve <= 0 allow=True deny=False] on adfDeny.
+False <- adf : NewShare adfSubReserve for (user=adf,dstPort=5) [reserve <= 50] on adfReserve.
+True  <- adf : NewShare adfSubReserve for (user=adf,dstPort=5) [reserve <= 50 allow=False deny=False] on adfReserve.
+False <- adf : NewShare adfSubAllow for (user=adf,dstPort=5) [reserve <= 0 deny=True] on adfAllow.
+False <- adf : NewShare adfSubDeny for (user=adf,dstPort=5) [reserve <= 0 allow=True deny=False] on adfDeny.

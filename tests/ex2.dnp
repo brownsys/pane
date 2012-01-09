@@ -10,8 +10,8 @@ False <- Arjun : reserve(user=Arjun) = 2000 on forArjun. // exceeds mask
 True  <- root : AddUser Andrew.
 
 False <- Arjun : reserve(user=Andrew) = 100 on forArjun. // no permission on other user
-False <- Arjun : reserve(app=443) = 500 on forArjun. // no permissions on apps in general
-True  <- Arjun : reserve(user=Arjun,app=443) = 500 on forArjun.
+False <- Arjun : reserve(dstPort=443) = 500 on forArjun. // no permissions on apps in general
+True  <- Arjun : reserve(user=Arjun,dstPort=443) = 500 on forArjun.
 
 True  <- root : AddUser Shriram.
 

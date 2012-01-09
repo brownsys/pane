@@ -55,11 +55,29 @@ expUser = do
   name <- identifier
   return (User name)
 
-expApp = do
-  reserved "app"
+expSrcPort = do
+  reserved "srcPort"
   reservedOp "="
-  port <- T.integer lex  -- names  in the future ??
-  return (App port)
+  port <- T.integer lex
+  return (SrcPort port)
+
+expDstPort = do
+  reserved "dstPort"
+  reservedOp "="
+  port <- T.integer lex
+  return (DstPort port)
+
+expSrcHost = do
+  reserved "srcHost"
+  reservedOp "="
+  port <- identifier 
+  return (SrcHost port)
+
+expDstHost = do
+  reserved "dstHost"
+  reservedOp "="
+  port <- identifier 
+  return (DstHost port)
 
 expNet = do
   reserved "net"
@@ -71,7 +89,7 @@ flow = do
   reservedOp "*"
   return (Flow "*")
 
-prin = flow <|> expUser <|> expApp <|> expNet
+prin = flow <|> expUser <|> expSrcPort <|> expDstPort <|> expSrcHost <|> expDstHost <|> expNet
 
 prinList = do
   newPrin <- sepBy prin comma
@@ -80,8 +98,17 @@ prinList = do
 forUser (User s) = Just s
 forUser _ = Nothing
 
-forApp (App n) = Just n
-forApp _ = Nothing
+forSrcPort (SrcPort n) = Just n
+forSrcPort _ = Nothing
+
+forDstPort (DstPort n) = Just n
+forDstPort _ = Nothing
+
+forSrcHost (SrcHost n) = Just n
+forSrcHost _ = Nothing
+
+forDstHost (DstHost n) = Just n
+forDstHost _ = Nothing
 
 maybeAll [] = Set.all
 maybeAll xs = Set.fromList xs
@@ -89,8 +116,11 @@ maybeAll xs = Set.fromList xs
 flowGroup = do
   p <- parens prinList
   let flowSend = maybeAll (catMaybes (map forUser p))
-  let flowDestPort = maybeAll (catMaybes (map forApp p))
-  return (FlowGroup flowSend Set.all Set.all flowDestPort)
+  let flowSrcPort = maybeAll (catMaybes (map forSrcPort p))
+  let flowDstPort = maybeAll (catMaybes (map forDstPort p))
+  let flowSrcHost = maybeAll (catMaybes (map forSrcHost p))
+  let flowDstHost = maybeAll (catMaybes (map forDstHost p))
+  return (FlowGroup flowSend Set.all flowSrcPort flowDstPort flowSrcHost flowDstHost)
 
 -----------------------------
 -- Share Permissions

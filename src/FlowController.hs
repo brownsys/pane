@@ -67,7 +67,7 @@ data State = State {
 -- Useful defined variables
 -----------------------------
 
-anyFlow = FlowGroup Set.all Set.all Set.all Set.all
+anyFlow = FlowGroup Set.all Set.all Set.all Set.all Set.all Set.all
 
 rootSpeaker :: String
 rootSpeaker = "root"
@@ -130,18 +130,24 @@ unReqResv rd =
     otherwise -> Nothing
 
 isSubFlow :: FlowGroup -> FlowGroup -> Bool
-isSubFlow (FlowGroup fs1 fr1 fsp1 fdp1) (FlowGroup fs2 fr2 fsp2 fdp2) =
+isSubFlow (FlowGroup fs1 fr1 fsp1 fdp1 fsh1 fdh1)
+    (FlowGroup fs2 fr2 fsp2 fdp2 fsh2 fdh2) =
   Set.isSubsetOf fs1 fs2 &&
   Set.isSubsetOf fr1 fr2 &&
   Set.isSubsetOf fsp1 fsp2 &&
-  Set.isSubsetOf fdp1 fdp2
+  Set.isSubsetOf fdp1 fdp2 &&
+  Set.isSubsetOf fsh1 fsh2 &&
+  Set.isSubsetOf fdh1 fdh2
 
 isIntersectingFlow :: FlowGroup -> FlowGroup -> Bool
-isIntersectingFlow (FlowGroup fs1 fr1 fsp1 fdp1) (FlowGroup fs2 fr2 fsp2 fdp2) =
+isIntersectingFlow (FlowGroup fs1 fr1 fsp1 fdp1 fsh1 fdh1)
+    (FlowGroup fs2 fr2 fsp2 fdp2 fsh2 fdh2) =
   not (Set.null (Set.intersection fs1 fs2)) &&
   not (Set.null (Set.intersection fr1 fr2)) &&
   not (Set.null (Set.intersection fsp1 fsp2)) &&
-  not (Set.null (Set.intersection fdp1 fdp2))
+  not (Set.null (Set.intersection fdp1 fdp2)) &&
+  not (Set.null (Set.intersection fsh1 fsh2)) &&
+  not (Set.null (Set.intersection fdh1 fdh2))
 
 isSubShare :: Share -> Share -> Bool
 isSubShare (Share _ flows1 _ _ resUB1 resLB1 canAllow1 canDeny1 _)

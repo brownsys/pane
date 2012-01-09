@@ -14,5 +14,5 @@ False <- Arjun : reserve(user = Arjun) = 2000 on forArjun. // FAIL by rule 2
 
 // How do we create applications? Do they need to be registered?
 
-True  <- root : reserve(app=443) = 200 on net0. // app=SKYPE
-// root : ratelimit(app=50030) = 15000 on net0. // app=Hadoop ... will want sets of ports TODO
+True  <- root : reserve(dstPort=443) = 200 on net0. // dstPort=SKYPE
+// root : ratelimit(dstPort=50030) = 15000 on net0. // dstPort=Hadoop ... will want sets of ports TODO

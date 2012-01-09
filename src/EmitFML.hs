@@ -23,7 +23,7 @@ admControl reqs st =
 
 nonAdmControl reqs st = vcat $ map (\x -> request x st) (filter (not.isAdmControl) reqs)
 
-data Flow = Flow (Maybe User) (Maybe User) (Maybe Port) (Maybe Port)
+data Flow = Flow (Maybe User) (Maybe User) (Maybe Port) (Maybe Port) (Maybe Host) (Maybe Host)
 
 
 var _ Nothing = Nothing
@@ -31,17 +31,19 @@ var v (Just s) = Just (text v <+> text "=" <+> text (show s))
 
 
 
-flow (Flow su ru sp rp) =
+flow (Flow su ru sp rp sh rh) =
   parens $ cat $ punctuate (text ", ") $ 
     Maybe.catMaybes [ var "U_s" su, var "U_r" ru, 
-                      var "P_s" sp, var "P_r" rp ]
+                      var "P_s" sp, var "P_r" rp,
+                      var "H_s" sh, var "H_r" rh ]
 
 
 
 expandFlowGroup :: FlowGroup -> [Flow]
-expandFlowGroup (FlowGroup sendUser recvUser sendPort recvPort) = 
-  [ Flow su ru sp rp | su <- toList' sendUser, ru <- toList' recvUser,
-                       sp <- toList' sendPort, rp <- toList' recvPort ]
+expandFlowGroup (FlowGroup sendUser recvUser sendPort recvPort sendHost recvHost) = 
+  [ Flow su ru sp rp sh rh | su <- toList' sendUser, ru <- toList' recvUser,
+                             sp <- toList' sendPort, rp <- toList' recvPort,
+                             sh <- toList' sendHost, rh <- toList' recvHost ]
     where toList' s = case Set.toList s of
             Just lst -> map Just lst
             Nothing -> [Nothing]

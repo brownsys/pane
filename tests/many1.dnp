@@ -1,13 +1,13 @@
 True <- root : NewShare net0 for (*) [reserve <= 2000] on rootShare.
 True <- root : AddUser adf.
-True <- root : NewShare hadoop for (app=1) [reserve <= 1000 ] on net0. // unthrottled
+True <- root : NewShare hadoop for (dstPort=1) [reserve <= 1000 ] on net0. // unthrottled
 True <- root : Grant hadoop to adf.
 
-True <- root : reserve(app=0,user=root) = 200 on net0 from now to +50.
-True <- adf : reserve(app=1,user=arjun) = 20 on hadoop from now to +23.
-True <- adf : reserve(app=1,user=sk) = 30 on hadoop from +11 to +34.
-True <- adf : reserve(app=1,user=rfonseca) = 15 on hadoop from +3 to +19.
-True <- adf : reserve(app=1,user=adf) = 45 on hadoop from +4 to +32.
-True <- adf : reserve(app=1,user=iddqd) = 11 on hadoop from +15 to +30.
+True <- root : reserve(dstPort=0,user=root) = 200 on net0 from now to +50.
+True <- adf : reserve(dstPort=1,user=arjun) = 20 on hadoop from now to +23.
+True <- adf : reserve(dstPort=1,user=sk) = 30 on hadoop from +11 to +34.
+True <- adf : reserve(dstPort=1,user=rfonseca) = 15 on hadoop from +3 to +19.
+True <- adf : reserve(dstPort=1,user=adf) = 45 on hadoop from +4 to +32.
+True <- adf : reserve(dstPort=1,user=iddqd) = 11 on hadoop from +15 to +30.
 
 True <- root : Tick 1.

@@ -71,12 +71,15 @@ type Speaker = String
 
 type User = String
 type Port = Integer
+type Host = String -- TODO: use strings as a crutch for now
 
 data FlowGroup = FlowGroup {
   flowSend :: Set User,
   flowRecv :: Set User,
-  flowSrcPort ::  Set Port,
-  flowDestPort :: Set Port
+  flowSrcPort :: Set Port,
+  flowDstPort :: Set Port,
+  flowSrcHost :: Set Host,
+  flowDstHost :: Set Host 
 } deriving (Ord, Eq, Show)
 
 
@@ -101,11 +104,13 @@ instance ToJSON Limit where
   toJSON (DiscreteLimit n) = toJSON n
 
 instance ToJSON FlowGroup where
-  toJSON (FlowGroup srcUser destUser srcPort destPort) =
+  toJSON (FlowGroup srcUser dstUser srcPort dstPort srcHost dstHost) =
     object [ ("srcUser", toJSON srcUser)
-           , ("destUser", toJSON destUser)
+           , ("dstUser", toJSON dstUser)
            , ("srcPort", toJSON srcPort)
-           , ("destPort", toJSON destPort)
+           , ("dstPort", toJSON dstPort)
+           , ("srcHost", toJSON srcHost)
+           , ("dstHost", toJSON dstHost)
            ]
 
 instance ToJSON Req where

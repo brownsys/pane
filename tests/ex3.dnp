@@ -4,17 +4,17 @@ True  <- root : NewShare net0 for (*) [reserve <= 1600] on rootShare. // physica
 True  <- root : NewShare forArjun for (user=Arjun) [reserve <= 1000 allow=False] on net0.
 True  <- root : Grant forArjun to Arjun.
 
-True  <- Arjun : reserve(user=Arjun, app=1) = 300 on forArjun. // valid
-True  <- Arjun : reserve(user=Arjun, app=2) = 400 on forArjun. // valid
-False <- Arjun : reserve(user=Arjun, app=3) = 400 on forArjun. // invalid ... exceeds mask
-True  <- root : reserve(user=Arjun, app=3) = 400 on net0. // valid
-False <- root : reserve(user=Arjun, app=3) = 600 on net0. // invalid ... exceeds physical max
-True  <- root : reserve(user=Arjun, app=3) = 500 on net0. // valid
+True  <- Arjun : reserve(user=Arjun, dstPort=1) = 300 on forArjun. // valid
+True  <- Arjun : reserve(user=Arjun, dstPort=2) = 400 on forArjun. // valid
+False <- Arjun : reserve(user=Arjun, dstPort=3) = 400 on forArjun. // invalid ... exceeds mask
+True  <- root : reserve(user=Arjun, dstPort=3) = 400 on net0. // valid
+False <- root : reserve(user=Arjun, dstPort=3) = 600 on net0. // invalid ... exceeds physical max
+True  <- root : reserve(user=Arjun, dstPort=3) = 500 on net0. // valid
 
 // reserve(user={Arjun,Adf}
 // reserve(user=Arjun, user=Adf)
 
-// root : latency(user=Arjun, app=3) = 20 on net0.
+// root : latency(user=Arjun, dstPort=3) = 20 on net0.
 // root : allow(user=Arjun) on net0.
 
 
