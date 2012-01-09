@@ -1,0 +1,6 @@
+root.
+AddUser Jordan.
+NewShare net0 for (*) [reserve <= 8000000] on rootShare.
+NewShare forJordan for (user=Jordan) [reserve <= 4000000] on net0.
+Grant forJordan to Jordan.
+allow(user=Jordan) on net0.
