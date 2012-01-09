@@ -65,5 +65,6 @@ processLoop spk conn st msg = do
   putStrLn msg
   st' <- parseInteractive' spk msg (serverAction conn) st
   msg' <- recv conn 1024
-  processLoop spk conn st' (C.unpack msg')
-
+  if S.null msg'
+    then do putStrLn (spk ++ " disconnected")
+    else do processLoop spk conn st' (C.unpack msg')
