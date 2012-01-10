@@ -1,8 +1,10 @@
-// Assumes ADF's host is at 10.0.0.100, which for now we write as "10_0_0_100"
-
 root.
 AddUser adf.
 NewShare net0 for (*) [reserve <= 8000000] on rootShare.
 NewShare adfUserAccessControl for (user=adf) [reserve <= 0] on net0.
+
+// Assumes ADF's host is at 10.0.0.100, which for now we write as "10_0_0_100"
 NewShare adfHostAccessControl for (dstHost=10_0_0_100) [reserve <= 0] on net0.
+
 Grant adfUserAccessControl to adf.
+Grant adfHostAccessControl to adf.
