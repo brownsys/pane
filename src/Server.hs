@@ -10,34 +10,55 @@ import Network.Socket.ByteString (recv, send)
 import Data.Word
 import Data.List (span)
 import System.IO
-import Parser
+import Parser hiding (tick)
 import FlowControllerLang
-import FlowController (State)
+import FlowController (State, stateNow, tick, stateSeqn)
 import EmitFML
 import Control.Concurrent
 import Data.IORef
 import Base
 import Control.Concurrent.MVar
 import Nettle.OpenFlow
+import System.Time
 
 foreign import ccall unsafe "htons" htons :: Word16 -> Word16
 
-serverLoop serverSock state paneConfigMVar = do
+serverLoop serverSock state actionsVar = do
   (clientSock, _) <- accept serverSock
-  forkIO (authUser clientSock state paneConfigMVar)
-  serverLoop serverSock state paneConfigMVar
+  forkIO (authUser clientSock state actionsVar)
+  serverLoop serverSock state actionsVar
 
 serverMain :: MVar [CSMessage] -> Word16 -> State -> IO ()
-serverMain paneConfigMVar port state = withSocketsDo $ do
+serverMain actionsVar port state = withSocketsDo $ do
     sock <- socket AF_INET Stream 0
     setSocketOption sock ReuseAddr 1
     bindSocket sock (SockAddrInet (PortNum (htons port)) iNADDR_ANY)
     listen sock 2
     stateRef <- newMVar state    
-    serverLoop sock stateRef paneConfigMVar
+    forkIO (tickThread stateRef actionsVar)
+    serverLoop sock stateRef actionsVar
+
+tickThread :: MVar State -> MVar [CSMessage] -> IO ()
+tickThread stVar actionsVar = forever $ do
+  st <- takeMVar stVar
+  (TOD now _) <- getClockTime
+  let delta = now - stateNow st -- seconds
+  case delta > 0 of
+    True -> do
+      putStrLn "Tick ..."
+      let st' = tick delta st
+      putMVar stVar st'
+      case stateSeqn st /= stateSeqn st' of
+        True -> putMVar actionsVar (emitActions st')
+        False -> return ()
+    False -> do
+      putMVar stVar st
+  threadDelay (5 * 10^5)
+  
+  
 
 
-serverAction paneConfigMVar conn cmd stRef = do
+serverAction actionsVar conn cmd stRef = do
   st <- takeMVar stRef -- block if empty
   (result, st) <- runDNP cmd st
   case result of
@@ -47,7 +68,7 @@ serverAction paneConfigMVar conn cmd stRef = do
       putStrLn ("--> BEGIN NEW FML CONFIGURATION. TIME = " ++ (show t))
       putStrLn (emitFML st)
       putStrLn "--> END NEW FML CONFIGURATION"
-      putMVar paneConfigMVar (emitActions st)
+      putMVar actionsVar (emitActions st)
     BoolResult False -> do
       putStrLn "--> REJECTED"
     otherwise -> do
@@ -56,18 +77,18 @@ serverAction paneConfigMVar conn cmd stRef = do
   putMVar stRef st -- we have it, so will never block
   return stRef
 
-authUser conn st paneConfigMVar = do
+authUser conn st actionsVar = do
    -- TODO: what if command longer than 1024? or falls over a boundary?
   msg <- recv conn 1024
   let msgStr = C.unpack msg
   let (spk, _:restMsg)  = span (/='.') msgStr
-  processLoop spk conn st restMsg paneConfigMVar
+  processLoop spk conn st restMsg actionsVar
 
-processLoop spk conn st msg paneConfigMVar = do
+processLoop spk conn st msg actionsVar = do
   putStr (spk ++ " : ")
   putStrLn msg
-  st' <- parseInteractive' spk msg (serverAction paneConfigMVar conn) st
+  st' <- parseInteractive' spk msg (serverAction actionsVar conn) st
   msg' <- recv conn 1024
   if S.null msg'
     then do putStrLn (spk ++ " disconnected")
-    else do processLoop spk conn st' (C.unpack msg') paneConfigMVar
+    else do processLoop spk conn st' (C.unpack msg') actionsVar

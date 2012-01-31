@@ -13,6 +13,7 @@ module FlowController
   , currentRequests
   , reqDepth
   , stateNow
+  , stateSeqn
   , listShareRefsByFlowGroup
   , listShareRefsByUser
   , Share (..)
@@ -61,7 +62,8 @@ data State = State {
   stateSpeakers :: Set String,
   acceptedReqs :: PQ Req,
   activeReqs :: PQ Req,
-  stateNow :: Integer
+  stateNow :: Integer,
+  stateSeqn :: Integer
 } deriving Show
 
 -----------------------------
@@ -87,6 +89,7 @@ emptyStateWithTime t =
         (PQ.empty reqStartOrder)
         (PQ.empty reqEndOrder)
         t
+        0
 
 emptyState = emptyStateWithTime 0
         
@@ -423,11 +426,16 @@ tickInternal :: Integer -> State -> State
 tickInternal t st@(State { shareTree    = shares,
                    acceptedReqs = byStart,
                    activeReqs   = byEnd, 
-                   stateNow     = now }) =
+                   stateNow     = now,
+                   stateSeqn    = seqn }) =
   st { acceptedReqs = byStart',
        activeReqs   = byEnd'',
        stateNow     = now',
-       shareTree = fmap (tickShare t startingNow endingNow) shares
+       shareTree = fmap (tickShare t startingNow endingNow) shares,
+       stateSeqn = if null startingNow && null endingNow then
+                     seqn
+                   else
+                     seqn + 1
      } 
   where now' = now + t
         (startingNow, byStart') =  PQ.dequeueWhile (\r -> reqStart r <= now')
@@ -497,7 +505,7 @@ instance ToJSON Share where
     , ("canDeny", toJSON (shareCanDenyFlows share))
     ]
 instance ToJSON State where
-  toJSON (State shares speakers accepted active now) = object
+  toJSON (State shares speakers accepted active now _) = object
     [ ("shares", toJSON (Tree.expose shares))
     , ("speakers", toJSON speakers)
     , ("accepted", toJSON accepted)
