@@ -1,6 +1,7 @@
 module FlowController
   ( State
   , emptyState
+  , emptyStateWithTime
   , emptyShareReq
   , createSpeaker
   , giveReference
@@ -77,7 +78,7 @@ rootShareRef = "rootShare"
 
 emptyShareReq = PQ.empty reqStartOrder
 
-emptyState = 
+emptyStateWithTime t = 
   State (Tree.root 
            rootShareRef
            (Share rootShareRef anyFlow (Set.singleton rootSpeaker) emptyShareReq
@@ -85,7 +86,9 @@ emptyState =
         (Set.singleton rootSpeaker)
         (PQ.empty reqStartOrder)
         (PQ.empty reqEndOrder)
-        0
+        t
+
+emptyState = emptyStateWithTime 0
         
 
 -----------------------------

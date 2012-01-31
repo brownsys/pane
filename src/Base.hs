@@ -7,7 +7,8 @@ import System.IO (Handle)
 import Data.Aeson
 import qualified Data.Tree as Tree
 import Text.PrettyPrint.HughesPJ
-
+import Data.Word
+import Nettle.IPv4.IPAddress
 
 traceFile :: IORef (Maybe Handle)
 traceFile = unsafePerformIO (newIORef Nothing)
@@ -70,8 +71,8 @@ timeToInteger now t = case timeToLimit now t of
 type Speaker = String
 
 type User = String
-type Port = Integer
-type Host = String -- TODO: use strings as a crutch for now
+type Port = Word16
+type Host = IPAddress
 
 data FlowGroup = FlowGroup {
   flowSend :: Set User,
@@ -109,8 +110,8 @@ instance ToJSON FlowGroup where
            , ("dstUser", toJSON dstUser)
            , ("srcPort", toJSON srcPort)
            , ("dstPort", toJSON dstPort)
-           , ("srcHost", toJSON srcHost)
-           , ("dstHost", toJSON dstHost)
+           , ("srcHost", "0.0.0.0") -- TODO toJSON srcHost)
+           , ("dstHost", "0.0.0.0") -- TODO toJSON dstHost)
            ]
 
 instance ToJSON Req where

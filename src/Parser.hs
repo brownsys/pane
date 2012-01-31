@@ -15,11 +15,22 @@ import Control.Monad.Trans
 import Control.Monad
 import Test.HUnit
 import qualified TokenBucket as TB
+import Nettle.IPv4.IPAddress hiding (ipAddressParser)
 
 -- Based on:
 --   https://github.com/brownplt/webbits/blob/master/src/BrownPLT/JavaScript/Parser.hs
 
 nat = T.natural lex
+
+ipAddressParser :: Monad m => ParsecT String u m IPAddress
+ipAddressParser = do a <- many1 digit
+                     char '.'
+                     b <- many1 digit
+                     char '.'
+                     c <- many1 digit
+                     char '.'
+                     d <- many1 digit
+                     return $ ipAddress (read a) (read b) (read c) (read d)
 
 -- |'NoLimit' means different things in different contexts; supply a word for
 -- 'NoLimit'
@@ -59,24 +70,24 @@ expSrcPort = do
   reserved "srcPort"
   reservedOp "="
   port <- T.integer lex
-  return (SrcPort port)
+  return (SrcPort $ fromIntegral port)
 
 expDstPort = do
   reserved "dstPort"
   reservedOp "="
   port <- T.integer lex
-  return (DstPort port)
+  return (DstPort $ fromIntegral port)
 
 expSrcHost = do
   reserved "srcHost"
   reservedOp "="
-  port <- identifier 
+  port <- ipAddressParser
   return (SrcHost port)
 
 expDstHost = do
   reserved "dstHost"
   reservedOp "="
-  port <- identifier 
+  port <- ipAddressParser
   return (DstHost port)
 
 expNet = do

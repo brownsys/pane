@@ -11,10 +11,14 @@ import System.IO
 import Data.Word
 import Parser
 import FlowControllerLang
-import FlowController (emptyState, State)
+import FlowController (emptyStateWithTime, State)
 import Test.HUnit hiding (State)
 import Server
+import Controller
 import Base
+import Control.Concurrent.MVar
+import Control.Concurrent
+import System.Time
 
 data Argument
   = Trace String
@@ -39,7 +43,17 @@ doTrace (Trace path:rest) = do
 doTrace lst = return lst
 
 action [Test file] = runTestFile file
-action [Server port] = serverMain port emptyState
+action [Server port] = do
+  (TOD now _) <- getClockTime
+  let initialState = emptyStateWithTime now
+  paneConfigVar <- newEmptyMVar
+  terminate <- newEmptyMVar
+  let terminator body = do
+        body `finally` (putMVar terminate ())
+  tid1 <- forkIO (terminator $ serverMain paneConfigVar port initialState)
+  tid2 <- forkIO (terminator $ controllerMain paneConfigVar 6633)
+  takeMVar terminate
+
 action _ = fail "too many args"
 
 mainBody = do

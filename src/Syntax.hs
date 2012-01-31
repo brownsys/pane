@@ -1,6 +1,8 @@
 module Syntax where
 
 import Data.Set (Set)
+import Nettle.IPv4.IPAddress
+import Data.Word
 
 {-
 
@@ -42,10 +44,10 @@ type Node = String
 type ShareName = String
 
 data Prin
-  = SrcPort Integer
-  | DstPort Integer
-  | SrcHost String
-  | DstHost String
+  = SrcPort Word16
+  | DstPort Word16
+  | SrcHost IPAddress
+  | DstHost IPAddress
 -- | App String ? TODO: apps could be strings which map to sets of port numbers
   | User String -- TODO: split as sending & receiving users? do we even know recv user?
   | Network String -- TODO: These will refer to sets of nodes
