@@ -30,7 +30,7 @@ admissionControlActions reqs st =
   -- root: allow(user=adf) on rootShare.
   -- root: deny(user=adf, dstHost=10.200.0.1) on rootShare.
   -- root: allow(user=adf, dstHost=10.200.0.1, srcHost=10.200.0.2) on rootShare.
-  -- root: allow(user=adf, dstHost=10.200.0.1, srcHost=10.200.0.2, dstPort=80) on rootShare.
+  -- root: deny(user=adf, dstHost=10.200.0.1, srcHost=10.200.0.2, dstPort=80) on rootShare.
   -- (this is allowed by our rules at the moment; does the order affect what we think
   -- of this interaction? is this were partial/strict should affect us, say, if we
   -- re-arranged the order?)
