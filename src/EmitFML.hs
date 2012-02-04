@@ -22,6 +22,18 @@ admissionControlActions reqs st =
       admReqs' = sortBy (\x y -> compare (reqDepth y st) (reqDepth x st)) admReqs
       now = stateNow st
   -- TODO: composition of allow/deny for sibliings is broken here.
+  --       well, one hack could be to put the deny rules at the odd priorities (1,3,5,...)
+  --       and the allow rules at the even priorities (2,4,6,...) but that would not help us
+  --       with the situation below.
+  -- TODO: also, will OpenFlow automatically use the most specific match rule at the same priority?
+  -- or do we have to implement that ourselves? for example:
+  -- root: allow(user=adf) on rootShare.
+  -- root: deny(user=adf, dstHost=10.200.0.1) on rootShare.
+  -- root: allow(user=adf, dstHost=10.200.0.1, srcHost=10.200.0.2) on rootShare.
+  -- root: allow(user=adf, dstHost=10.200.0.1, srcHost=10.200.0.2, dstPort=80) on rootShare.
+  -- (this is allowed by our rules at the moment; does the order affect what we think
+  -- of this interaction? is this were partial/strict should affect us, say, if we
+  -- re-arranged the order?)
   in concatMap (\(x, prio) -> requestAction now x prio) (zip admReqs' [1 ..])
 
 requestAction now req@(Req {reqFlows=flowGroup, reqData=rd, reqEnd=end}) prio = 
@@ -30,6 +42,18 @@ requestAction now req@(Req {reqFlows=flowGroup, reqData=rd, reqEnd=end}) prio =
         NoLimit -> Permanent
         DiscreteLimit n -> ExpireAfter (fromIntegral $ n - now) -- TODO: blows up if > 65K
     in case rd of
+      ReqAllow -> 
+        let flowEntry flow = AddFlow {
+              match = flowToMatch flow,
+              priority = prio,
+              actions = flood, -- TODO: HACK! what we mean is that it should be handled by the forwarding algorithm
+              cookie = 0,
+              idleTimeOut = Permanent,
+              hardTimeOut = timeOut,
+              notifyWhenRemoved = False,
+              applyToPacket = Nothing,
+              overlapAllowed = True
+            } in map (\f -> FlowMod (flowEntry f)) flows
       ReqDeny -> 
         let flowEntry flow = AddFlow {
               match = flowToMatch flow,
@@ -65,7 +89,7 @@ flowToMatch (Flow srcUser destUser srcPort dstPort srcIP dstIP) =
     dstTransportPort = dstPort,
     srcIPAddress = toIPPrefix srcIP,
     dstIPAddress = toIPPrefix dstIP,
-    ethFrameType = Just ethTypeIP
+    ethFrameType = Just ethTypeIP -- TODO: Will eventually need to match on MAC addrs as well
   }
 
 toIPPrefix Nothing = (IPAddress 0, 0)

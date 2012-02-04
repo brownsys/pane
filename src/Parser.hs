@@ -81,14 +81,14 @@ expDstPort = do
 expSrcHost = do
   reserved "srcHost"
   reservedOp "="
-  port <- ipAddressParser
-  return (SrcHost port)
+  host <- ipAddressParser
+  return (SrcHost host)
 
 expDstHost = do
   reserved "dstHost"
   reservedOp "="
-  port <- ipAddressParser
-  return (DstHost port)
+  host <- ipAddressParser
+  return (DstHost host)
 
 expNet = do
   reserved "net"
