@@ -70,12 +70,13 @@ getPacketRoute pkt = case enclosedFrame pkt of
 messageHandler :: IORef (Map IPAddress PortID)
                -> SwitchHandle -> (TransactionID, SCMessage) -> IO ()
 messageHandler routesRef switch (xid, scmsg) = case scmsg of
-  PacketIn pkt -> case getPacketRoute pkt of
+  PacketIn pkt -> putStr "PacketIn ... " >> case getPacketRoute pkt of
     Nothing -> case enclosedFrame pkt of
       Right frm -> do
+        putStrLn "unrecognized frame type (or ARP) ... flooding."
         let flowEntry = AddFlow { 
                           match = frameToExactMatch (receivedOnPort pkt) frm,
-                          priority          = 32767, -- not lowest priority
+                          priority          = 32768, -- lowest priority for short floods
                           actions           = [SendOutPort Flood],
                           cookie            = 0,
                           idleTimeOut       = ExpireAfter 5,
@@ -92,9 +93,9 @@ messageHandler routesRef switch (xid, scmsg) = case scmsg of
       let routes = Map.insert srcIP srcPort oldRoutes
       writeIORef routesRef routes
       -- lookup route
-      let action = case Map.lookup dstIP routes of
-                     Just dstPort -> [SendOutPort (PhysicalPort dstPort)]
-                     Nothing -> [SendOutPort Flood]
+      let (action, timeOut) = case Map.lookup dstIP routes of
+                     Just dstPort -> ([SendOutPort (PhysicalPort dstPort)], ExpireAfter 60)
+                     Nothing -> ([SendOutPort Flood], ExpireAfter 5)
       let flowEntry = AddFlow { 
                         match = matchAny {
                           inPort = Just srcPort, 
@@ -102,15 +103,16 @@ messageHandler routesRef switch (xid, scmsg) = case scmsg of
                           dstIPAddress = (dstIP, maxPrefixLen),
                           ethFrameType = Just ethTypeIP
                         },
-                        priority          = 32768, -- lowest priority
+                        priority          = 32767, -- 2nd lowest priority for learning
                         actions           = action,
                         cookie            = 0,
-                        idleTimeOut       = ExpireAfter 10,
-                        hardTimeOut       = ExpireAfter 60,
+                        idleTimeOut       = ExpireAfter 5,
+                        hardTimeOut       = timeOut,
                         notifyWhenRemoved = False,
                         applyToPacket     = bufferID pkt,
                         overlapAllowed    = True
                       }
+      putStrLn $ "IP packet... action: " ++ (show action) ++ " timeout: " ++ show timeOut
       sendToSwitch switch (xid, FlowMod flowEntry)
   otherwise -> do
     putStrLn $ "unhandled packet " ++ show scmsg
