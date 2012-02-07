@@ -19,7 +19,7 @@ emitActions st = admissionControlActions (currentRequests st) st
 
 admissionControlActions reqs st =
   let admReqs = filter isAdmControl reqs
-      admReqs' = sortBy (\x y -> compare (reqDepth y st) (reqDepth x st)) admReqs
+      admReqs' = sortBy (\x y -> compare (reqDepth x st) (reqDepth y st)) admReqs
       now = stateNow st
   -- TODO: composition of allow/deny for sibliings is broken here.
   --       well, one hack could be to put the deny rules at the odd priorities (1,3,5,...)

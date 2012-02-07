@@ -7,7 +7,7 @@ import Data.Word
 import Control.Concurrent
 import qualified Data.ByteString as B
 import System.Environment
-import qualified Nettle.OpenFlow.StrictPut as Put
+import Nettle.OpenFlow.StrictPut -- as Put
 import FlowController (State)
 import Control.Concurrent.MVar
 import Base
@@ -32,6 +32,23 @@ installActionsLoop ofpServer configMsgsVar = forever $ do
 
 handleSwitch :: SwitchHandle -> IO ()
 handleSwitch switch = do
+  let cfg = ExtQueueModify 1 [QueueConfig 6 [MinRateQueue (Enabled 500)]]
+  let bs = do putWord32be 0x000026e1 -- OPENFLOW_VENDOR_ID
+              putWord32be 0 -- OFP_EXT_QUEUE_MOFIY
+-- struct 
+              putWord16be 1 -- First port
+              sequence_ (take 6 (repeat (putWord8 0)))  -- padding
+-- struct ofp_packet_queue
+              putWord32be 6 -- queue id 6
+              putWord16be 24 -- length of queue description
+              putWord16be 0 -- padding
+-- struct ofp_queue_prop_header
+              putWord16be 1 -- OFPQT_MIN_RATE
+              putWord16be 16 -- length of property including this header
+              putWord32be 0 -- padding
+              putWord16be 500 -- 25%
+              sequence_ (take 6 (repeat (putWord8 0))) -- padding
+  sendToSwitch switch (10, cfg)
   untilNothing (receiveFromSwitch switch) (messageHandler switch)
   closeSwitchHandle switch
 
