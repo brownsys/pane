@@ -18,42 +18,50 @@ import qualified Data.Map as Map
 import Data.HList
 import qualified PriorityQueue as PQ
 import PriorityQueue (PQ)
+import Data.Set (Set)
+import qualified Data.Set as Set
 
 controllerMain :: MVar Shared -> Word16 -> IO ()
 controllerMain paneConfigState portNum = do
   ofpServer <- startOpenFlowServer Nothing portNum
-  forkIO (reconfThread ofpServer paneConfigState) 
+  switchesVar <- newMVar Set.empty
+  forkIO (reconfThread ofpServer switchesVar paneConfigState) 
   forever (do (switch,sfr) <- acceptSwitch ofpServer
-              forkIO (handleSwitch switch))
+              forkIO (handleSwitch switch switchesVar))
   closeServer ofpServer
 
 reconfLoop :: OpenFlowServer 
+           -> MVar (Set SwitchID)
            -> MVar Shared 
            -> Map SwitchID (PQ (Integer, PortID, QueueID))
            -> IO ()
-reconfLoop ofpServer configMsgsVar endingResvs =  do
-  sws <- getSwitches ofpServer
+reconfLoop ofpServer switches configMsgsVar endingResvs =  do
+  sws <- readMVar switches -- FUCUCUCUCKK CONCURRENCY BUG
   (admMsgs, resvs) <- takeMVar configMsgsVar
   -- Setup new allow/deny rules
-  let setAdm sw = mapM_ (sendToSwitch sw) (zip (repeat 0) admMsgs)
-  mapM_ setAdm sws
+  putStrLn "Sending allow/deny messages:"
+  mapM_ (\f -> putStrLn (show f)) admMsgs
+  let setAdm sw = do
+        mapM_ (\m -> putStrLn "Sending" >> sendToSwitchWithID ofpServer sw m) (zip (repeat 0) admMsgs)
+  mapM_ setAdm [1]
   -- Create new queues
   -- TODO: 
   -- Delete expiring queues
   -- TODO:
   -- 
-  reconfLoop ofpServer configMsgsVar endingResvs
+  reconfLoop ofpServer switches configMsgsVar endingResvs
 
 
-reconfThread ofServ sharedVar = reconfLoop ofServ sharedVar Map.empty
+reconfThread ofServ swsVar sharedVar = reconfLoop ofServ swsVar sharedVar Map.empty
 
-handleSwitch :: SwitchHandle -> IO ()
-handleSwitch switch = do
+handleSwitch :: SwitchHandle -> MVar (Set SwitchID) -> IO ()
+handleSwitch switch swsVar = do
+  putStrLn $ "New switch " ++ show (handle2SwitchID switch)
+  sws <- takeMVar swsVar
+  putMVar swsVar (Set.insert (handle2SwitchID switch) sws) 
   -- map of ports to destinations
   learnedRoutes <- newIORef Map.empty
-  
-  let cfg = ExtQueueModify 1 [QueueConfig 3 [MinRateQueue (Enabled 700)],
-                              QueueConfig 6 [MinRateQueue (Enabled 500)]]
+  let cfg = ExtQueueModify 1 [QueueConfig 3 [MinRateQueue (Enabled 700)]]
   sendToSwitch switch (10, cfg)
   untilNothing (receiveFromSwitch switch) (messageHandler learnedRoutes switch)
   closeSwitchHandle switch
