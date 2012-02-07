@@ -14,8 +14,20 @@ import Base hiding (Port)
 import qualified Base as Base
 import Nettle.OpenFlow
 
-emitActions :: State -> [CSMessage]
-emitActions st = admissionControlActions (currentRequests st) st
+emitActions :: State -> Shared
+emitActions st = 
+  (admissionControlActions (currentRequests st) st, 
+   resvActions  (currentRequests st) st)
+
+
+resvActions' :: Req
+             -> [(Match, Integer, Limit)]
+resvActions' (Req {reqFlows=flows,reqData=ReqResv n, reqEnd=end}) = 
+  [ (flowToMatch f, n, end) | f <- expandFlowGroup flows ]
+resvActions' _ = error "resvActions' expected ReqResv"
+
+resvActions allReqs st = concatMap resvActions' reqs
+    where reqs = filter (not.isAdmControl) allReqs
 
 admissionControlActions reqs st =
   let admReqs = filter isAdmControl reqs

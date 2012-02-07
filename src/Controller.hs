@@ -16,23 +16,36 @@ import Data.IORef
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.HList
+import qualified PriorityQueue as PQ
+import PriorityQueue (PQ)
 
-controllerMain :: MVar [CSMessage] -> Word16 -> IO ()
+controllerMain :: MVar Shared -> Word16 -> IO ()
 controllerMain paneConfigState portNum = do
   ofpServer <- startOpenFlowServer Nothing portNum
-  forkIO (installActionsLoop ofpServer paneConfigState) 
+  forkIO (reconfThread ofpServer paneConfigState) 
   forever (do (switch,sfr) <- acceptSwitch ofpServer
               forkIO (handleSwitch switch))
   closeServer ofpServer
 
-installActionsLoop :: OpenFlowServer -> MVar [CSMessage] -> IO ()
-installActionsLoop ofpServer configMsgsVar = forever $ do
-  cfgMsgs <- takeMVar configMsgsVar
-  let msgs = zip (repeat 0) cfgMsgs
-  let send sw = mapM_ (sendToSwitch sw) msgs
+reconfLoop :: OpenFlowServer 
+           -> MVar Shared 
+           -> Map SwitchID (PQ (Integer, PortID, QueueID))
+           -> IO ()
+reconfLoop ofpServer configMsgsVar endingResvs =  do
   sws <- getSwitches ofpServer
-  mapM_ send sws
+  (admMsgs, resvs) <- takeMVar configMsgsVar
+  -- Setup new allow/deny rules
+  let setAdm sw = mapM_ (sendToSwitch sw) (zip (repeat 0) admMsgs)
+  mapM_ setAdm sws
+  -- Create new queues
+  -- TODO: 
+  -- Delete expiring queues
+  -- TODO:
+  -- 
+  reconfLoop ofpServer configMsgsVar endingResvs
 
+
+reconfThread ofServ sharedVar = reconfLoop ofServ sharedVar Map.empty
 
 handleSwitch :: SwitchHandle -> IO ()
 handleSwitch switch = do
@@ -62,7 +75,7 @@ messageHandler routesRef switch (xid, scmsg) = case scmsg of
       Right frm -> do
         let flowEntry = AddFlow { 
                           match = frameToExactMatch (receivedOnPort pkt) frm,
-                          priority          = 32768,
+                          priority          = 32767, -- not lowest priority
                           actions           = [SendOutPort Flood],
                           cookie            = 0,
                           idleTimeOut       = ExpireAfter 5,
@@ -71,7 +84,6 @@ messageHandler routesRef switch (xid, scmsg) = case scmsg of
                           applyToPacket     = bufferID pkt,
                           overlapAllowed    = True
                         }
-        putStrLn "non-IP packet: flooding"
         sendToSwitch switch (xid, FlowMod flowEntry)
       Left _ -> putStrLn "PacketIn with an unrecognized frame."
     Just (srcPort, srcIP, dstIP) -> do
@@ -90,8 +102,8 @@ messageHandler routesRef switch (xid, scmsg) = case scmsg of
                           dstIPAddress = (dstIP, maxPrefixLen),
                           ethFrameType = Just ethTypeIP
                         },
-                        priority          = 32768,
-                        actions           = [SendOutPort Flood],
+                        priority          = 32768, -- lowest priority
+                        actions           = action,
                         cookie            = 0,
                         idleTimeOut       = ExpireAfter 10,
                         hardTimeOut       = ExpireAfter 60,

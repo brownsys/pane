@@ -9,9 +9,14 @@ import qualified Data.Tree as Tree
 import Text.PrettyPrint.HughesPJ
 import Data.Word
 import Nettle.IPv4.IPAddress
+import Nettle.OpenFlow hiding (Port)
 
 traceFile :: IORef (Maybe Handle)
 traceFile = unsafePerformIO (newIORef Nothing)
+
+
+-- |Data shared between the OpenFlow Controller and the PANE Server.
+type Shared = ([CSMessage], [(Match, Integer, Limit)])
 
 data DNPResult
   = BoolResult Bool

@@ -28,7 +28,7 @@ serverLoop serverSock state actionsVar = do
   forkIO (authUser clientSock state actionsVar)
   serverLoop serverSock state actionsVar
 
-serverMain :: MVar [CSMessage] -> Word16 -> State -> IO ()
+serverMain :: MVar Shared -> Word16 -> State -> IO ()
 serverMain actionsVar port state = withSocketsDo $ do
     sock <- socket AF_INET Stream 0
     setSocketOption sock ReuseAddr 1
@@ -38,14 +38,13 @@ serverMain actionsVar port state = withSocketsDo $ do
     forkIO (tickThread stateRef actionsVar)
     serverLoop sock stateRef actionsVar
 
-tickThread :: MVar State -> MVar [CSMessage] -> IO ()
+tickThread :: MVar State -> MVar Shared -> IO ()
 tickThread stVar actionsVar = forever $ do
   st <- takeMVar stVar
   (TOD now _) <- getClockTime
   let delta = now - stateNow st -- seconds
   case delta > 0 of
     True -> do
-      putStrLn "Tick ..."
       let st' = tick delta st
       putMVar stVar st'
       case stateSeqn st /= stateSeqn st' of
