@@ -20,30 +20,33 @@ import qualified PriorityQueue as PQ
 import PriorityQueue (PQ)
 import Data.Set (Set)
 import qualified Data.Set as Set
+import Data.IORef
 
 controllerMain :: MVar Shared -> Word16 -> IO ()
 controllerMain paneConfigState portNum = do
   ofpServer <- startOpenFlowServer Nothing portNum
-  switchesVar <- newMVar Set.empty
-  forkIO (reconfThread ofpServer switchesVar paneConfigState) 
+  swsVar <- newIORef Set.empty
+  forkIO (reconfThread ofpServer swsVar paneConfigState) 
   forever (do (switch,sfr) <- acceptSwitch ofpServer
-              forkIO (handleSwitch switch switchesVar))
+              sws <- readIORef swsVar
+              writeIORef swsVar (Set.insert (handle2SwitchID switch) sws) 
+              forkIO (handleSwitch switch))
   closeServer ofpServer
 
 reconfLoop :: OpenFlowServer 
-           -> MVar (Set SwitchID)
+           -> IORef (Set SwitchID)
            -> MVar Shared 
            -> Map SwitchID (PQ (Integer, PortID, QueueID))
            -> IO ()
 reconfLoop ofpServer switches configMsgsVar endingResvs =  do
-  sws <- readMVar switches -- FUCUCUCUCKK CONCURRENCY BUG
   (admMsgs, resvs) <- takeMVar configMsgsVar
+  sws <- readIORef switches
   -- Setup new allow/deny rules
-  putStrLn "Sending allow/deny messages:"
+  putStrLn $ "Sending allow/deny messages to " ++ (show sws)
   mapM_ (\f -> putStrLn (show f)) admMsgs
   let setAdm sw = do
         mapM_ (\m -> putStrLn "Sending" >> sendToSwitchWithID ofpServer sw m) (zip (repeat 0) admMsgs)
-  mapM_ setAdm [1]
+  mapM_ setAdm (Set.toList sws)
   -- Create new queues
   -- TODO: 
   -- Delete expiring queues
@@ -54,11 +57,9 @@ reconfLoop ofpServer switches configMsgsVar endingResvs =  do
 
 reconfThread ofServ swsVar sharedVar = reconfLoop ofServ swsVar sharedVar Map.empty
 
-handleSwitch :: SwitchHandle -> MVar (Set SwitchID) -> IO ()
-handleSwitch switch swsVar = do
+handleSwitch :: SwitchHandle -> IO ()
+handleSwitch switch = do
   putStrLn $ "New switch " ++ show (handle2SwitchID switch)
-  sws <- takeMVar swsVar
-  putMVar swsVar (Set.insert (handle2SwitchID switch) sws) 
   -- map of ports to destinations
   learnedRoutes <- newIORef Map.empty
   let cfg = ExtQueueModify 1 [QueueConfig 3 [MinRateQueue (Enabled 700)]]
@@ -84,7 +85,7 @@ messageHandler routesRef switch (xid, scmsg) = case scmsg of
         putStrLn "unrecognized frame type (or ARP) ... flooding."
         let flowEntry = AddFlow { 
                           match = frameToExactMatch (receivedOnPort pkt) frm,
-                          priority          = 32768, -- lowest priority for short floods
+                          priority          = 0, -- lowest priority for short floods
                           actions           = [SendOutPort Flood],
                           cookie            = 0,
                           idleTimeOut       = ExpireAfter 5,
@@ -111,7 +112,7 @@ messageHandler routesRef switch (xid, scmsg) = case scmsg of
                           dstIPAddress = (dstIP, maxPrefixLen),
                           ethFrameType = Just ethTypeIP
                         },
-                        priority          = 32767, -- 2nd lowest priority for learning
+                        priority          = 1, -- 2nd lowest priority for learning
                         actions           = action,
                         cookie            = 0,
                         idleTimeOut       = ExpireAfter 5,

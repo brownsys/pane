@@ -31,7 +31,7 @@ resvActions allReqs st = concatMap resvActions' reqs
 
 admissionControlActions reqs st =
   let admReqs = filter isAdmControl reqs
-      admReqs' = sortBy (\x y -> compare (reqDepth x st) (reqDepth y st)) admReqs
+      admReqs' = sortBy (\x y -> compare (reqDepth y st) (reqDepth x st)) admReqs
       now = stateNow st
   -- TODO: composition of allow/deny for sibliings is broken here.
   --       well, one hack could be to put the deny rules at the odd priorities (1,3,5,...)
@@ -46,7 +46,7 @@ admissionControlActions reqs st =
   -- (this is allowed by our rules at the moment; does the order affect what we think
   -- of this interaction? is this were partial/strict should affect us, say, if we
   -- re-arranged the order?)
-  in concatMap (\(x, prio) -> requestAction now x prio) (zip admReqs' [1 ..])
+  in concatMap (\(x, prio) -> requestAction now x prio) (zip admReqs' [65535,65534 ..])
 
 requestAction now req@(Req {reqFlows=flowGroup, reqData=rd, reqEnd=end}) prio = 
   let flows = expandFlowGroup flowGroup
