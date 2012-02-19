@@ -45,7 +45,11 @@ admissionControlActions reqs st =
   -- root: deny(user=adf, dstHost=10.200.0.1, srcHost=10.200.0.2, dstPort=80) on rootShare.
   -- (this is allowed by our rules at the moment; does the order affect what we think
   -- of this interaction? is this were partial/strict should affect us, say, if we
-  -- re-arranged the order?)
+  -- re-arranged the order? oh! I think I should have used a subshare to implement this.
+  -- still, PANE should probably have told me that it wouldn't achieve what I thought
+  -- it was going to achieve because the 1st deny on line 2 will override the 2nd
+  -- allow on line 3!)
+
   in concatMap (\(x, prio) -> requestAction now x prio) (zip admReqs' [65535,65534 ..])
 
 requestAction now req@(Req {reqFlows=flowGroup, reqData=rd, reqEnd=end}) prio = 
