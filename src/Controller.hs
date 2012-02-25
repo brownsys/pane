@@ -95,7 +95,7 @@ messageHandler routesRef switch (xid, scmsg) = case scmsg of
                           overlapAllowed    = True
                         }
         sendToSwitch switch (xid, FlowMod flowEntry)
-      Left _ -> putStrLn "PacketIn with an unrecognized frame."
+      Left str -> putStrLn ("PacketIn with an unrecognized frame:" ++ str)
     Just (srcPort, srcIP, dstIP) -> do
       -- learn
       oldRoutes <- readIORef routesRef
