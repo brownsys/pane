@@ -75,6 +75,22 @@ reconfLoop ofpServer switches configMsgsVar = do
                 let cfg = ExtQueueModify dstPort
                             [QueueConfig qid [MinRateQueue (Enabled size)]]
                 sendToSwitchWithID ofpServer sw (11, cfg)
+                let timeOut = case expiry of
+                                NoLimit -> Permanent
+                                DiscreteLimit n -> ExpireAfter (fromIntegral n)
+                let action = Enqueue dstPort qid
+                let flowEntry = AddFlow {
+                                  match = match,
+                                  priority          = 2,
+                                  actions           = [action],
+                                  cookie            = 0,
+                                  idleTimeOut       = Permanent,
+                                  hardTimeOut       = timeOut,
+                                  notifyWhenRemoved = False,
+                                  applyToPacket     = Nothing,
+                                  overlapAllowed    = True
+                                }
+                sendToSwitchWithID ofpServer sw (13, FlowMod flowEntry)
                 case expiry of
                   NoLimit -> return ()
                   (DiscreteLimit n) -> do
