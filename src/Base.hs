@@ -16,7 +16,7 @@ traceFile = unsafePerformIO (newIORef Nothing)
 
 
 -- |Data shared between the OpenFlow Controller and the PANE Server.
-type Shared = ([CSMessage], [(Match, Integer, Limit)])
+type Shared = ([CSMessage], [(Match, Word16, Limit)])
 
 data DNPResult
   = BoolResult Bool

@@ -13,20 +13,22 @@ import Set (Set)
 import Base hiding (Port)
 import qualified Base as Base
 import Nettle.OpenFlow
+import Data.Word
 
 emitActions :: State -> Shared
 emitActions st = 
   (admissionControlActions (currentRequests st) st, 
-   resvActions  (currentRequests st) st)
+   resvActions  (eventsNow st) st)
 
 
-resvActions' :: Req
-             -> [(Match, Integer, Limit)]
-resvActions' (Req {reqFlows=flows,reqData=ReqResv n, reqEnd=end}) = 
-  [ (flowToMatch f, n, end) | f <- expandFlowGroup flows ]
-resvActions' _ = error "resvActions' expected ReqResv"
+resvActions' :: Integer
+             -> Req
+             -> [(Match, Word16, Limit)]
+resvActions' now (Req {reqFlows=flows,reqData=ReqResv n, reqEnd=end}) = 
+  [ (flowToMatch f, fromIntegral n, end `subLimits` (DiscreteLimit now)) | f <- expandFlowGroup flows ]
+resvActions' _ _ = error "resvActions' expected ReqResv"
 
-resvActions allReqs st = concatMap resvActions' reqs
+resvActions allReqs st = concatMap (resvActions' (stateNow st)) reqs
     where reqs = filter (not.isAdmControl) allReqs
 
 admissionControlActions reqs st =

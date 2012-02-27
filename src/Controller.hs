@@ -21,6 +21,22 @@ import PriorityQueue (PQ)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.IORef
+import System.IO.Unsafe
+  
+
+-- map of ports to destinations
+learnedRoutes :: IORef (Map IPAddress PortID)
+learnedRoutes = unsafePerformIO (newIORef Map.empty)
+
+nextQueueID :: IORef QueueID
+nextQueueID = unsafePerformIO (newIORef 0)
+
+newQueueID :: IO QueueID
+newQueueID = do
+  n <- readIORef nextQueueID
+  writeIORef nextQueueID (n+1)
+  return n
+
 
 controllerMain :: MVar Shared -> Word16 -> IO ()
 controllerMain paneConfigState portNum = do
@@ -36,9 +52,8 @@ controllerMain paneConfigState portNum = do
 reconfLoop :: OpenFlowServer 
            -> IORef (Set SwitchID)
            -> MVar Shared 
-           -> Map SwitchID (PQ (Integer, PortID, QueueID))
            -> IO ()
-reconfLoop ofpServer switches configMsgsVar endingResvs =  do
+reconfLoop ofpServer switches configMsgsVar = do
   (admMsgs, resvs) <- takeMVar configMsgsVar
   sws <- readIORef switches
   -- Setup new allow/deny rules
@@ -48,23 +63,47 @@ reconfLoop ofpServer switches configMsgsVar endingResvs =  do
         mapM_ (\m -> putStrLn "Sending" >> sendToSwitchWithID ofpServer sw m) (zip (repeat 0) admMsgs)
   mapM_ setAdm (Set.toList sws)
   -- Create new queues
-  -- TODO: 
+  let createQueue sw (match, size, expiry) = 
+        case prefixIsExact (dstIPAddress match) of
+          False -> putStrLn "inexact dstAddress: cannot create queue"
+          True -> do
+            routes <- readIORef learnedRoutes
+            case Map.lookup (fst (dstIPAddress match)) routes of
+              Nothing -> putStrLn "dst IP addr not learned: cannot create queue"
+              Just dstPort -> do
+                qid <- newQueueID
+                let cfg = ExtQueueModify dstPort
+                            [QueueConfig qid [MinRateQueue (Enabled size)]]
+                sendToSwitchWithID ofpServer sw (11, cfg)
+                case expiry of
+                  NoLimit -> return ()
+                  (DiscreteLimit n) -> do
+                    let deleteQueue = do
+                           threadDelay ((fromIntegral n) * 10^6)
+                           putStrLn "deleting queue..."
+                           let cfg = ExtQueueDelete dstPort
+                                       [QueueConfig qid []]
+                           sendToSwitchWithID ofpServer sw (12, cfg)
+                    forkIO deleteQueue
+                    return ()
+  mapM_ (\sw -> mapM_ (createQueue sw) resvs) (Set.toList sws)
   -- Delete expiring queues
   -- TODO:
   -- 
-  reconfLoop ofpServer switches configMsgsVar endingResvs
+  reconfLoop ofpServer switches configMsgsVar
 
 
-reconfThread ofServ swsVar sharedVar = reconfLoop ofServ swsVar sharedVar Map.empty
+reconfThread ofServ swsVar sharedVar = do
+  
+  reconfLoop ofServ swsVar sharedVar
 
 handleSwitch :: SwitchHandle -> IO ()
 handleSwitch switch = do
   putStrLn $ "New switch " ++ show (handle2SwitchID switch)
-  -- map of ports to destinations
-  learnedRoutes <- newIORef Map.empty
   let cfg = ExtQueueModify 1 [QueueConfig 3 [MinRateQueue (Enabled 700)]]
   sendToSwitch switch (10, cfg)
-  untilNothing (receiveFromSwitch switch) (messageHandler learnedRoutes switch)
+  untilNothing (receiveFromSwitch switch) 
+               (messageHandler switch)
   closeSwitchHandle switch
 
 
@@ -76,9 +115,8 @@ getPacketRoute pkt = case enclosedFrame pkt of
             dstIP = ipDstAddress ipHdr
   otherwise -> Nothing
 
-messageHandler :: IORef (Map IPAddress PortID)
-               -> SwitchHandle -> (TransactionID, SCMessage) -> IO ()
-messageHandler routesRef switch (xid, scmsg) = case scmsg of
+messageHandler :: SwitchHandle -> (TransactionID, SCMessage) -> IO ()
+messageHandler switch (xid, scmsg) = case scmsg of
   PacketIn pkt -> putStr "PacketIn ... " >> case getPacketRoute pkt of
     Nothing -> case enclosedFrame pkt of
       Right frm -> do
@@ -98,9 +136,9 @@ messageHandler routesRef switch (xid, scmsg) = case scmsg of
       Left str -> putStrLn ("PacketIn with an unrecognized frame:" ++ str)
     Just (srcPort, srcIP, dstIP) -> do
       -- learn
-      oldRoutes <- readIORef routesRef
+      oldRoutes <- readIORef learnedRoutes
       let routes = Map.insert srcIP srcPort oldRoutes
-      writeIORef routesRef routes
+      writeIORef learnedRoutes routes
       -- lookup route
       let (action, timeOut) = case Map.lookup dstIP routes of
                      Just dstPort -> ([SendOutPort (PhysicalPort dstPort)], ExpireAfter 60)

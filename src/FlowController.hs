@@ -18,6 +18,7 @@ module FlowController
   , listShareRefsByUser
   , Share (..)
   , getSchedule
+  , eventsNow
   ) where
 
 import Control.Monad
@@ -63,7 +64,8 @@ data State = State {
   acceptedReqs :: PQ Req,
   activeReqs :: PQ Req,
   stateNow :: Integer,
-  stateSeqn :: Integer
+  stateSeqn :: Integer,
+  eventsNow :: [Req]
 } deriving Show
 
 -----------------------------
@@ -90,6 +92,7 @@ emptyStateWithTime t =
         (PQ.empty reqEndOrder)
         t
         0
+        []
 
 emptyState = emptyStateWithTime 0
         
@@ -435,7 +438,8 @@ tickInternal t st@(State { shareTree    = shares,
        stateSeqn = if null startingNow && null endingNow then
                      seqn
                    else
-                     seqn + 1
+                     seqn + 1,
+       eventsNow = startingNow
      } 
   where now' = now + t
         (startingNow, byStart') =  PQ.dequeueWhile (\r -> reqStart r <= now')
@@ -505,7 +509,7 @@ instance ToJSON Share where
     , ("canDeny", toJSON (shareCanDenyFlows share))
     ]
 instance ToJSON State where
-  toJSON (State shares speakers accepted active now _) = object
+  toJSON (State shares speakers accepted active now _ _) = object
     [ ("shares", toJSON (Tree.expose shares))
     , ("speakers", toJSON speakers)
     , ("accepted", toJSON accepted)
