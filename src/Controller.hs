@@ -1,6 +1,7 @@
 -- |PANE's OpenFlow controller
 module Controller where
 
+import Prelude hiding (catch)
 import Nettle.Servers.Server
 import Nettle.OpenFlow
 import Data.Word
@@ -22,6 +23,7 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.IORef
 import System.IO.Unsafe
+import Control.Exception (catch, SomeException)
   
 
 -- map of ports to destinations
@@ -113,13 +115,22 @@ reconfThread ofServ swsVar sharedVar = do
   
   reconfLoop ofServ swsVar sharedVar
 
+retryOnExns :: IO a -> IO a
+retryOnExns action = action `catch` handle
+  where handle (e :: SomeException) = do
+          putStrLn $ "Exception (retrying): " ++ show e
+          retryOnExns action
+
+ignoreExns :: IO () -> IO ()
+ignoreExns action = action `catch` handle
+  where handle (e :: SomeException) = putStrLn $ "Exception (ignoring): " ++ show e
+          
+
 handleSwitch :: SwitchHandle -> IO ()
 handleSwitch switch = do
   putStrLn $ "New switch " ++ show (handle2SwitchID switch)
-  let cfg = ExtQueueModify 1 [QueueConfig 3 [MinRateQueue (Enabled 700)]]
-  sendToSwitch switch (10, cfg)
-  untilNothing (receiveFromSwitch switch) 
-               (messageHandler switch)
+  untilNothing (retryOnExns (receiveFromSwitch switch))
+               (\msg -> ignoreExns (messageHandler switch msg))
   closeSwitchHandle switch
 
 
