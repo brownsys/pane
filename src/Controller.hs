@@ -12,7 +12,8 @@ import Nettle.OpenFlow.StrictPut
 import FlowController (State)
 import Control.Concurrent.MVar
 import Base
-import Data.HashTable
+import Data.HashTable (HashTable)
+import qualified Data.HashTable as Ht
 import Data.IORef
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -24,7 +25,10 @@ import qualified Data.Set as Set
 import Data.IORef
 import System.IO.Unsafe
 import Control.Exception (catch, SomeException)
-  
+import qualified Nettle.Ethernet.EthernetAddress as EthAddr
+
+learnedMACs :: HashTable SwitchID (HashTable EthernetAddress PortID)
+learnedMACs = unsafePerformIO (Ht.new (==) fromIntegral)
 
 -- map of ports to destinations
 learnedRoutes :: IORef (Map IPAddress PortID)
@@ -47,6 +51,9 @@ controllerMain paneConfigState portNum = do
   forkIO (reconfThread ofpServer swsVar paneConfigState) 
   forever (do (switch,sfr) <- acceptSwitch ofpServer
               sws <- readIORef swsVar
+              let switchID = handle2SwitchID switch
+              macs <- Ht.new (==) (fromIntegral.(EthAddr.unpack64))
+              Ht.insert learnedMACs switchID macs
               writeIORef swsVar (Set.insert (handle2SwitchID switch) sws) 
               forkIO (handleSwitch switch))
   closeServer ofpServer
@@ -142,10 +149,22 @@ getPacketRoute pkt = case enclosedFrame pkt of
             dstIP = ipDstAddress ipHdr
   otherwise -> Nothing
 
+
+getPacketMac pkt = case enclosedFrame pkt of
+  Right (HCons ethHdr _ ) -> 
+    Just (srcPort, srcMac, dstMac)
+      where srcPort = receivedOnPort pkt
+            srcMac = sourceMACAddress ethHdr
+            dstMac = destMACAddress ethHdr
+  otherwise -> Nothing
+
 messageHandler :: SwitchHandle -> (TransactionID, SCMessage) -> IO ()
 messageHandler switch (xid, scmsg) = case scmsg of
-  PacketIn pkt -> putStr "PacketIn ... " >> case getPacketRoute pkt of
-    Nothing -> case enclosedFrame pkt of
+  PacketIn pkt -> putStr "PacketIn ... " >> case getPacketMac pkt of
+    Nothing -> return ()
+
+{-
+ case enclosedFrame pkt of
       Right frm -> do
         putStrLn "unrecognized frame type (or ARP) ... flooding."
         let flowEntry = AddFlow { 
@@ -161,26 +180,33 @@ messageHandler switch (xid, scmsg) = case scmsg of
                         }
         sendToSwitch switch (xid, FlowMod flowEntry)
       Left str -> putStrLn ("PacketIn with an unrecognized frame:" ++ str)
-    Just (srcPort, srcIP, dstIP) -> do
-      -- learn
-      oldRoutes <- readIORef learnedRoutes
-      let routes = Map.insert srcIP srcPort oldRoutes
-      writeIORef learnedRoutes routes
+-}
+    Just (srcPort, srcMac, dstMac) -> do
+      -- learn IP routes
+      case getPacketRoute pkt of
+        Nothing -> return ()
+        Just (srcPort, srcIP, dstIP) -> do
+          oldRoutes <- readIORef learnedRoutes
+          let routes = Map.insert srcIP srcPort oldRoutes
+          writeIORef learnedRoutes routes
+      -- Mac learning
+      (Just fwdTbl) <- Ht.lookup learnedMACs (handle2SwitchID switch)
+      Ht.insert fwdTbl srcMac srcPort
       -- lookup route
-      let (action, timeOut) = case Map.lookup dstIP routes of
+      maybeDstPort <- Ht.lookup fwdTbl dstMac
+      let (action, timeOut) = case maybeDstPort of
                      Just dstPort -> ([SendOutPort (PhysicalPort dstPort)], ExpireAfter 60)
                      Nothing -> ([SendOutPort Flood], ExpireAfter 5)
       let flowEntry = AddFlow { 
                         match = matchAny {
-                          inPort = Just srcPort, 
-                          srcIPAddress = (srcIP, maxPrefixLen),
-                          dstIPAddress = (dstIP, maxPrefixLen),
-                          ethFrameType = Just ethTypeIP
+--                          inPort = Just srcPort, 
+--                          srcMACAddress = srcMac,
+                          dstEthAddress = Just dstMac
                         },
                         priority          = 1, -- 2nd lowest priority for learning
                         actions           = action,
                         cookie            = 0,
-                        idleTimeOut       = ExpireAfter 5,
+                        idleTimeOut       = Permanent,
                         hardTimeOut       = timeOut,
                         notifyWhenRemoved = False,
                         applyToPacket     = bufferID pkt,
