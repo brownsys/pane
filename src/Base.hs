@@ -49,13 +49,25 @@ instance Ord Limit where
   (DiscreteLimit m) <= (DiscreteLimit n) = m <= n
   NoLimit <= (DiscreteLimit _) = False
 
-addLimits (DiscreteLimit m) (DiscreteLimit n) = DiscreteLimit (m + n)
-addLimits _                 _                 = NoLimit
+instance Num Limit where
+  (DiscreteLimit m) + (DiscreteLimit n) = DiscreteLimit (m + n)
+  _                 + _                 = NoLimit
 
-subLimits (DiscreteLimit m) (DiscreteLimit n) = DiscreteLimit (m - n)
-subLimits NoLimit NoLimit = error "uh oh. what should we do?"
-subLimits NoLimit (DiscreteLimit n) = NoLimit
-subLimits (DiscreteLimit n) NoLimit = error "uh oh. another strange case."
+  (DiscreteLimit m) - (DiscreteLimit n) = DiscreteLimit (m - n)
+  NoLimit           - NoLimit           = error "NoLimit - NoLimit"
+  NoLimit           - (DiscreteLimit n) = NoLimit
+  (DiscreteLimit n) - NoLimit           = error "DiscreteLimit _ - NoLimit"
+
+  (DiscreteLimit m) * (DiscreteLimit n) = DiscreteLimit (m * n)
+  _                 * _                 = NoLimit
+
+  fromInteger n = DiscreteLimit n
+
+  abs (DiscreteLimit m) = DiscreteLimit (abs m)
+  abs NoLimit           = NoLimit
+
+  signum (DiscreteLimit m) = DiscreteLimit (signum m)
+  signum NoLimit           = error "signum NoLimit"
 
 data Time
   = Relative Integer -- ^relative to now

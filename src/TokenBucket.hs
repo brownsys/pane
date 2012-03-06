@@ -32,7 +32,7 @@ new init max rate | init <= max = TokenBucket init max rate rate 0 max
 -- |'tick' steps the 'TokenBucket' for 't' timesteps.
 tick :: Integer -> TokenBucket -> Maybe TokenBucket
 tick t bucket@(TokenBucket curr lim mrate _ _ _) =
-  case min lim (curr `addLimits` (DiscreteLimit (t * mrate))) of
+  case min lim (curr + (DiscreteLimit (t * mrate))) of
     DiscreteLimit n | n < 0 -> Nothing
     curr' -> Just (bucket { currTokens = curr' })
 
