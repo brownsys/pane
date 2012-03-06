@@ -32,7 +32,7 @@ import qualified Tree
 import Tree (Tree)
 import qualified PriorityQueue as PQ
 import PriorityQueue (PQ)
-import Data.Maybe (maybe, mapMaybe, fromMaybe)
+import Data.Maybe (maybe, mapMaybe, fromMaybe, catMaybes)
 import Base
 import TokenBucket (TokenBucket)
 import qualified TokenBucket as TB
@@ -46,7 +46,6 @@ data Share = Share {
 --  shareEnd :: Limit,  TODO (?)
 
   -- Restrictions on what this share can be used for
-  shareResvUB :: Limit,
   shareResvLB :: Limit,
   shareCanAllowFlows :: Bool,
   shareCanDenyFlows :: Bool,
@@ -86,7 +85,7 @@ emptyStateWithTime t =
   State (Tree.root 
            rootShareRef
            (Share rootShareRef anyFlow (Set.singleton rootSpeaker) emptyShareReq
-                   NoLimit (DiscreteLimit 0) True True TB.unlimited))
+                   (DiscreteLimit 0) True True TB.unlimited))
         (Set.singleton rootSpeaker)
         (PQ.empty reqStartOrder)
         (PQ.empty reqEndOrder)
@@ -159,13 +158,13 @@ isIntersectingFlow (FlowGroup fs1 fr1 fsp1 fdp1 fsh1 fdh1)
   not (Set.null (Set.intersection fdh1 fdh2))
 
 isSubShare :: Share -> Share -> Bool
-isSubShare (Share _ flows1 _ _ resUB1 resLB1 canAllow1 canDeny1 _)
-          (Share _ flows2 _ _ resUB2 resLB2 canAllow2 canDeny2 _) = 
-  resUB1 <= resUB2 &&
+isSubShare (Share _ flows1 _ _ resLB1 canAllow1 canDeny1 _)
+          (Share _ flows2 _ _ resLB2 canAllow2 canDeny2 _) = 
   resLB1 >= resLB2 &&
   flows1 `isSubFlow` flows2 &&
   canAllow1 <= canAllow2 &&
   canDeny1 <= canDeny2
+  -- TODO (adf): DO SOMETHING WITH THE TOKEN BUCKET
 
 isSubShareWRefs :: ShareRef -> ShareRef -> ShareTree -> Bool
 isSubShareWRefs sr1 sr2 sT =
@@ -257,16 +256,17 @@ recursiveRequest req@(Req shareRef _ _ end (ReqResv resv) _) -- TODO: specific
                  not (end' < (DiscreteLimit start) ||
                       (DiscreteLimit start') > end)
             simReqs = PQ.enqueue req (PQ.filter g reqs)
-            (_, sizes, tbs) = unzip3 (simulate simReqs (shareResvTokens thisShare)
-                                      (stateNow st) req) in
+            (_, mbTBs) = unzip (simulate simReqs (shareResvTokens thisShare)
+                                      (stateNow st) req)
+            tbs = trace (show thisShare) $ catMaybes mbTBs in
 -- TODO: these next lines are the specific tests for reservations, rather than
 -- any type of request
-          if (injLimit (maximum sizes) > shareResvUB thisShare) ||
-               (injLimit resv < shareResvLB thisShare) ||
-               (minimum (map TB.currTokens tbs) < injLimit (0)) then
+          if (injLimit resv < shareResvLB thisShare) ||
+              (length mbTBs /= length tbs) then
             Nothing
           else
-            let thisShare' = thisShare { shareReq = PQ.enqueue req reqs } in
+            let thisShare' = thisShare { shareReq = PQ.enqueue req reqs,
+                                         shareResvTokens = head tbs } in
                 Just (Tree.update thisShareName thisShare' sT)
     in case foldl f (Just sT) chain of
          Nothing -> Nothing
@@ -349,7 +349,7 @@ request spk req@(Req shareRef flow start end rD strict)
 getSchedule :: Speaker
               -> ShareRef
               -> State
-              -> Maybe [(Limit, Limit, Limit)]
+              -> Maybe [(Limit, Limit)]
 getSchedule speaker shareName (State { shareTree = shares, stateNow = now }) = do
   let share = Tree.lookup shareName shares
   when (not (Set.member speaker (shareHolders share)))
@@ -357,25 +357,25 @@ getSchedule speaker shareName (State { shareTree = shares, stateNow = now }) = d
   let reqs = PQ.filter (\req -> reqStart req >= now) (shareReq share)
   let dummyReq = Req shareName anyFlow now NoLimit ReqDeny False
   let sched = simulate reqs (shareResvTokens share) now dummyReq
-  let available = shareResvUB share
-  let f (t, bwUsed, toks) = 
-        (t, available `subLimits` DiscreteLimit bwUsed, TB.currTokens toks)
-  let tmp = map f sched
+  let f (t, mTb) = case mTb of
+        Just tb -> Just (t, TB.currTokens tb)
+        Nothing -> Nothing
+  let tmp = mapMaybe f sched
   -- TODO: doing this is a bit hackish; is this the best way to let the client
   -- know the available bandwidth on a share with no reservations?
   case tmp of
-    [] -> return [(injLimit now, available, TB.currTokens (shareResvTokens share))]
+    [] -> return [(injLimit now, TB.currTokens (shareResvTokens share))]
     _  -> return tmp
 
 simulate :: PQ Req -- ^ sorted by start time
          -> TokenBucket
          -> Integer -- ^ simulation starting time
          -> Req    -- ^ the new request which is being considered
-         -> [(Limit, Integer, TokenBucket)] -- ^time, height of resv bw, TB
+         -> [(Limit, Maybe TokenBucket)] -- ^time, height of res bw, TB
 simulate reqsByStart shareTB trueNow newR =
-  simStep trueNow (injLimit trueNow) 0 shareTB reqsByStart (PQ.empty reqEndOrder) newR
+  simStep trueNow (injLimit trueNow) shareTB reqsByStart (PQ.empty reqEndOrder) newR
 
-simStep trueNow now size tb byStart byEnd newReq
+simStep trueNow now tb byStart byEnd newReq
   | PQ.isEmpty byStart && PQ.isEmpty byEnd = []
   | otherwise =
   let now' = min (maybe NoLimit (injLimit.reqStart) (PQ.peek byStart))
@@ -388,22 +388,26 @@ simStep trueNow now size tb byStart byEnd newReq
       byEnd'' = foldr PQ.enqueue byEnd' startingNow
       bwDelta = sum (mapMaybe (unReqResv.reqData) startingNow)
               - sum (mapMaybe (unReqResv.reqData) endingNow)
-      size' = size + bwDelta
       tb'   = case (now' > (DiscreteLimit trueNow)) of
-                True -> TB.updateRate (-bwDelta) (TB.tickBy
-                                                  (now' `subLimits` now) tb)
+                True -> case TB.tickBy (now' `subLimits` now) tb of
+                            Nothing -> Nothing
+                            Just tb'' -> Just (TB.updateRate (-bwDelta) tb'')
                 -- Be careful not to simulate events which occurred:
-                False  -> case (injLimit (reqStart newReq) == now') of
+                False  -> Just $ case (injLimit (reqStart newReq) == now') of
                             True -> TB.updateRate (-bwDelta') tb where
-                                      bwDelta' = fromMaybe 0 (unReqResv
+                                            bwDelta' = fromMaybe 0 (unReqResv
                                                    (reqData newReq))
                             False -> tb
-      in (now', size', tb'):(simStep trueNow now' size' tb' byStart' byEnd'' newReq)
+      in case tb' of
+         Nothing -> [(now', tb')]
+         Just tb'' -> (now', tb'):(simStep trueNow now' tb'' byStart' byEnd'' newReq)
 
 tickShare :: Integer -> [Req] -> [Req] -> Share -> Share
 tickShare t starting ending share@(Share { shareResvTokens = resvToks }) =
   share { shareResvTokens = resvToks'' } where
-    resvToks'  = TB.tickBy (DiscreteLimit t) resvToks
+    resvToks'  = case TB.tickBy (DiscreteLimit t) resvToks of
+                    Nothing -> error "EPIC FAIL"
+                    Just tb -> tb
     starting'  = filter (\x -> reqShare x == shareName share) starting
     ending'    = filter (\x -> reqShare x == shareName share) ending
     resvToks'' = TB.updateRate (sum (mapMaybe (unReqResv.reqData) ending')
@@ -503,7 +507,6 @@ instance ToJSON Share where
     , ("flows", toJSON (shareFlows share))
     , ("holders", toJSON (shareHolders share))
     , ("req", toJSON (shareReq share))
-    , ("resvUB", toJSON (shareResvUB share))
     , ("resvLB", toJSON (shareResvLB share))
     , ("canAllow", toJSON (shareCanAllowFlows share))
     , ("canDeny", toJSON (shareCanDenyFlows share))

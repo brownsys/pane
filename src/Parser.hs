@@ -141,7 +141,7 @@ resvUB = do
   reserved "reserve"
   reservedOp "<="
   size <- T.integer lex
-  return (DiscreteLimit size)
+  return size
 
 -- TODO: Obviously, this is redundant and perhaps doesn't make sense, but I
 -- want to leave open the question of whether this should be ternary (as in,
@@ -165,8 +165,6 @@ resvLB = (do
   reservedOp ">="
   size <- T.integer lex
   return (DiscreteLimit size)) <|> (return (DiscreteLimit 0))
-
--- perm = resvUB <|> resvLB <|> allowPerm <|> denyPerm
 
 permList = do
 -- TODO: Convert to be able to specify in any order; need defaults when missing
@@ -223,8 +221,9 @@ newShare spk = do
   (rub, ca, cd, rlb) <- sharePerms
   reserved "on"
   parent <- identifier
-  resvBucket <- do { reserved "throttle"; tokenBucket } <|> return TB.unlimited
-  let s = Share name fg (Set.singleton spk) emptyShareReq rub rlb
+  let tb = TB.new (DiscreteLimit rub) (DiscreteLimit rub) rub
+  resvBucket <- do { reserved "throttle"; tokenBucket } <|> return tb
+  let s = Share name fg (Set.singleton spk) emptyShareReq rlb
             ca cd resvBucket
   return (newShareM spk parent s)
 
