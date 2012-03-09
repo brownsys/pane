@@ -72,6 +72,16 @@ instance Num Limit where
   signum (DiscreteLimit m) = DiscreteLimit (signum m)
   signum NoLimit           = error "signum NoLimit"
 
+instance Enum Limit where
+  succ (DiscreteLimit m) = DiscreteLimit (succ m)
+  succ NoLimit           = NoLimit
+  toEnum n = DiscreteLimit (fromIntegral n)
+  enumFrom (DiscreteLimit n) = 
+    (DiscreteLimit n):(enumFrom (DiscreteLimit (n+1)))
+  enumFrom NoLimit           = [NoLimit]
+  fromEnum (DiscreteLimit n) = fromIntegral n
+  fromEnum NoLimit           = error "fromEnum NoLimit"
+
 data Time
   = Relative Integer -- ^relative to now
   | Absolute Integer

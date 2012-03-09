@@ -69,14 +69,14 @@ tokensAt t (TokenGraph{history=hist, fillRate=fill, capacity=cap}) =
                at prev [] = 
                     toksAt fill cap prev t
                at prev (evt:rest)  
-                    | eventTime evt > t  = at evt rest
-                    | otherwise          = toksAt fill cap prev t
+                    | eventTime evt > t  = toksAt fill cap prev t
+                    | otherwise          = at evt rest
 
 
 isValidEvent :: TokenGraph -> Event -> Bool
 isValidEvent (TokenGraph _ _ minDrain maxDrain cap) (Event _ tokens drain)  =
   minDrain <= drain &&
-  DiscreteLimit drain <= maxDrain &&
+  fromInteger drain <= maxDrain &&
   tokens >= fromInteger 0 &&
   tokens <= cap
 

@@ -29,15 +29,20 @@ testDrainForever = TestLabel "can drain forever" $ TestCase $ do
       assertEqual "should have 0 tokens at t=0" 0 (TG.tokensAt 0 g)
       assertEqual "should have 0 tokens at t=100" 0 (TG.tokensAt 100 g)
       assertEqual "should have 0 tokens at t=2000" 0 (TG.tokensAt 2000 g)
-      -- assertEqual "should have 0 tokens at t=inf" 0 (TG.tokensAt NoLimit g)
+      assertEqual "should have 0 tokens at t=inf" 0 (TG.tokensAt NoLimit g)
 
 testDrainBurst = TestLabel "can spend accumulated tokens" $ TestCase $ do
-  case TG.drain 2 5 11 (TG.new 10 0 50 100) of
+  case TG.drain 2 22 11 (TG.new 10 0 50 100) of
     Nothing -> assertFailure "should be able to drain"
     Just g -> do
       putStrLn (show g)
-      assertEqual "should have 20 tokens at t=2" 19 (TG.tokensAt 2 g)
-      assertEqual "should have 18 tokens at t=3" 17 (TG.tokensAt 3 g)
+      assertEqual "should have 20 tokens at t=2" 20 (TG.tokensAt 2 g)
+      let check (toks, t) = do
+            let msg = "should have " ++ show toks ++ " tokens at t=" ++ show t
+            assertEqual msg toks (TG.tokensAt t g)
+      mapM_ check (zip [19 .. 0] [3 .. ])
+      mapM_ check (zip [10, 20 .. 100] [23 ..])
+
 
 allTests = TestList
   [ testFill
