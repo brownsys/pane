@@ -76,7 +76,7 @@ tokensAt t (TokenGraph{history=hist, fillRate=fill, capacity=cap}) =
 
 isValidEvent :: TokenGraph -> Event -> Bool
 isValidEvent (TokenGraph _ _ minDrain maxDrain cap) (Event _ tokens drain)  =
-  minDrain <= drain &&
+  (drain == 0 || minDrain <= drain) &&
   fromInteger drain <= maxDrain &&
   tokens >= fromInteger 0 &&
   tokens <= cap

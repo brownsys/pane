@@ -43,11 +43,32 @@ testDrainBurst = TestLabel "can spend accumulated tokens" $ TestCase $ do
       mapM_ check (zip [19 .. 0] [3 .. ])
       mapM_ check (zip [10, 20 .. 100] [23 ..])
 
+testMinDrain1 = TestLabel "slope cannot be < minDrain" $ TestCase $ do
+  case TG.drain 1 5 1 (TG.new 10 2 50 100) of
+    Nothing -> return ()
+    Just g -> do
+      putStrLn (show g)
+      assertFailure "should not be able to drain"
+
+testMinDrain2 = TestLabel "overlapping drains with a minDrain" $ TestCase $ do
+  let g = TG.new 10 4 50 100
+  case TG.drain 1 5 4 g of
+    Nothing -> do
+      putStrLn (show g)
+      assertFailure "should be able to drain"
+    Just g -> case TG.drain 3 7 2 g of
+      Nothing -> return ()
+      Just g -> do
+      putStrLn (show g)
+      assertFailure "second drain should fail"
+      
 
 allTests = TestList
   [ testFill
   , testDrainForever
   , testDrainBurst
+  , testMinDrain1
+  , testMinDrain2
   ]
 
 main = do
