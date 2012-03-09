@@ -48,7 +48,7 @@ instance Show Limit where
   show NoLimit           = "inf"
 
 instance Ord Limit where
-  _ <= NoLimit = True
+  _ <= NoLimit = True -- TODO(arjun): NoLimit <= NoLimit should be an error
   (DiscreteLimit m) <= (DiscreteLimit n) = m <= n
   NoLimit <= (DiscreteLimit _) = False
 
@@ -62,6 +62,8 @@ instance Num Limit where
   (DiscreteLimit n) - NoLimit           = error "DiscreteLimit _ - NoLimit"
 
   (DiscreteLimit m) * (DiscreteLimit n) = DiscreteLimit (m * n)
+  _                 * (DiscreteLimit 0) = DiscreteLimit 0
+  (DiscreteLimit 0) * _                 = DiscreteLimit 0
   _                 * _                 = NoLimit
 
   fromInteger n = DiscreteLimit n

@@ -69,6 +69,7 @@ tokensAt t (TokenGraph{history=hist, fillRate=fill, capacity=cap}) =
                at prev [] = 
                     toksAt fill cap prev t
                at prev (evt:rest)  
+                    | eventTime evt == t = numTokens evt
                     | eventTime evt > t  = toksAt fill cap prev t
                     | otherwise          = at evt rest
 
@@ -118,8 +119,9 @@ drain startTime endTime rate gr@(TokenGraph hist fill minDrain maxDrain cap) =
   case fromInteger startTime < endTime of
     False -> Nothing
     True -> 
-      let start = Event (fromInteger startTime) 0 (fromInteger rate)
-          end   = Event endTime 0 0
+      let start = Event (fromInteger startTime) 
+                         (error "missing start") (fromInteger rate)
+          end   = Event endTime (error "missing end") 0
           hist' = updateNumToks 0 fill cap (insEvent start (insEvent end hist))
          in case all (isValidEvent gr) hist' of
               True -> Just (gr { history = hist' })
