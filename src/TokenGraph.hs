@@ -24,7 +24,7 @@ data TokenGraph = TokenGraph {
   minDrain :: Integer,
   maxDrain :: Limit,
   capacity :: Limit
-}
+} deriving Show
 
 new :: Integer
     -> Integer
@@ -51,7 +51,8 @@ pour :: Integer
      -> TokenGraph
 pour n graph = case history graph of
   [] -> error "TokenGraph.pour : empty history"
-  (hd:tl) -> graph { history = updateNumToks (fillRate graph)
+  (hd:tl) -> graph { history = updateNumToks 0
+                                             (fillRate graph)
                                              (capacity graph)
                                              (hd':tl) }
                where hd' = hd { numTokens = numTokens hd + fromInteger n }
@@ -65,9 +66,11 @@ tokensAt t (TokenGraph{history=hist, fillRate=fill, capacity=cap}) =
   case hist of
     [] -> error "TokenGraph.tokensAt : empty history"
     hd:tl -> at hd tl where
-               at prev []                             = toksAt fill cap prev t
-               at prev (evt:rest) | eventTime evt < t = at evt rest
-                                  | otherwise         = toksAt fill cap prev t
+               at prev [] = 
+                    toksAt fill cap prev t
+               at prev (evt:rest)  
+                    | eventTime evt > t  = at evt rest
+                    | otherwise          = toksAt fill cap prev t
 
 
 isValidEvent :: TokenGraph -> Event -> Bool
@@ -84,22 +87,27 @@ insEvent event (hd:tl)
   | eventTime event > eventTime hd = hd:(insEvent event tl)
   | otherwise                      = merged:tl 
       where merged = Event (eventTime hd) 
-                           (error "invalid numTokens from insertEvent")
+                           (error "did not recompute numTokens")
                            (drainRate event + drainRate hd)
 
 -- |'toksAt fill cap prevEvt tm' calculates the number of tokens at time 'tm',
 -- given that 'prevEvt' represents the last point in the history where the
 -- drain rate changes.
 toksAt fillRate cap (Event prevTm prevToks prevDrain) tm =
-  min cap (prevToks + ((tm - prevTm) * (fromInteger (fillRate - prevDrain))))
+  min cap 
+      (prevToks
+       + ((tm - prevTm) * (fromInteger (fillRate - prevDrain))))
 
-updateNumToks :: Integer
+updateNumToks :: Limit 
+              -> Integer
               -> Limit
               -> [Event]
               -> [Event]
-updateNumToks _ _ [] = []
-updateNumToks fill cap (hd:tl) = scanl upd hd tl where
-  upd prevEvt (Event tm _ drain) = Event tm (toksAt fill cap prevEvt tm) drain
+updateNumToks _ _ _ [] = []
+updateNumToks initNumToks fill cap (hd:tl) = scanl upd hd' tl where
+  hd' = hd { numTokens = initNumToks }
+  upd prevEvt (Event tm _ drain) = 
+    Event tm (toksAt fill cap prevEvt tm) drain
 
 drain :: Integer -- ^start time
       -> Limit   -- ^end time
@@ -111,8 +119,8 @@ drain startTime endTime rate gr@(TokenGraph hist fill minDrain maxDrain cap) =
     False -> Nothing
     True -> 
       let start = Event (fromInteger startTime) 0 (fromInteger rate)
-          end   = Event endTime 0 (fromInteger rate)
-          hist' = updateNumToks fill cap (insEvent start (insEvent end hist))
+          end   = Event endTime 0 0
+          hist' = updateNumToks 0 fill cap (insEvent start (insEvent end hist))
          in case all (isValidEvent gr) hist' of
               True -> Just (gr { history = hist' })
               False -> Nothing

@@ -33,8 +33,7 @@ renderResult (ShareRefsResult lst) =
   cat $ punctuate (text "; ") $ (len:(map text lst))
   where len = text (show (length lst))
 
-renderLimit (DiscreteLimit n) = text (show n)
-renderLimit NoLimit           = text "inf"
+renderLimit lim = text (show lim)
 
 instance Show DNPResult where
   show r = render (renderResult r)
@@ -42,7 +41,11 @@ instance Show DNPResult where
 data Limit 
   = NoLimit 
   | DiscreteLimit Integer 
-  deriving (Eq, Show)
+  deriving (Eq)
+
+instance Show Limit where
+  show (DiscreteLimit n) = show n
+  show NoLimit           = "inf"
 
 instance Ord Limit where
   _ <= NoLimit = True
