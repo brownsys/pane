@@ -61,6 +61,14 @@ testMinDrain2 = TestLabel "overlapping drains with a minDrain" $ TestCase $ do
       Just g -> do
       putStrLn (show g)
       assertFailure "second drain should fail"
+
+testMaxDrain1 = TestLabel "slope cannot be > maxDrain" $ TestCase $ do
+  let g = TG.new 10 4 10 100
+  assertEqual "100 tokens at step 10" 100 (TG.tokensAt 10 g)
+  case TG.drain 10 11 11 g of
+    Nothing -> return ()
+    Just _  -> assertFailure "should not be able to drain"
+  
       
 
 allTests = TestList
@@ -69,6 +77,7 @@ allTests = TestList
   , testDrainBurst
   , testMinDrain1
   , testMinDrain2
+  , testMaxDrain1
   ]
 
 main = do
