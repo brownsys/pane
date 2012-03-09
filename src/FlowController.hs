@@ -389,7 +389,7 @@ simStep trueNow now tb byStart byEnd newReq
       bwDelta = sum (mapMaybe (unReqResv.reqData) startingNow)
               - sum (mapMaybe (unReqResv.reqData) endingNow)
       tb'   = case (now' > (DiscreteLimit trueNow)) of
-                True -> case TB.tickBy (now' + now) tb of
+                True -> case TB.tickBy (now' - now) tb of
                             Nothing -> Nothing
                             Just tb'' -> Just (TB.updateRate (-bwDelta) tb'')
                 -- Be careful not to simulate events which occurred:

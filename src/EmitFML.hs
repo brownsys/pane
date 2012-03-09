@@ -25,7 +25,7 @@ resvActions' :: Integer
              -> Req
              -> [(Match, Word16, Limit)]
 resvActions' now (Req {reqFlows=flows,reqData=ReqResv n, reqEnd=end}) = 
-  [ (flowToMatch f, fromIntegral n, end + (DiscreteLimit now)) | f <- expandFlowGroup flows ]
+  [ (flowToMatch f, fromIntegral n, end - fromInteger now) | f <- expandFlowGroup flows ]
 resvActions' _ _ = error "resvActions' expected ReqResv"
 
 resvActions allReqs st = concatMap (resvActions' (stateNow st)) reqs
