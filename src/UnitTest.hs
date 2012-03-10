@@ -68,8 +68,20 @@ testMaxDrain1 = TestLabel "slope cannot be > maxDrain" $ TestCase $ do
   case TG.drain 10 11 11 g of
     Nothing -> return ()
     Just _  -> assertFailure "should not be able to drain"
-  
-      
+
+testRegress0 = TestLabel "regression test 0" $ TestCase $ do
+  let g = TG.new 2000 0 2000 2000
+  case TG.drain 0 10 2000 g of
+    Nothing -> assertFailure "should be able to drain all tokens"
+    Just g -> do
+      putStrLn (show g)
+      assertEqual "should not be able to drain from t=1" 
+                  Nothing (TG.drain 0 NoLimit 1 g)
+      assertEqual "should not be able to drain from t=5" 
+                  Nothing (TG.drain 5 NoLimit 1 g)
+      case TG.drain 10 NoLimit 1 g of
+        Nothing -> assertFailure "should be able to drain from t=10" 
+        Just _  -> return ()
 
 allTests = TestList
   [ testFill
@@ -78,6 +90,7 @@ allTests = TestList
   , testMinDrain1
   , testMinDrain2
   , testMaxDrain1
+  , testRegress0
   ]
 
 main = do
