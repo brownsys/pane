@@ -62,6 +62,8 @@ new fill minDrain maxDrain cap
 
 -- |'pour n g' pours 'n' tokens into the 'TokenGraph' 'g', possibly exceeding
 -- the capacity of the graph.
+-- TODO(adf): should pour from one bucket to another, also pour min of
+-- n and and (capacity - numTokens hd) ... also, should be at time 0
 pour :: Integer
      -> TokenGraph
      -> TokenGraph

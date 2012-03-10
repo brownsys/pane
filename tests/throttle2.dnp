@@ -1,9 +1,7 @@
 True <- root : NewShare net0 for (*) [reserve <= 2000] on rootShare.
 
-True <- root : NewShare derp for (*) [reserve <= 2000]
-                             on net0 
-                             // initial-tokens, max-tokens, new-tokens-per-tick
-                             throttle bucket(0,200,10).
+True <- root : NewShare derp for (*) [reserve <= 2000 reserveTBCapacity = 200 reserveTBFill = 10]
+                             on net0.
 True <- root : Tick 20. // fill the bucket
 True <- root : reserve(*) = 20 on derp from now to +20.
 // Bucket has 200 tokens, mintRate = 10-20 = -10

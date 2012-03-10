@@ -1,5 +1,5 @@
-True <- root : NewShare net0 for (*) [reserve <= 2000] on rootShare
-                                 throttle bucket(0, 200, 10).
+True <- root : NewShare net0 for (*) [reserve <= 2000 reserveTBCapacity = 200 reserveTBFill = 10]
+                                     on rootShare.
 
 
 True <- root : reserve(*) = 1 on net0 from 0 to 10. 

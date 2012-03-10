@@ -126,11 +126,11 @@ flowGroup = do
 -- Share Permissions
 -----------------------------
 
-resvUB = do
+resvUB = (do
   reserved "reserve"
   reservedOp "<="
   size <- T.integer lex
-  return size
+  return size) <|> (return 0)
 
 -- TODO: Obviously, this is redundant and perhaps doesn't make sense, but I
 -- want to leave open the question of whether this should be ternary (as in,
@@ -155,6 +155,18 @@ resvLB = (do
   size <- T.integer lex
   return (fromInteger size)) <|> (return NoLimit)
 
+resvCap rub = (do
+  reserved "reserveTBCapacity"
+  reservedOp "="
+  c <- T.integer lex
+  return (fromInteger c)) <|> (return (fromInteger rub)) 
+
+resvFill rub = (do
+  reserved "reserveTBFill"
+  reservedOp "="
+  f <- T.integer lex
+  return f) <|> (return rub)
+
 permList = do
 -- TODO: Convert to be able to specify in any order; need defaults when missing
 --  newPerm <- sepBy perm comma
@@ -162,7 +174,9 @@ permList = do
   ca <- allowPerm
   cd <- denyPerm
   rlb <- resvLB
-  return (rub, ca, cd, rlb)
+  rtbc <- resvCap rub
+  rtbf <- resvFill rub
+  return (rub, ca, cd, rlb, rtbc, rtbf)
 
 sharePerms = do
   p <- brackets permList
@@ -207,10 +221,10 @@ newShare spk = do
   name <- identifier
   reserved "for"
   fg <- flowGroup
-  (rub, ca, cd, rlb) <- sharePerms
+  (rub, ca, cd, rlb, rtbc, rtbf) <- sharePerms
   reserved "on"
   parent <- identifier
-  let tg = TG.new rub rlb (DiscreteLimit rub) (fromInteger rub)
+  let tg = TG.new rtbf rlb (DiscreteLimit rub) rtbc
   let s = Share name fg (Set.singleton spk) emptyShareReq
             ca cd tg
   return (newShareM spk parent s)
