@@ -42,11 +42,8 @@ data Share = Share {
   shareFlows :: FlowGroup,     -- set of flows in this share
   shareHolders :: Set Speaker, -- users who can speak about this share
   shareReq :: PQ Req,          -- queue of accepted requests, sort by start
---  shareStart :: Integer, -- invariant: start < end
---  shareEnd :: Limit,  TODO (?)
 
   -- Restrictions on what this share can be used for
-  shareResvLB :: Limit,
   shareCanAllowFlows :: Bool,
   shareCanDenyFlows :: Bool,
   -- |'shareResvTokens' throttles the frequency of reservations. For a reservation
@@ -85,7 +82,7 @@ emptyStateWithTime t =
   State (Tree.root 
            rootShareRef
            (Share rootShareRef anyFlow (Set.singleton rootSpeaker) emptyShareReq
-                   (DiscreteLimit 0) True True TB.unlimited))
+                   True True TB.unlimited))
         (Set.singleton rootSpeaker)
         (PQ.empty reqStartOrder)
         (PQ.empty reqEndOrder)
@@ -158,9 +155,8 @@ isIntersectingFlow (FlowGroup fs1 fr1 fsp1 fdp1 fsh1 fdh1)
   not (Set.null (Set.intersection fdh1 fdh2))
 
 isSubShare :: Share -> Share -> Bool
-isSubShare (Share _ flows1 _ _ resLB1 canAllow1 canDeny1 _)
-          (Share _ flows2 _ _ resLB2 canAllow2 canDeny2 _) = 
-  resLB1 >= resLB2 &&
+isSubShare (Share _ flows1 _ _ canAllow1 canDeny1 _)
+          (Share _ flows2 _ _ canAllow2 canDeny2 _) = 
   flows1 `isSubFlow` flows2 &&
   canAllow1 <= canAllow2 &&
   canDeny1 <= canDeny2
@@ -261,8 +257,7 @@ recursiveRequest req@(Req shareRef _ _ end (ReqResv resv) _) -- TODO: specific
             tbs = trace (show thisShare) $ catMaybes mbTBs in
 -- TODO: these next lines are the specific tests for reservations, rather than
 -- any type of request
-          if (injLimit resv < shareResvLB thisShare) ||
-              (length mbTBs /= length tbs) then
+          if length mbTBs /= length tbs then
             Nothing
           else
             let thisShare' = thisShare { shareReq = PQ.enqueue req reqs,
@@ -507,7 +502,6 @@ instance ToJSON Share where
     , ("flows", toJSON (shareFlows share))
     , ("holders", toJSON (shareHolders share))
     , ("req", toJSON (shareReq share))
-    , ("resvLB", toJSON (shareResvLB share))
     , ("canAllow", toJSON (shareCanAllowFlows share))
     , ("canDeny", toJSON (shareCanDenyFlows share))
     ]

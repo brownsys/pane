@@ -221,9 +221,9 @@ newShare spk = do
   (rub, ca, cd, rlb) <- sharePerms
   reserved "on"
   parent <- identifier
-  let tb = TB.new (DiscreteLimit rub) (DiscreteLimit rub) rub
+  let tb = TB.new rlb (DiscreteLimit rub) rub
   resvBucket <- do { reserved "throttle"; tokenBucket } <|> return tb
-  let s = Share name fg (Set.singleton spk) emptyShareReq rlb
+  let s = Share name fg (Set.singleton spk) emptyShareReq
             ca cd resvBucket
   return (newShareM spk parent s)
 
