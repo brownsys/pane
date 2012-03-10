@@ -15,7 +15,7 @@ data Event = Event {
   eventTime :: Limit,
   numTokens :: Limit,
   drainRate :: Integer
-}
+} deriving Eq
 
 instance Show Event where
   show (Event t n d) = show (t,n,d)
@@ -26,7 +26,7 @@ data TokenGraph = TokenGraph {
   minDrain :: Integer,
   maxDrain :: Limit,
   capacity :: Limit
-} deriving Show
+} deriving (Show, Eq)
 
 unconstrained = TokenGraph [Event 0 NoLimit 0] 0 0 NoLimit NoLimit
 
