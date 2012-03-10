@@ -14,7 +14,7 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans
 import Control.Monad
 import Test.HUnit
-import qualified TokenBucket as TB
+import qualified TokenGraph as TG
 import Nettle.IPv4.IPAddress hiding (ipAddressParser)
 
 -- Based on:
@@ -43,17 +43,6 @@ boolean = do reserved "True"
       <|> do reserved "False"
              return False
 
-tokenBucket = do
-  reserved "bucket"
-  reservedOp "("
-  init <- limit "unlimited"
-  comma
-  capacity <- limit "unlimited"
-  comma
-  when (init > capacity) (fail "initial tokens exceeds capacity")
-  mintRate <- nat
-  reservedOp ")"
-  return (TB.new init capacity mintRate)
 
 -----------------------------
 -- Flow Group handling
@@ -164,7 +153,7 @@ resvLB = (do
   reserved "reserve"
   reservedOp ">="
   size <- T.integer lex
-  return (DiscreteLimit size)) <|> (return (DiscreteLimit 0))
+  return (fromInteger size)) <|> (return 0)
 
 permList = do
 -- TODO: Convert to be able to specify in any order; need defaults when missing
@@ -221,10 +210,9 @@ newShare spk = do
   (rub, ca, cd, rlb) <- sharePerms
   reserved "on"
   parent <- identifier
-  let tb = TB.new rlb (DiscreteLimit rub) rub
-  resvBucket <- do { reserved "throttle"; tokenBucket } <|> return tb
+  let tg = TG.new rub rlb (DiscreteLimit rub) (fromInteger rub)
   let s = Share name fg (Set.singleton spk) emptyShareReq
-            ca cd resvBucket
+            ca cd tg
   return (newShareM spk parent s)
 
 -----------------------------

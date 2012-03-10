@@ -4,6 +4,8 @@ module TokenGraph
   , pour
   , new
   , tokensAt
+  , unconstrained
+  , graph
   ) where
 
 import Base
@@ -25,6 +27,11 @@ data TokenGraph = TokenGraph {
   maxDrain :: Limit,
   capacity :: Limit
 } deriving Show
+
+unconstrained = TokenGraph [Event 0 NoLimit 0] 0 0 NoLimit NoLimit
+
+graph (TokenGraph{history=hist}) = map f hist
+  where f (Event t n _) = (t, n)
 
 new :: Integer
     -> Integer
