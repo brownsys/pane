@@ -153,12 +153,12 @@ isIntersectingFlow (FlowGroup fs1 fr1 fsp1 fdp1 fsh1 fdh1)
   not (Set.null (Set.intersection fdh1 fdh2))
 
 isSubShare :: Share -> Share -> Bool
-isSubShare (Share _ flows1 _ _ canAllow1 canDeny1 _)
-          (Share _ flows2 _ _ canAllow2 canDeny2 _) = 
+isSubShare (Share _ flows1 _ _ canAllow1 canDeny1 tg1)
+          (Share _ flows2 _ _ canAllow2 canDeny2 tg2) = 
   flows1 `isSubFlow` flows2 &&
   canAllow1 <= canAllow2 &&
-  canDeny1 <= canDeny2
-  -- TODO (adf): DO SOMETHING WITH THE TOKEN BUCKET
+  canDeny1 <= canDeny2 &&
+  tg1 `TG.isConstraintsContained` tg2
 
 isSubShareWRefs :: ShareRef -> ShareRef -> ShareTree -> Bool
 isSubShareWRefs sr1 sr2 sT =

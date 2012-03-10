@@ -91,6 +91,18 @@ testRegress1 = TestLabel "regression test 1" $ TestCase $ do
       assertFailure "should be able to drain all tokens"
     Just _ -> return ()
 
+testRegress2 = TestLabel "regression test 2" $ TestCase $ do
+  let g = TG.new 200 NoLimit 200 200
+  case TG.drain 5 10 10 g of
+    Nothing -> assertFailure "should be able to drain (1)"
+    Just g  -> case TG.drain 0 1 200 g of
+      Nothing -> assertFailure "should be able to drain (2)"
+      Just g  -> case TG.drain 4 5 200 g of
+        Nothing -> do
+          putStrLn (show g)
+          assertFailure "should be able to drain (3)"
+        Just _ -> return ()
+
 allTests = TestList
   [ testFill
   , testDrainForever
@@ -100,6 +112,7 @@ allTests = TestList
   , testMaxDrain1
   , testRegress0
   , testRegress1
+  , testRegress2
   ]
 
 main = do

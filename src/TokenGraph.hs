@@ -1,5 +1,6 @@
 module TokenGraph
   ( TokenGraph
+  , isConstraintsContained
   , drain
   , pour
   , new
@@ -27,6 +28,14 @@ data TokenGraph = TokenGraph {
   maxDrain :: Limit,
   capacity :: Limit
 } deriving (Show, Eq)
+
+isConstraintsContained :: TokenGraph -> TokenGraph -> Bool
+isConstraintsContained (TokenGraph _ fill minDrain maxDrain cap)
+                       (TokenGraph _ fill' minDrain' maxDrain' cap') =
+  maxDrain <= maxDrain' &&
+  (minDrain' == NoLimit || minDrain >= minDrain') &&
+  (cap <= cap')
+  -- TODO(adf): constraints on fill?
 
 unconstrained = TokenGraph [Event 0 NoLimit 0] 0 NoLimit NoLimit NoLimit
 
@@ -99,17 +108,19 @@ updateDrain start end drain hist = ins 0 hist
         ins prevDrain (hd:tl)
           | eventTime hd < start  = hd:(ins (drainRate hd) tl)
           | eventTime hd == start = 
-            (Event start undefined (drainRate hd + drain)):(insEnd tl)
-          | otherwise             = evt:(insEnd (hd:tl))
+            let hdDrain = drainRate hd
+              in (Event start undefined (hdDrain + drain)):(insEnd hdDrain tl)
+          | otherwise             = evt:(insEnd prevDrain (hd:tl))
               where evt    = Event start undefined drain'
                     drain' = prevDrain + drain
-        insEnd [] = [Event end undefined 0]
-        insEnd (hd:tl)
+        insEnd prevDrain [] = [Event end undefined 0]
+        insEnd prevDrain (hd:tl)
           | eventTime hd < end  = 
-              (hd { drainRate = drain + drainRate hd }):(insEnd tl)
+              let hdDrain = drainRate hd
+                in (hd { drainRate = drain + hdDrain }):(insEnd hdDrain tl)
           | eventTime hd == end = hd:tl
           | otherwise           = evt:hd:tl
-              where evt = Event end undefined (drainRate hd)
+              where evt = Event end undefined prevDrain
 
 -- |'toksAt fill cap prevEvt tm' calculates the number of tokens at time 'tm',
 -- given that 'prevEvt' represents the last point in the history where the
