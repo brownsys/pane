@@ -153,7 +153,7 @@ resvLB = (do
   reserved "reserve"
   reservedOp ">="
   size <- T.integer lex
-  return (fromInteger size)) <|> (return 0)
+  return (fromInteger size)) <|> (return NoLimit)
 
 permList = do
 -- TODO: Convert to be able to specify in any order; need defaults when missing
