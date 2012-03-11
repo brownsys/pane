@@ -85,10 +85,10 @@ tokensAt t (TokenGraph{history=hist, fillRate=fill, capacity=cap}) =
     [] -> error "TokenGraph.tokensAt : empty history"
     hd:tl -> at hd tl where
                at prev [] = 
-                    toksAt fill cap prev t
+                    extrapolate fill cap prev t
                at prev (evt:rest)  
                     | eventTime evt == t = numTokens evt
-                    | eventTime evt > t  = toksAt fill cap prev t
+                    | eventTime evt > t  = extrapolate fill cap prev t
                     | otherwise          = at evt rest
 
 
@@ -124,10 +124,10 @@ updateDrain start end drain hist = ins 0 hist
           | otherwise           = evt:hd:tl
               where evt = Event end undefined prevDrain
 
--- |'toksAt fill cap prevEvt tm' calculates the number of tokens at time 'tm',
+-- |'extrapolate fill cap prevEvt tm' calculates the number of tokens at time 'tm',
 -- given that 'prevEvt' represents the last point in the history where the
 -- drain rate changes.
-toksAt fillRate cap (Event prevTm prevToks prevDrain) tm =
+extrapolate fillRate cap (Event prevTm prevToks prevDrain) tm =
   min cap 
       (prevToks
        + ((tm - prevTm) * (fromInteger (fillRate - prevDrain))))
@@ -141,7 +141,7 @@ updateNumToks _ _ _ [] = []
 updateNumToks initNumToks fill cap (hd:tl) = scanl upd hd' tl where
   hd' = hd { numTokens = initNumToks }
   upd prevEvt (Event tm _ drain) = 
-    Event tm (toksAt fill cap prevEvt tm) drain
+    Event tm (extrapolate fill cap prevEvt tm) drain
 
 drain :: Integer -- ^start time
       -> Limit   -- ^end time
