@@ -331,7 +331,7 @@ request spk req@(Req shareRef flow start end rD strict)
 getSchedule :: Speaker
               -> ShareRef
               -> State
-              -> Maybe [(Limit, Limit)]
+              -> Maybe [(Limit, Limit, Limit)]
 getSchedule speaker shareName (State { shareTree=shares, stateNow=now }) = do
   let share = Tree.lookup shareName shares
   when (not (Set.member speaker (shareHolders share)))

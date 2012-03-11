@@ -20,15 +20,15 @@ type Shared = ([CSMessage], [(Match, Word16, Limit)])
 
 data DNPResult
   = BoolResult Bool
-  | ScheduleResult [(Limit, Limit)]
+  | ScheduleResult [(Limit, Limit, Limit)]
   | ShareRefsResult [ShareRef]
   deriving Eq
 
 renderResult (BoolResult b)       = text (show b)
 renderResult (ScheduleResult lst) = cat $ punctuate (text "; ") $ (len:(map f lst))
   where len = text (show (length lst))
-        f (t, toks) = cat $ punctuate (text ",") $ 
-                            [renderLimit t, renderLimit toks]
+        f (t, bw, toks) = cat $ punctuate (text ",") $ 
+                            [renderLimit t, renderLimit bw, renderLimit toks]
 renderResult (ShareRefsResult lst) =
   cat $ punctuate (text "; ") $ (len:(map text lst))
   where len = text (show (length lst))

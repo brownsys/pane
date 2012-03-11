@@ -39,8 +39,8 @@ isConstraintsContained (TokenGraph _ fill minDrain maxDrain cap)
 
 unconstrained = TokenGraph [Event 0 NoLimit 0] 0 NoLimit NoLimit NoLimit
 
-graph (TokenGraph{history=hist}) = map f hist
-  where f (Event t n _) = (t, n)
+graph (TokenGraph{history=hist, maxDrain=md}) = map f hist
+  where f (Event t n d) = (t, md - fromInteger d, n)
 
 new :: Integer
     -> Limit
