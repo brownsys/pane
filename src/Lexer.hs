@@ -14,8 +14,7 @@ javascriptDef =
                 "//"
                 False -- no nested comments
                 (alphaNum <|> oneOf "$_")
-                -- TODO: HOW DO WE ALLOW . IN AN IDENTIFIER? (eg, for srcHost=10.0.0.100)
-                -- eventually, will want to allow : as well for IPv6 addresses
+                -- eventually, will want to handle : in IPv6 addresses
                 (alphaNum <|> oneOf "$_") -- identifier rest
                 (oneOf "{}<>()~.,?:|&^=!+-*/%!") -- operator start
                 (oneOf "=<>|&+") -- operator rest
