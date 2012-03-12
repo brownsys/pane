@@ -232,24 +232,24 @@ newShare spk parentName newShare@(Share { shareName = shareName })
   else
     Nothing
 
-injLimit n = DiscreteLimit n
-
--- TODO: needs to be more general so it can be used for any resource which
--- needs to be checked up the tree (eg, latency, rate-limit, etc.)
+-- For resources which need to be checked up the tree
 recursiveRequest :: Req
                  -> State
                  -> Maybe State
-recursiveRequest req@(Req shareRef _ start end (ReqResv drain) _)
-                                    -- TODO: specific
+recursiveRequest req@(Req shareRef _ start end rData _)
                  st@(State {shareTree = sT, acceptedReqs = accepted }) =
   let chain = Tree.chain shareRef sT
       f Nothing _ = Nothing
       f (Just sT) (thisShareName, thisShare@(Share {shareReq=reqs,
-                                                    shareResv=tg})) = do
-        tg <- TG.drain start end drain tg
-        let thisShare' = thisShare { shareReq = PQ.enqueue req reqs,
-                                     shareResv = tg }
-        return (Tree.update thisShareName thisShare' sT)
+                                                    shareResv=tg})) =
+        case rData of
+           (ReqResv drain) -> do tg <- TG.drain start end drain tg
+                                 let thisShare' = thisShare {
+                                            shareReq = PQ.enqueue req reqs,
+                                            shareResv = tg }
+                                 return (Tree.update thisShareName thisShare' sT)
+           ReqAllow -> Nothing
+           ReqDeny -> Nothing
     in case foldl f (Just sT) chain of
          Nothing -> Nothing
          Just sT' -> 
@@ -342,13 +342,15 @@ getSchedule speaker shareName (State { shareTree=shares, stateNow=now }) = do
 -- Starting & ending reservations now have a side-effect on the
 -- token buckets, so we need to execute each start and end event at
 -- the appropriate time
+-- TODO(adf): actually, this may no longer be true now that we have
+-- TokenGraphs which manage their own state
 tick :: Integer -> State -> State
 tick 0 st = tickInternal 0 st 
 tick 1 st = tickInternal 1 st
 tick t st = tick (t - nextEvent) (tickInternal nextEvent st) where
   byStart   = acceptedReqs st
   byEnd     = activeReqs st
-  nextEvent = case min (maybe NoLimit (injLimit.reqStart) (PQ.peek byStart))
+  nextEvent = case min (maybe NoLimit (fromInteger.reqStart) (PQ.peek byStart))
                        (maybe NoLimit reqEnd (PQ.peek byEnd)) of
                 DiscreteLimit n -> min (n - stateNow st) t
                 NoLimit -> t
@@ -373,7 +375,7 @@ tickInternal t st@(State { shareTree    = shares,
         (startingNow, byStart') =  PQ.dequeueWhile (\r -> reqStart r <= now')
                                        byStart
         (endingNow, byEnd') = PQ.dequeueWhile (\r -> reqEnd r
-                                       <= (injLimit now'))
+                                       <= (fromInteger now'))
                                        byEnd
 -- TODO: We should delete the endingNow reservations from the shareTree (optimization)
 -- TODO: After we can delete reservations, make it possible to delete shares
