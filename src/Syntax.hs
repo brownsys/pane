@@ -51,7 +51,6 @@ data Prin
 -- | App String ? TODO: apps could be strings which map to sets of port numbers
   | User String -- TODO: split as sending & receiving users? do we even know recv user?
   | Network String -- TODO: These will refer to sets of nodes
-  | Flow String -- TODO: wtf??
   deriving (Show, Eq, Ord)
 
 {-

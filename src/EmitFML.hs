@@ -98,8 +98,6 @@ admControl reqs st =
 
 nonAdmControl reqs st = vcat $ map (\x -> request x st) (filter (not.isAdmControl) reqs)
 
-data Flow = Flow (Maybe User) (Maybe User) (Maybe Base.Port) (Maybe Base.Port) (Maybe Host) (Maybe Host)
-
 flowToMatch :: Flow -> Match
 flowToMatch (Flow srcUser destUser srcPort dstPort srcIP dstIP) =
   matchAny {

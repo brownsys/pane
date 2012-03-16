@@ -14,6 +14,9 @@ import Nettle.OpenFlow hiding (Port)
 traceFile :: IORef (Maybe Handle)
 traceFile = unsafePerformIO (newIORef Nothing)
 
+data Flow = Flow (Maybe User) (Maybe User) 
+                 (Maybe Port) (Maybe Port) 
+                 (Maybe Host) (Maybe Host)
 
 -- |Data shared between the OpenFlow Controller and the PANE Server.
 type Shared = ([CSMessage], [(Match, Word16, Limit)])

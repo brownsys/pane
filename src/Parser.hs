@@ -85,11 +85,7 @@ expNet = do
   name <- identifier
   return (Network name)
 
-flow = do
-  reservedOp "*"
-  return (Flow "*")
-
-prin = flow <|> expUser <|> expSrcPort <|> expDstPort <|> expSrcHost <|> expDstHost <|> expNet
+prin = expUser <|> expSrcPort <|> expDstPort <|> expSrcHost <|> expDstHost <|> expNet
 
 prinList = do
   newPrin <- sepBy prin comma
@@ -113,7 +109,11 @@ forDstHost _ = Nothing
 maybeAll [] = Set.all
 maybeAll xs = Set.fromList xs
 
-flowGroup = do
+-- TODO(arjun): This is terrible code. We can add a new kind of prin and
+-- forget to handle it, which is how "*" used to be handled. This was valid:
+-- '*,user=arjun' and was interpreted as 'user=arjun', since the * was just
+-- dropped. When we wrote '*', the list would effectively be empty.
+flowGroupSet = do
   p <- parens prinList
   let flowSend = maybeAll (catMaybes (map forUser p))
   let flowSrcPort = maybeAll (catMaybes (map forSrcPort p))
@@ -121,6 +121,12 @@ flowGroup = do
   let flowSrcHost = maybeAll (catMaybes (map forSrcHost p))
   let flowDstHost = maybeAll (catMaybes (map forDstHost p))
   return (FlowGroup flowSend Set.all flowSrcPort flowDstPort flowSrcHost flowDstHost)
+
+flowGroupAll = do
+  parens (reservedOp "*")
+  return (FlowGroup Set.all Set.all Set.all Set.all Set.all Set.all)
+
+flowGroup = (try flowGroupAll) <|> flowGroupSet
 
 -----------------------------
 -- Share Permissions
