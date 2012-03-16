@@ -1,5 +1,6 @@
 module FlowController
   ( State
+  , ShareTree
   , emptyState
   , emptyStateWithTime
   , emptyShareReq
@@ -51,7 +52,6 @@ data Share = Share {
 
 type ShareTree = Tree ShareRef Share
 
-
 data State = State {
   shareTree :: ShareTree,
   stateSpeakers :: Set String,
@@ -90,7 +90,6 @@ emptyStateWithTime t =
 
 emptyState = emptyStateWithTime 0
         
-
 -----------------------------
 -- Helper Functions
 -----------------------------
@@ -339,11 +338,6 @@ getSchedule speaker shareName (State { shareTree=shares, stateNow=now }) = do
   return (TG.graph (shareResv share))
 
 
--- Starting & ending reservations now have a side-effect on the
--- token buckets, so we need to execute each start and end event at
--- the appropriate time
--- TODO(adf): actually, this may no longer be true now that we have
--- TokenGraphs which manage their own state
 tick :: Integer -> State -> State
 tick 0 st = tickInternal 0 st 
 tick 1 st = tickInternal 1 st
@@ -421,11 +415,6 @@ listReqByIntersectingFG :: FlowGroup -> State -> [Req]
 listReqByIntersectingFG fg st@(State {acceptedReqs=accepted,activeReqs=active}) =
   PQ.toList (PQ.filter (\x -> fg `isIntersectingFlow` (reqFlows x)) active) ++
     PQ.toList (PQ.filter (\x -> fg `isIntersectingFlow` (reqFlows x)) accepted)
-
-
---
---
---
 
 instance ToJSON Share where
   toJSON share = object
