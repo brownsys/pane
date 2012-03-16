@@ -42,8 +42,7 @@ data Share = Share {
   shareName :: ShareRef,       -- ^must match name in the 'ShareTree'
   shareFlows :: FlowGroup,     -- set of flows in this share
   shareHolders :: Set Speaker, -- users who can speak about this share
-  shareReq :: PQ Req,          -- queue of accepted requests, sort by start
-
+  shareReq :: PQ Req,          -- queue of accepted requests, sort by end
   -- Restrictions on what this share can be used for
   shareCanAllowFlows :: Bool,
   shareCanDenyFlows :: Bool,
@@ -74,7 +73,7 @@ rootSpeaker = "root"
 rootShareRef :: ShareRef
 rootShareRef = "rootShare"
 
-emptyShareReq = PQ.empty reqStartOrder
+emptyShareReq = PQ.empty reqEndOrder
 
 emptyStateWithTime t = 
   State (Tree.root 
@@ -363,7 +362,8 @@ tickInternal t st@(State { shareTree    = shares,
                      seqn
                    else
                      seqn + 1,
-       eventsNow = startingNow
+       eventsNow = startingNow,
+       shareTree = fmap removeEndingNow (shareTree st)
      } 
   where now' = now + t
         (startingNow, byStart') =  PQ.dequeueWhile (\r -> reqStart r <= now')
@@ -371,7 +371,9 @@ tickInternal t st@(State { shareTree    = shares,
         (endingNow, byEnd') = PQ.dequeueWhile (\r -> reqEnd r
                                        <= (fromInteger now'))
                                        byEnd
--- TODO: We should delete the endingNow reservations from the shareTree (optimization)
+        removeEndingNow sh = sh { shareReq = req }
+          where (_, req) = PQ.dequeueWhile (\r -> reqEnd r <= fromInteger now')
+                                           (shareReq sh)
 -- TODO: After we can delete reservations, make it possible to delete shares
         byEnd'' = foldr PQ.enqueue byEnd' startingNow
 
