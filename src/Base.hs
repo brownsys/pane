@@ -3,6 +3,7 @@ module Base where
 import System.IO.Unsafe
 import Data.IORef
 import Set (Set)
+import qualified Set as Set
 import System.IO (Handle)
 import Data.Aeson
 import qualified Data.Tree as Tree
@@ -118,6 +119,14 @@ data FlowGroup = FlowGroup {
   flowDstHost :: Set Host 
 } deriving (Ord, Eq, Show)
 
+flowInGroup :: Flow -> FlowGroup -> Bool
+flowInGroup (Flow srcUser dstUser srcPort dstPort srcHost dstHost)
+            (FlowGroup srcUserG dstUserG srcPortG dstPortG srcHostG dstHostG) =
+  srcUser `mem` srcUserG && dstUser `mem` dstUserG &&
+  srcPort `mem` srcPortG && dstPort `mem` dstPortG &&
+  srcHost `mem` srcHostG && dstHost `mem` dstHostG
+    where mem Nothing  set = set == Set.all
+          mem (Just e) set = e `Set.member` set
 
 type ShareRef = String
 
@@ -167,3 +176,9 @@ instance ToJSON ReqData where
 instance ToJSON a => ToJSON (Tree.Tree a) where
   toJSON (Tree.Node val children) = 
     object [ ("item", toJSON val), ("children", toJSON children) ]
+
+combineMaybe :: (a -> a -> a) -> Maybe a -> Maybe a -> Maybe a
+combineMaybe _ Nothing  Nothing  = Nothing
+combineMaybe _ (Just a) Nothing  = Just a
+combineMaybe _ Nothing  (Just b) = Just b
+combineMaybe f (Just a) (Just b) = Just (f a b)
