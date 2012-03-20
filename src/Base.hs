@@ -1,5 +1,10 @@
 module Base 
-  ( module Flows
+  ( Flow (..)
+  , FlowGroup (..)
+  , User
+  , Host
+  , Port
+  , flowInGroup
   , traceFile
   , Shared (..)
   , DNPResult (..)
