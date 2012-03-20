@@ -3,7 +3,6 @@ module Parser where
 import Base
 import Prelude hiding (lex)
 import Lexer
-import Syntax
 import Text.Parsec
 import qualified Text.Parsec.Token as T
 import qualified Set as Set
@@ -16,6 +15,22 @@ import Control.Monad
 import Test.HUnit
 import qualified TokenGraph as TG
 import Nettle.IPv4.IPAddress hiding (ipAddressParser)
+import Data.Word
+
+type Node = String
+
+type ShareName = String
+
+data Prin
+  = SrcPort Word16
+  | DstPort Word16
+  | SrcHost IPAddress
+  | DstHost IPAddress
+-- | App String ? TODO: apps could be strings which map to sets of port numbers
+  | User String -- TODO: split as sending & receiving users? do we even know recv user?
+  | Network String -- TODO: These will refer to sets of nodes
+  deriving (Show, Eq, Ord)
+
 
 -- Based on:
 --   https://github.com/brownplt/webbits/blob/master/src/BrownPLT/JavaScript/Parser.hs
