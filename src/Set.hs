@@ -10,6 +10,7 @@ module Set
   , fromList
   , toList
   , intersection
+  , union
   , null
   ) where
 
@@ -51,6 +52,11 @@ intersection (FiniteSet s1) (FiniteSet s2)=FiniteSet (Data.Set.intersection s1 s
 intersection (FiniteSet s1) All = (FiniteSet s1)
 intersection All (FiniteSet s2) = (FiniteSet s2)
 intersection All All = All
+
+union :: Ord a => Set a -> Set a -> Set a
+union (FiniteSet s1) (FiniteSet s2) = FiniteSet (Data.Set.union s1 s2)
+union All            _              = All
+union _              All            = All
 
 empty :: Set a
 empty = FiniteSet Data.Set.empty
