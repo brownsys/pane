@@ -1,6 +1,6 @@
 module Base 
   ( Flow (..)
-  , FlowGroup (..)
+  , FlowGroup
   , User
   , Host
   , Port
@@ -143,14 +143,7 @@ instance ToJSON Limit where
   toJSON (DiscreteLimit n) = toJSON n
 
 instance ToJSON FlowGroup where
-  toJSON (FlowGroup srcUser dstUser srcPort dstPort srcHost dstHost) =
-    object [ ("srcUser", toJSON srcUser)
-           , ("dstUser", toJSON dstUser)
-           , ("srcPort", toJSON srcPort)
-           , ("dstPort", toJSON dstPort)
-           , ("srcHost", "0.0.0.0") -- TODO toJSON srcHost)
-           , ("dstHost", "0.0.0.0") -- TODO toJSON dstHost)
-           ]
+  toJSON _ = "TODO flow flow"
 
 instance ToJSON Req where
   toJSON (Req share flows start end typ strict) =

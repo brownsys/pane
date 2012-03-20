@@ -16,6 +16,7 @@ import Test.HUnit
 import qualified TokenGraph as TG
 import Nettle.IPv4.IPAddress hiding (ipAddressParser)
 import Data.Word
+import qualified Flows as Flows
 
 type Node = String
 
@@ -135,11 +136,11 @@ flowGroupSet = do
   let flowDstPort = maybeAll (catMaybes (map forDstPort p))
   let flowSrcHost = maybeAll (catMaybes (map forSrcHost p))
   let flowDstHost = maybeAll (catMaybes (map forDstHost p))
-  return (FlowGroup flowSend Set.all flowSrcPort flowDstPort flowSrcHost flowDstHost)
+  return (Flows.make flowSend Set.all flowSrcPort flowDstPort flowSrcHost flowDstHost)
 
 flowGroupAll = do
   parens (reservedOp "*")
-  return (FlowGroup Set.all Set.all Set.all Set.all Set.all Set.all)
+  return Flows.all
 
 flowGroup = (try flowGroupAll) <|> flowGroupSet
 

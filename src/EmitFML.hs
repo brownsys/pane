@@ -14,6 +14,7 @@ import Base hiding (Port)
 import qualified Base as Base
 import Nettle.OpenFlow
 import Data.Word
+import qualified Flows as Flows
 
 emitActions :: State -> Shared
 emitActions st = 
@@ -25,7 +26,7 @@ resvActions' :: Integer
              -> Req
              -> [(Match, Word16, Limit)]
 resvActions' now (Req {reqFlows=flows,reqData=ReqResv n, reqEnd=end}) = 
-  [ (flowToMatch f, fromIntegral n, end - fromInteger now) | f <- expandFlowGroup flows ]
+  [ (flowToMatch f, fromIntegral n, end - fromInteger now) | f <- Flows.expand flows ]
 resvActions' _ _ = error "resvActions' expected ReqResv"
 
 resvActions allReqs st = concatMap (resvActions' (stateNow st)) reqs
@@ -55,7 +56,7 @@ admissionControlActions reqs st =
   in concatMap (\(x, prio) -> requestAction now x prio) (zip admReqs' [65535,65534 ..])
 
 requestAction now req@(Req {reqFlows=flowGroup, reqData=rd, reqEnd=end}) prio = 
-  let flows = expandFlowGroup flowGroup
+  let flows = Flows.expand flowGroup
       timeOut = case end of
         NoLimit -> Permanent
         DiscreteLimit n -> ExpireAfter (fromIntegral $ n - now) -- TODO: blows up if > 65K
@@ -125,22 +126,14 @@ flow (Flow su ru sp rp sh rh) =
 
 
 
-expandFlowGroup :: FlowGroup -> [Flow]
-expandFlowGroup (FlowGroup sendUser recvUser sendPort recvPort sendHost recvHost) = 
-  [ Flow su ru sp rp sh rh | su <- toList' sendUser, ru <- toList' recvUser,
-                             sp <- toList' sendPort, rp <- toList' recvPort,
-                             sh <- toList' sendHost, rh <- toList' recvHost ]
-    where toList' s = case Set.toList s of
-            Just lst -> map Just lst
-            Nothing -> [Nothing]
 
 request req@(Req {reqFlows=flowGroup, reqData=rd}) st = 
   case rd of
     (ReqResv n) -> vcat [ text "bandwidth(" <> text (show n) <> text ") <=" <+> flow  f
-                      | f <- expandFlowGroup flowGroup ]
+                      | f <- Flows.expand flowGroup ]
     (ReqAllow) -> vcat [ text "P" <> text (show (reqDepth req st)) <> text ": allow <=" <+> flow f
-                      | f <- expandFlowGroup flowGroup ]
+                      | f <- Flows.expand flowGroup ]
     (ReqDeny) -> vcat [ text "P" <> text (show (reqDepth req st)) <> text ": deny <=" <+> flow f
-                      | f <- expandFlowGroup flowGroup ]
+                      | f <- Flows.expand flowGroup ]
 
 --  text "bandwidth(" $$ text (show n) $$ text ") <=" $+$ flow f

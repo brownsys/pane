@@ -37,6 +37,7 @@ import Data.Maybe (maybe, mapMaybe, fromMaybe, catMaybes)
 import Base
 import qualified TokenGraph as TG
 import TokenGraph (TokenGraph)
+import qualified Flows as Flows
 
 data Share = Share {
   shareName :: ShareRef,       -- ^must match name in the 'ShareTree'
@@ -65,8 +66,6 @@ data State = State {
 -- Useful defined variables
 -----------------------------
 
-anyFlow = FlowGroup Set.all Set.all Set.all Set.all Set.all Set.all
-
 rootSpeaker :: String
 rootSpeaker = "root"
 
@@ -78,8 +77,8 @@ emptyShareReq = PQ.empty reqEndOrder
 emptyStateWithTime t = 
   State (Tree.root 
            rootShareRef
-           (Share rootShareRef anyFlow (Set.singleton rootSpeaker) emptyShareReq
-                   True True TG.unconstrained))
+           (Share rootShareRef Flows.all (Set.singleton rootSpeaker)
+                  emptyShareReq True True TG.unconstrained))
         (Set.singleton rootSpeaker)
         (PQ.empty reqStartOrder)
         (PQ.empty reqEndOrder)
@@ -130,30 +129,11 @@ unReqResv rd =
     (ReqResv n) -> (Just n)
     otherwise -> Nothing
 
-isSubFlow :: FlowGroup -> FlowGroup -> Bool
-isSubFlow (FlowGroup fs1 fr1 fsp1 fdp1 fsh1 fdh1)
-    (FlowGroup fs2 fr2 fsp2 fdp2 fsh2 fdh2) =
-  Set.isSubsetOf fs1 fs2 &&
-  Set.isSubsetOf fr1 fr2 &&
-  Set.isSubsetOf fsp1 fsp2 &&
-  Set.isSubsetOf fdp1 fdp2 &&
-  Set.isSubsetOf fsh1 fsh2 &&
-  Set.isSubsetOf fdh1 fdh2
-
-isIntersectingFlow :: FlowGroup -> FlowGroup -> Bool
-isIntersectingFlow (FlowGroup fs1 fr1 fsp1 fdp1 fsh1 fdh1)
-    (FlowGroup fs2 fr2 fsp2 fdp2 fsh2 fdh2) =
-  not (Set.null (Set.intersection fs1 fs2)) &&
-  not (Set.null (Set.intersection fr1 fr2)) &&
-  not (Set.null (Set.intersection fsp1 fsp2)) &&
-  not (Set.null (Set.intersection fdp1 fdp2)) &&
-  not (Set.null (Set.intersection fsh1 fsh2)) &&
-  not (Set.null (Set.intersection fdh1 fdh2))
 
 isSubShare :: Share -> Share -> Bool
 isSubShare (Share _ flows1 _ _ canAllow1 canDeny1 tg1)
           (Share _ flows2 _ _ canAllow2 canDeny2 tg2) = 
-  flows1 `isSubFlow` flows2 &&
+  flows1 `Flows.isSubFlow` flows2 &&
   canAllow1 <= canAllow2 &&
   canDeny1 <= canDeny2 &&
   tg1 `TG.isConstraintsContained` tg2
@@ -302,7 +282,7 @@ request spk req@(Req shareRef flow start end rD strict)
   if Tree.member shareRef sT then
     let share = Tree.lookup shareRef sT
       in case Set.member spk (shareHolders share) && 
-               flow `isSubFlow` (shareFlows share) &&
+               flow `Flows.isSubFlow` (shareFlows share) &&
                start >= (stateNow st) &&
                (DiscreteLimit start) < end of
         False -> Nothing
@@ -389,7 +369,7 @@ listShareRefsByFlowGroup fg st@(State {shareTree=sT}) =
     findInTree flow (shareRef, share) tr = 
       let next = (foldl (++) [] (map (\x -> findInTree flow x tr)
                                   (Tree.children shareRef tr)))
-        in case fg `isSubFlow` (shareFlows share) of
+        in case fg `Flows.isSubFlow` (shareFlows share) of
           False -> [] -- skip the children b/c tree constructed with isSubFlow
           True -> shareRef:next
 
@@ -405,18 +385,18 @@ listShareRefsByUser user st@(State {shareTree=sT}) =
 
 listReqByFlowGroup :: FlowGroup -> State -> [Req]
 listReqByFlowGroup fg st@(State {acceptedReqs=accepted,activeReqs=active}) =
-  PQ.toList (PQ.filter (\x -> fg `isSubFlow` (reqFlows x)) active) ++
-    PQ.toList (PQ.filter (\x -> fg `isSubFlow` (reqFlows x)) accepted)
+  PQ.toList (PQ.filter (\x -> fg `Flows.isSubFlow` (reqFlows x)) active) ++
+    PQ.toList (PQ.filter (\x -> fg `Flows.isSubFlow` (reqFlows x)) accepted)
 
 listReqWithSubFlow :: FlowGroup -> State -> [Req]
 listReqWithSubFlow fg st@(State {acceptedReqs=accepted,activeReqs=active}) =
-  PQ.toList (PQ.filter (\x -> (reqFlows x) `isSubFlow` fg) active) ++
-    PQ.toList (PQ.filter (\x -> (reqFlows x) `isSubFlow` fg) accepted)
+  PQ.toList (PQ.filter (\x -> (reqFlows x) `Flows.isSubFlow` fg) active) ++
+    PQ.toList (PQ.filter (\x -> (reqFlows x) `Flows.isSubFlow` fg) accepted)
 
 listReqByIntersectingFG :: FlowGroup -> State -> [Req]
 listReqByIntersectingFG fg st@(State {acceptedReqs=accepted,activeReqs=active}) =
-  PQ.toList (PQ.filter (\x -> fg `isIntersectingFlow` (reqFlows x)) active) ++
-    PQ.toList (PQ.filter (\x -> fg `isIntersectingFlow` (reqFlows x)) accepted)
+  PQ.toList (PQ.filter (\x -> fg `Flows.isOverlapped` (reqFlows x)) active) ++
+    PQ.toList (PQ.filter (\x -> fg `Flows.isOverlapped` (reqFlows x)) accepted)
 
 instance ToJSON Share where
   toJSON share = object

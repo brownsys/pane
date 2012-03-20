@@ -1,6 +1,6 @@
 module Flows
   ( Flow (..)
-  , FlowGroup (..)
+  , FlowGroup
   , flowInGroup
   , User
   , Host
@@ -8,9 +8,14 @@ module Flows
   , union
   , intersection
   , null
+  , all
+  , isSubFlow
+  , isOverlapped
+  , expand
+  , make
   ) where
 
-import Prelude hiding (null)
+import Prelude hiding (null, all)
 import Data.Word (Word16)
 import Set (Set)
 import qualified Set as Set
@@ -26,6 +31,27 @@ data Flow = Flow (Maybe User) (Maybe User)
                  (Maybe Port) (Maybe Port) 
                  (Maybe Host) (Maybe Host)
 
+isSubFlow :: FlowGroup -> FlowGroup -> Bool
+isSubFlow (FlowGroup fs1 fr1 fsp1 fdp1 fsh1 fdh1)
+          (FlowGroup fs2 fr2 fsp2 fdp2 fsh2 fdh2) =
+  Set.isSubsetOf fs1 fs2 &&
+  Set.isSubsetOf fr1 fr2 &&
+  Set.isSubsetOf fsp1 fsp2 &&
+  Set.isSubsetOf fdp1 fdp2 &&
+  Set.isSubsetOf fsh1 fsh2 &&
+  Set.isSubsetOf fdh1 fdh2
+
+isOverlapped :: FlowGroup -> FlowGroup -> Bool
+isOverlapped (FlowGroup fs1 fr1 fsp1 fdp1 fsh1 fdh1)
+             (FlowGroup fs2 fr2 fsp2 fdp2 fsh2 fdh2) =
+  not (Set.null (Set.intersection fs1 fs2)) &&
+  not (Set.null (Set.intersection fr1 fr2)) &&
+  not (Set.null (Set.intersection fsp1 fsp2)) &&
+  not (Set.null (Set.intersection fdp1 fdp2)) &&
+  not (Set.null (Set.intersection fsh1 fsh2)) &&
+  not (Set.null (Set.intersection fdh1 fdh2))
+
+
 data FlowGroup = FlowGroup {
   flowSend :: Set User,
   flowRecv :: Set User,
@@ -34,6 +60,10 @@ data FlowGroup = FlowGroup {
   flowSrcHost :: Set Host,
   flowDstHost :: Set Host 
 } deriving (Ord, Eq, Show)
+
+make = FlowGroup
+
+all = FlowGroup Set.all Set.all Set.all Set.all Set.all Set.all
 
 flowInGroup :: Flow -> FlowGroup -> Bool
 flowInGroup (Flow srcUser dstUser srcPort dstPort srcHost dstHost)
@@ -62,3 +92,12 @@ null :: FlowGroup -> Bool
 null (FlowGroup su du sp dp sh dh) = 
   Set.null su || Set.null du || Set.null sp || Set.null dp || 
   Set.null sh || Set.null dh
+
+expand :: FlowGroup -> [Flow]
+expand (FlowGroup sendUser recvUser sendPort recvPort sendHost recvHost) = 
+  [ Flow su ru sp rp sh rh | su <- toList' sendUser, ru <- toList' recvUser,
+                             sp <- toList' sendPort, rp <- toList' recvPort,
+                             sh <- toList' sendHost, rh <- toList' recvHost ]
+    where toList' s = case Set.toList s of
+            Just lst -> map Just lst
+            Nothing -> [Nothing]
