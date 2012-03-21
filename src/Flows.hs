@@ -12,6 +12,7 @@ module Flows
   , isOverlapped
   , expand
   , make
+  , simple
   ) where
 
 import Prelude hiding (null, all)
@@ -50,6 +51,17 @@ isSubFlow' (Flow su du sp dp sh dh) (Flow su' du' sp' dp' sh' dh') =
     in su ⊆ su' && du ⊆ du' && sp ⊆ sp' && dp ⊆ dp' && sh ⊆ sh' && dh ⊆ dh'
 
 all = FlowMatch matchAny
+
+simple :: Maybe Host -> Maybe Port -> Maybe Host -> Maybe Port -> FlowGroup
+simple sh sp dh dp = 
+  let mHost h = case h of
+                  Nothing -> (IPAddress 0, 0)
+                  Just ip -> (ip, maxPrefixLen)
+    in FlowMatch (matchAny { srcIPAddress = mHost sh,
+                             dstIPAddress = mHost dh,
+                             srcTransportPort = sp, 
+                             dstTransportPort = dp })
+
 
 make :: Set User -> Set User -> Set Port -> Set Port -> Set Host -> Set Host
      -> FlowGroup
