@@ -23,6 +23,8 @@ data Action = Action {
   admit :: Maybe Admit
 } deriving (Show, Eq)
 
+data MatchTable = MatchTable [(Flows.FlowGroup, Action)] deriving (Show, Eq)
+
 emptyAction = Action Nothing Nothing
 
 activeAt now req = reqStart req <= now && fromInteger now <= reqEnd req
@@ -62,11 +64,9 @@ evalShareTree now (Node share children) inFlow = action
         cmbChildAction = foldl combineSiblingActions emptyAction childActions
         action         = combineParentChildActions thisAction cmbChildAction
 
+-- 
 --
 --
---
-
-data MatchTable = MatchTable [(Flows.FlowGroup, Action)] deriving (Show, Eq)
 
 emptyTable :: MatchTable
 emptyTable = MatchTable []
@@ -77,7 +77,6 @@ evalTable (MatchTable lst) flow =
   case find (\(fg, _) -> Flows.flowInGroup flow fg) lst of
     Nothing -> emptyAction
     Just (_, action) -> action
-
 
 intersectTable :: (Action -> Action -> Action) 
                -> MatchTable 
@@ -104,7 +103,6 @@ shareToTable now share =
   foldl (unionTable combineSiblingActions) emptyTable (map reqToTbl reqs)
     where reqs = filter (activeAt now) (PQ.toList (shareReq share))
           reqToTbl req = MatchTable [(reqFlows req, reqToAction req)]
---                                     (Flows.all, emptyAction)]
 
 shareTreeToTable :: Integer    -- ^current time
                  -> Tree Share -- ^share tree
