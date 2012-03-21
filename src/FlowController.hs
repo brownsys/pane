@@ -20,6 +20,9 @@ module FlowController
   , Share (..)
   , getSchedule
   , eventsNow
+  , rootShareRef
+  , rootSpeaker
+  , getShareTree
   ) where
 
 import Control.Monad
@@ -31,6 +34,7 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import qualified Tree
 import Tree (Tree)
+import qualified Data.Tree
 import qualified PriorityQueue as PQ
 import PriorityQueue (PQ)
 import Data.Maybe (maybe, mapMaybe, fromMaybe, catMaybes)
@@ -144,6 +148,9 @@ isSubShareWRefs sr1 sr2 sT =
       s2 = Tree.lookup sr2 sT in
     isSubShare s1 s2
 
+getShareTree :: State -> Data.Tree.Tree Share
+getShareTree st = Tree.expose (shareTree st)
+
 -----------------------------
 -- API Functions
 -----------------------------
@@ -245,7 +252,7 @@ localRequest req@(Req shareRef _ _ _ _ _)
        (isDeny req && shareCanDenyFlows share)
       then
         let share' = share { shareReq = PQ.enqueue req (shareReq share) }
-            sT' = Tree.update shareRef share sT
+            sT' = Tree.update shareRef share' sT
           in Just (tick 0 (st { shareTree = sT',
                                 acceptedReqs = PQ.enqueue req accepted }))
       else
