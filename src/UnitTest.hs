@@ -6,9 +6,11 @@ import qualified TokenGraph as TG
 import TokenGraph (TokenGraph)
 import System.Exit
 import System.IO (stderr, hPutStrLn)
-import Base (Limit (..))
-
-
+import Base
+import qualified FlowController as FC
+import ShareSemantics
+import qualified Flows
+import Nettle.IPv4.IPAddress
 
 putStrLn = hPutStrLn stderr
 
@@ -103,7 +105,7 @@ testRegress2 = TestLabel "regression test 2" $ TestCase $ do
           assertFailure "should be able to drain (3)"
         Just _ -> return ()
 
-allTests = TestList
+tokenGraphTests = TestLabel "token graph tests" $ TestList
   [ testFill
   , testDrainForever
   , testDrainBurst
@@ -113,6 +115,56 @@ allTests = TestList
   , testRegress0
   , testRegress1
   , testRegress2
+  ]
+
+flow0 = Flows.simple (parseIPAddress "132.161.10.1") (Just 80) 
+                     (parseIPAddress "64.12.23.1") (Just 90)
+
+flowHttpAll = Flows.simple Nothing Nothing Nothing (Just 80)
+
+flowHttp1 = Flows.simple Nothing Nothing 
+                         (parseIPAddress "10.0.0.1") (Just 80)
+
+testSingleResv = TestLabel "make single reservation" $ TestCase $ do
+  let req = Req FC.rootShareRef flow0 0 10 (ReqResv 100) True
+  case FC.request FC.rootSpeaker req FC.emptyState of
+    Nothing -> assertFailure "should be able to request in rootShare"
+    Just state -> do
+      assertEqual "should have a single entry (GMB)"
+                  (MatchTable [(flow0, Action (Just 100) Nothing)])
+                  (compileShareTree 0 (FC.getShareTree state)) 
+
+testOverlapInShare = TestLabel "make overlap in share" $ TestCase $ do
+  let req1 = Req FC.rootShareRef flowHttpAll 0 15 ReqAllow False
+  let req2 = Req FC.rootShareRef flowHttp1 0 10 ReqDeny False
+  assertEqual "should overlap"
+              flowHttp1
+              (Flows.intersection flowHttp1 flowHttpAll)
+  assertEqual "should not be empty" False (Flows.null flowHttp1)
+  case FC.request FC.rootSpeaker req1 FC.emptyState of
+    Nothing -> assertFailure "should be able to allow all HTTP in rootShare"
+    Just state -> do
+      case FC.request FC.rootSpeaker req2 state of
+        Nothing -> assertFailure "should be able to deny in rootShare"
+        Just state -> do
+          putStrLn (show (FC.getShareTree state))
+          assertEqual "should have allow and deny entries"
+                    (MatchTable [(flowHttp1, Action Nothing (Just Deny)),
+                                 (flowHttpAll, Action Nothing (Just Allow))])
+                    (compileShareTree 1 (FC.getShareTree state)) 
+          assertEqual "should have only the allow entry at t=11"
+                    (MatchTable [(flowHttpAll, Action Nothing (Just Allow))])
+                    (compileShareTree 11 (FC.getShareTree state)) 
+
+
+shareSemanticsTests = TestLabel "share semantics tests" $ TestList
+  [ testSingleResv
+  , testOverlapInShare
+  ]
+
+allTests = TestList
+  [ tokenGraphTests
+  , shareSemanticsTests
   ]
 
 main = do

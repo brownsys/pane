@@ -17,6 +17,7 @@ module Base
   , Req (..)
   , ReqData (..)
   , combineMaybe
+  , parseIPAddress
   ) where
 
 import System.IO.Unsafe
