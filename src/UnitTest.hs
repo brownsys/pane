@@ -11,6 +11,7 @@ import qualified FlowController as FC
 import ShareSemantics
 import qualified Flows
 import Nettle.IPv4.IPAddress
+import qualified Set
 
 putStrLn = hPutStrLn stderr
 
@@ -156,10 +157,31 @@ testOverlapInShare = TestLabel "make overlap in share" $ TestCase $ do
                     (MatchTable [(flowHttpAll, Action Nothing (Just Allow))])
                     (compileShareTree 11 (FC.getShareTree state)) 
 
+testChildParentOverlap = TestLabel "make child/parent overlap" $ TestCase $ do
+  let req1 = Req FC.rootShareRef flowHttp1 0 15 ReqDeny False
+  let req2 = Req "net0" flowHttp1 0 10 ReqAllow False
+  let share = FC.Share "net0" Flows.all (Set.singleton FC.rootSpeaker)
+                       FC.emptyShareReq True True TG.unconstrained
+  case FC.request FC.rootSpeaker req1 FC.emptyState of
+    Nothing -> assertFailure "should be able to deny in in rootShare"
+    Just s -> case FC.newShare FC.rootSpeaker FC.rootShareRef share s of
+      Nothing -> putStrLn (show s) >> assertFailure "should be able to create sub-share"
+      Just s -> case FC.request FC.rootSpeaker req2 s of
+        Nothing -> assertFailure "should be able to allow in sub-share"
+        Just s -> do
+          putStrLn (show (FC.getShareTree s))
+          assertEqual "should have only allow (child overrides)"
+                    (MatchTable [(flowHttp1, Action Nothing (Just Allow))])
+                    (compileShareTree 1 (FC.getShareTree s)) 
+          assertEqual "should have only deny entry at t=11"
+                    (MatchTable [(flowHttp1, Action Nothing (Just Deny))])
+                    (compileShareTree 11 (FC.getShareTree s)) 
+
 
 shareSemanticsTests = TestLabel "share semantics tests" $ TestList
   [ testSingleResv
   , testOverlapInShare
+  , testChildParentOverlap
   ]
 
 allTests = TestList
