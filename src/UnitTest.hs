@@ -11,10 +11,15 @@ import qualified FlowController as FC
 import ShareSemantics
 import qualified Flows
 import Nettle.IPv4.IPAddress
+import Nettle.Ethernet.EthernetAddress (ethernetAddress64)
+import qualified Nettle.OpenFlow as OF
 import qualified Set
+import qualified OFCompiler as OFC
+import qualified NIB as NIB
+import qualified Data.Map as Map
+import Data.Maybe (fromJust)
 
 putStrLn = hPutStrLn stderr
-
 
 testFill = TestLabel "should fill and not exceed capacity" $ TestCase $ do
   let g = TG.new 10 0 50 100
@@ -118,13 +123,15 @@ tokenGraphTests = TestLabel "token graph tests" $ TestList
   , testRegress2
   ]
 
-flow0 = Flows.simple (parseIPAddress "132.161.10.1") (Just 80) 
-                     (parseIPAddress "64.12.23.1") (Just 90)
+ip_10_0_0_1 = fromJust (parseIPAddress "10.0.0.1")
+
+ip_10_0_0_2 = fromJust (parseIPAddress "10.0.0.2")
+
+flow0 = Flows.simple (Just ip_10_0_0_1) (Just 80) (Just ip_10_0_0_2) (Just 90)
 
 flowHttpAll = Flows.simple Nothing Nothing Nothing (Just 80)
 
-flowHttp1 = Flows.simple Nothing Nothing 
-                         (parseIPAddress "10.0.0.1") (Just 80)
+flowHttp1 = Flows.simple (Just ip_10_0_0_2) Nothing (Just ip_10_0_0_1) (Just 80)
 
 testSingleResv = TestLabel "make single reservation" $ TestCase $ do
   let req = Req FC.rootShareRef flow0 0 10 (ReqResv 100) True
@@ -184,9 +191,91 @@ shareSemanticsTests = TestLabel "share semantics tests" $ TestList
   , testChildParentOverlap
   ]
 
+-- A single switch with two hosts, fully hardcoded
+nib1 :: NIB.Network
+nib1 = (Map.singleton 0 (NIB.switchWithNPorts 2),
+        [NIB.Endpoint  ip_10_0_0_1 (ethernetAddress64 1111),
+         NIB.Endpoint ip_10_0_0_2 (ethernetAddress64 2222)],
+        [NIB.Leaf ip_10_0_0_1 0 0,
+         NIB.Leaf ip_10_0_0_2 0 1])
+
+testDeny1Switch = TestLabel "compile deny to 1 switch" $ TestCase $ do
+  let req1 = Req FC.rootShareRef flowHttp1 0 15 ReqDeny False
+  case FC.request FC.rootSpeaker req1 FC.emptyState of
+    Nothing -> assertFailure "should be able to deny in rootShare"
+    Just state -> do
+      let tbl = compileShareTree 0 (FC.getShareTree state)
+      putStrLn "testCompile1"
+      putStrLn (show tbl)
+      case Map.toList (OFC.compile 0 nib1 tbl) of
+        [(0, NIB.Switch _ [(m, [], OF.ExpireAfter 15)])] ->
+          assertEqual "should deny flowHttp1" (Flows.toMatch flowHttp1) m
+        x -> assertFailure $ "should see a single deny entry, got " ++ show x
+
+testResv1Switch = TestLabel "compile Resv to 1 switch" $ TestCase $ do
+  let req1 = Req FC.rootShareRef flowHttp1 0 15 (ReqResv 200) True
+  case FC.request FC.rootSpeaker req1 FC.emptyState of
+    Nothing -> assertFailure "should be able to resv in rootShare"
+    Just state -> do
+      let tbl = compileShareTree 0 (FC.getShareTree state)
+      putStrLn "testCompile1"
+      putStrLn (show tbl)
+      case Map.toList (OFC.compile 0 nib1 tbl) of
+        [(0, NIB.Switch _ [(m, [OF.Enqueue 0 0], OF.ExpireAfter 15)])] ->
+          assertEqual "should resv flowHttp1" (Flows.toMatch flowHttp1) m
+        x -> assertFailure $ "should see a single enqueue entry, got " ++ show x
+
+-- 10_0_0_1 ---- switch0 ---- switch1 ---- 10_0_0_2
+nib2 :: NIB.Network
+nib2 = (Map.fromList [(0, NIB.switchWithNPorts 2),
+                      (1, NIB.switchWithNPorts 2)],
+        [NIB.Endpoint  ip_10_0_0_1 (ethernetAddress64 1111),
+         NIB.Endpoint ip_10_0_0_2 (ethernetAddress64 2222)],
+        [NIB.Leaf ip_10_0_0_1 0 0,
+         NIB.Leaf ip_10_0_0_2 1 0,
+         NIB.Inner 0 1 1 1])
+
+testDeny2Switch = TestLabel "compile deny to 2 switches" $ TestCase $ do
+  let req1 = Req FC.rootShareRef flowHttp1 0 15 ReqDeny False
+  case FC.request FC.rootSpeaker req1 FC.emptyState of
+    Nothing -> assertFailure "should be able to deny in rootShare"
+    Just state -> do
+      let tbl = compileShareTree 0 (FC.getShareTree state)
+      putStrLn "----------- testDeny2Switch ---------------"
+      putStrLn (show tbl)
+      case Map.toList (OFC.compile 0 nib2 tbl) of
+        [(0, NIB.Switch _ []),
+         (1, NIB.Switch _ [(m, [], OF.ExpireAfter 15)])] ->
+          assertEqual "should deny flowHttp1" (Flows.toMatch flowHttp1) m
+        x -> assertFailure $ "should see a single deny entry, got " ++ show x
+
+testResv2Switch = TestLabel "compile Resv to 2 switches" $ TestCase $ do
+  let req1 = Req FC.rootShareRef flowHttp1 0 15 (ReqResv 200) True
+  case FC.request FC.rootSpeaker req1 FC.emptyState of
+    Nothing -> assertFailure "should be able to resv in rootShare"
+    Just state -> do
+      let tbl = compileShareTree 0 (FC.getShareTree state)
+      putStrLn "---------- testResv2Switch ------------"
+      putStrLn (show tbl)
+      case Map.toList (OFC.compile 0 nib2 tbl) of
+        [(0, NIB.Switch _ [(m1, [OF.Enqueue 0 0], OF.ExpireAfter 15)]),
+         (1, NIB.Switch _ [(m2, [OF.Enqueue 1 0], OF.ExpireAfter 15)])] -> do
+          assertEqual "should resv flowHttp1" (Flows.toMatch flowHttp1) m1
+          assertEqual "should resv flowHttp1" (Flows.toMatch flowHttp1) m2
+        x -> assertFailure $ "should see a single enqueue entry, got " ++ show x
+
+      
+compileWithNIBTests = TestLabel "compile with NIB tests" $ TestList
+  [ testDeny1Switch
+  , testResv1Switch
+  , testDeny2Switch
+  , testResv2Switch
+  ]
+
 allTests = TestList
   [ tokenGraphTests
   , shareSemanticsTests
+  , compileWithNIBTests
   ]
 
 main = do
