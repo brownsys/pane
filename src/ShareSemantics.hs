@@ -2,8 +2,7 @@
 -- 'ShareTree's.
 module ShareSemantics 
   ( evalShareTree
-  , Action (..)
-  , Admit (..)
+  , Action
   , MatchTable (..)
   , compileShareTree
   , evalTable
@@ -16,23 +15,16 @@ import Base
 import Data.List (groupBy, find)
 import qualified Flows as Flows
 
-data Admit = Allow | Deny deriving (Show, Eq)
-
-data Action = Action {
-  gmb   :: Maybe (Integer, Limit),
-  admit :: Maybe (Admit, Limit)
-} deriving (Show, Eq)
+type Action = Maybe (ReqData, Limit)
 
 data MatchTable = MatchTable [(Flows.FlowGroup, Action)] deriving (Show, Eq)
 
-emptyAction = Action Nothing Nothing
+emptyAction = Nothing
 
 activeAt now req = reqStart req <= now && fromInteger now <= reqEnd req
 
 -- TODO(arjun): I believe its okay to skip strict. Explain why in a comment.
-reqToAction (Req _ _ _ end (ReqResv n) strict) = Action (Just (n, end)) Nothing
-reqToAction (Req _ _ _ end ReqAllow strict) = Action Nothing (Just (Allow, end))
-reqToAction (Req _ _ _ end ReqDeny strict) = Action Nothing (Just (Deny, end))
+reqToAction (Req _ _ _ end req strict) = Just (req, end)
 
 combineMaybe :: (a -> a -> a) 
              -> Maybe (a, Limit) 
@@ -44,16 +36,19 @@ combineMaybe _ Nothing       (Just (b, t)) = Just (b, t)
 combineMaybe f (Just (a, s)) (Just (b, t)) = Just (f a b, min s t)
 
 
-combineSiblingActions (Action gmb1 admit1) (Action gmb2 admit2) =
-  Action (combineMaybe max gmb1 gmb2) 
-         (combineMaybe denyOverride admit1 admit2)
-    where denyOverride Allow Allow = Allow
-          denyOverride _     _     = Deny
+combineSiblingActions act1 act2 = combineMaybe f act1 act2
+  where f ReqDeny     _           = ReqDeny
+        f _           ReqDeny     = ReqDeny
+        f (ReqResv m) (ReqResv n) = ReqResv (max m n)
+        f (ReqResv m) ReqAllow    = ReqResv m
+        f ReqAllow    (ReqResv n) = ReqResv n
+        f ReqAllow    ReqAllow    = ReqAllow
 
-combineParentChildActions (Action gmbParent admitParent)
-                          (Action gmbChild admitChild) =
-  Action (combineMaybe max gmbParent gmbChild) 
-         (combineMaybe (\_ ch -> ch) admitParent admitChild)
+combineParentChildActions act1 act2 = combineMaybe f act1 act2
+  where -- f parent child = child overrides parent, with the exceptions below
+        f (ReqResv m) (ReqResv n) = ReqResv (max m n) -- pick max, doesn't hurt
+        f (ReqResv m) ReqAllow    = ReqResv m  -- give guarantee, doesn't hurt
+        f _           ch          = ch
 
 evalShare :: Integer -- ^current time
           -> Share
