@@ -136,8 +136,3 @@ compileShareTree :: Integer    -- ^current time
                  -> Tree Share -- ^share tree
                  -> MatchTable
 compileShareTree now tree = condense (shareTreeToTable now tree)
-
---
---
---
-
