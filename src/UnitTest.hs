@@ -132,7 +132,7 @@ testSingleResv = TestLabel "make single reservation" $ TestCase $ do
     Nothing -> assertFailure "should be able to request in rootShare"
     Just state -> do
       assertEqual "should have a single entry (GMB)"
-                  (MatchTable [(flow0, Action (Just 100) Nothing)])
+                  (MatchTable [(flow0, Action (Just (100, 10)) Nothing)])
                   (compileShareTree 0 (FC.getShareTree state)) 
 
 testOverlapInShare = TestLabel "make overlap in share" $ TestCase $ do
@@ -150,12 +150,12 @@ testOverlapInShare = TestLabel "make overlap in share" $ TestCase $ do
         Just state -> do
           putStrLn (show (FC.getShareTree state))
           assertEqual "should have allow and deny entries"
-                    (MatchTable [(flowHttp1, Action Nothing (Just Deny)),
-                                 (flowHttpAll, Action Nothing (Just Allow))])
-                    (compileShareTree 1 (FC.getShareTree state)) 
+            (MatchTable [(flowHttp1, Action Nothing (Just (Deny, 10))),
+                         (flowHttpAll, Action Nothing (Just (Allow, 15)))])
+            (compileShareTree 1 (FC.getShareTree state)) 
           assertEqual "should have only the allow entry at t=11"
-                    (MatchTable [(flowHttpAll, Action Nothing (Just Allow))])
-                    (compileShareTree 11 (FC.getShareTree state)) 
+            (MatchTable [(flowHttpAll, Action Nothing (Just (Allow, 15)))])
+            (compileShareTree 11 (FC.getShareTree state))
 
 testChildParentOverlap = TestLabel "make child/parent overlap" $ TestCase $ do
   let req1 = Req FC.rootShareRef flowHttp1 0 15 ReqDeny False
@@ -171,11 +171,11 @@ testChildParentOverlap = TestLabel "make child/parent overlap" $ TestCase $ do
         Just s -> do
           putStrLn (show (FC.getShareTree s))
           assertEqual "should have only allow (child overrides)"
-                    (MatchTable [(flowHttp1, Action Nothing (Just Allow))])
-                    (compileShareTree 1 (FC.getShareTree s)) 
+            (MatchTable [(flowHttp1, Action Nothing (Just (Allow, 10)))])
+            (compileShareTree 1 (FC.getShareTree s)) 
           assertEqual "should have only deny entry at t=11"
-                    (MatchTable [(flowHttp1, Action Nothing (Just Deny))])
-                    (compileShareTree 11 (FC.getShareTree s)) 
+            (MatchTable [(flowHttp1, Action Nothing (Just (Deny, 15)))])
+            (compileShareTree 11 (FC.getShareTree s)) 
 
 
 shareSemanticsTests = TestLabel "share semantics tests" $ TestList

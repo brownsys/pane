@@ -16,7 +16,6 @@ module Base
   , ShareRef
   , Req (..)
   , ReqData (..)
-  , combineMaybe
   , parseIPAddress
   ) where
 
@@ -164,9 +163,3 @@ instance ToJSON ReqData where
 instance ToJSON a => ToJSON (Tree.Tree a) where
   toJSON (Tree.Node val children) = 
     object [ ("item", toJSON val), ("children", toJSON children) ]
-
-combineMaybe :: (a -> a -> a) -> Maybe a -> Maybe a -> Maybe a
-combineMaybe _ Nothing  Nothing  = Nothing
-combineMaybe _ (Just a) Nothing  = Just a
-combineMaybe _ Nothing  (Just b) = Just b
-combineMaybe f (Just a) (Just b) = Just (f a b)

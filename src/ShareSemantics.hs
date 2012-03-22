@@ -19,8 +19,8 @@ import qualified Flows as Flows
 data Admit = Allow | Deny deriving (Show, Eq)
 
 data Action = Action {
-  gmb   :: Maybe Integer,
-  admit :: Maybe Admit
+  gmb   :: Maybe (Integer, Limit),
+  admit :: Maybe (Admit, Limit)
 } deriving (Show, Eq)
 
 data MatchTable = MatchTable [(Flows.FlowGroup, Action)] deriving (Show, Eq)
@@ -30,9 +30,19 @@ emptyAction = Action Nothing Nothing
 activeAt now req = reqStart req <= now && fromInteger now <= reqEnd req
 
 -- TODO(arjun): I believe its okay to skip strict. Explain why in a comment.
-reqToAction (Req _ _ _ _  (ReqResv n) strict) = Action (Just n) Nothing
-reqToAction (Req _ _ _ _  ReqAllow strict) = Action Nothing (Just Allow)
-reqToAction (Req _ _ _ _  ReqDeny strict) = Action Nothing (Just Deny)
+reqToAction (Req _ _ _ end (ReqResv n) strict) = Action (Just (n, end)) Nothing
+reqToAction (Req _ _ _ end ReqAllow strict) = Action Nothing (Just (Allow, end))
+reqToAction (Req _ _ _ end ReqDeny strict) = Action Nothing (Just (Deny, end))
+
+combineMaybe :: (a -> a -> a) 
+             -> Maybe (a, Limit) 
+             -> Maybe (a, Limit) 
+             -> Maybe (a, Limit)
+combineMaybe _ Nothing       Nothing       = Nothing
+combineMaybe _ (Just (a, t)) Nothing       = Just (a, t)
+combineMaybe _ Nothing       (Just (b, t)) = Just (b, t)
+combineMaybe f (Just (a, s)) (Just (b, t)) = Just (f a b, min s t)
+
 
 combineSiblingActions (Action gmb1 admit1) (Action gmb2 admit2) =
   Action (combineMaybe max gmb1 gmb2) 
@@ -126,3 +136,8 @@ compileShareTree :: Integer    -- ^current time
                  -> Tree Share -- ^share tree
                  -> MatchTable
 compileShareTree now tree = condense (shareTreeToTable now tree)
+
+--
+--
+--
+
