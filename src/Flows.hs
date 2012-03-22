@@ -13,6 +13,7 @@ module Flows
   , expand
   , make
   , simple
+  , toMatch
   ) where
 
 import Prelude hiding (null, all)
@@ -41,6 +42,9 @@ data FlowGroup
   | Empty
   deriving (Ord, Eq, Show)
 
+toMatch :: FlowGroup -> Match
+toMatch (FlowMatch m) = m
+toMatch Empty         = error "Flows.toMatch Empty"
 
 isSubFlow' :: Flow -> Flow -> Bool
 isSubFlow' (Flow su du sp dp sh dh) (Flow su' du' sp' dp' sh' dh') =
