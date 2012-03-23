@@ -191,14 +191,6 @@ shareSemanticsTests = TestLabel "share semantics tests" $ TestList
   , testChildParentOverlap
   ]
 
--- A single switch with two hosts, fully hardcoded
-nib1 :: NIB.Network
-nib1 = (Map.singleton 0 (NIB.switchWithNPorts 2),
-        [NIB.Endpoint  ip_10_0_0_1 (ethernetAddress64 1111),
-         NIB.Endpoint ip_10_0_0_2 (ethernetAddress64 2222)],
-        [NIB.Leaf ip_10_0_0_1 0 0,
-         NIB.Leaf ip_10_0_0_2 0 1])
-
 testDeny1Switch = TestLabel "compile deny to 1 switch" $ TestCase $ do
   let req1 = Req FC.rootShareRef flowHttp1 0 15 ReqDeny False
   case FC.request FC.rootSpeaker req1 FC.emptyState of
@@ -206,8 +198,9 @@ testDeny1Switch = TestLabel "compile deny to 1 switch" $ TestCase $ do
     Just state -> do
       let tbl = compileShareTree 0 (FC.getShareTree state)
       putStrLn "testCompile1"
-      putStrLn (show tbl)
-      case Map.toList (OFC.compile 0 nib1 tbl) of
+      nib1 <- mkNib1
+      cfg <- OFC.compile 0 nib1 tbl
+      case Map.toList cfg of
         [(0, NIB.Switch _ [(m, [], OF.ExpireAfter 15)])] ->
           assertEqual "should deny flowHttp1" (Flows.toMatch flowHttp1) m
         x -> assertFailure $ "should see a single deny entry, got " ++ show x
@@ -220,20 +213,12 @@ testResv1Switch = TestLabel "compile Resv to 1 switch" $ TestCase $ do
       let tbl = compileShareTree 0 (FC.getShareTree state)
       putStrLn "testCompile1"
       putStrLn (show tbl)
-      case Map.toList (OFC.compile 0 nib1 tbl) of
+      nib1 <- mkNib1
+      cfg <- OFC.compile 0 nib1 tbl
+      case Map.toList cfg of
         [(0, NIB.Switch _ [(m, [OF.Enqueue 0 0], OF.ExpireAfter 15)])] ->
           assertEqual "should resv flowHttp1" (Flows.toMatch flowHttp1) m
         x -> assertFailure $ "should see a single enqueue entry, got " ++ show x
-
--- 10_0_0_1 ---- switch0 ---- switch1 ---- 10_0_0_2
-nib2 :: NIB.Network
-nib2 = (Map.fromList [(0, NIB.switchWithNPorts 2),
-                      (1, NIB.switchWithNPorts 2)],
-        [NIB.Endpoint  ip_10_0_0_1 (ethernetAddress64 1111),
-         NIB.Endpoint ip_10_0_0_2 (ethernetAddress64 2222)],
-        [NIB.Leaf ip_10_0_0_1 0 0,
-         NIB.Leaf ip_10_0_0_2 1 0,
-         NIB.Inner 0 1 1 1])
 
 testDeny2Switch = TestLabel "compile deny to 2 switches" $ TestCase $ do
   let req1 = Req FC.rootShareRef flowHttp1 0 15 ReqDeny False
@@ -243,7 +228,9 @@ testDeny2Switch = TestLabel "compile deny to 2 switches" $ TestCase $ do
       let tbl = compileShareTree 0 (FC.getShareTree state)
       putStrLn "----------- testDeny2Switch ---------------"
       putStrLn (show tbl)
-      case Map.toList (OFC.compile 0 nib2 tbl) of
+      nib2 <- mkNib2
+      cfg <- OFC.compile 0 nib2 tbl
+      case Map.toList cfg of
         [(0, NIB.Switch _ []),
          (1, NIB.Switch _ [(m, [], OF.ExpireAfter 15)])] ->
           assertEqual "should deny flowHttp1" (Flows.toMatch flowHttp1) m
@@ -256,8 +243,9 @@ testResv2Switch = TestLabel "compile Resv to 2 switches" $ TestCase $ do
     Just state -> do
       let tbl = compileShareTree 0 (FC.getShareTree state)
       putStrLn "---------- testResv2Switch ------------"
-      putStrLn (show tbl)
-      case Map.toList (OFC.compile 0 nib2 tbl) of
+      nib2 <- mkNib2
+      cfg <- OFC.compile 0 nib2 tbl
+      case Map.toList cfg of
         [(0, NIB.Switch _ [(m1, [OF.Enqueue 0 0], OF.ExpireAfter 15)]),
          (1, NIB.Switch _ [(m2, [OF.Enqueue 1 0], OF.ExpireAfter 15)])] -> do
           assertEqual "should resv flowHttp1" (Flows.toMatch flowHttp1) m1
@@ -272,10 +260,52 @@ compileWithNIBTests = TestLabel "compile with NIB tests" $ TestList
   , testResv2Switch
   ]
 
+mkNib1 = do
+  nib <- NIB.newEmptyNIB
+  (Just sw1) <- NIB.addSwitch 0 nib
+  (Just ep1) <- NIB.addEndpoint (ethernetAddress64 1111) ip_10_0_0_1 nib
+  (Just ep2) <- NIB.addEndpoint (ethernetAddress64 2222) ip_10_0_0_2 nib
+  (Just p0) <- NIB.addPort 0 sw1
+  (Just p1) <- NIB.addPort 1 sw1
+  True <- NIB.linkPorts p0 (NIB.endpointPort ep1)
+  True <- NIB.linkPorts p1 (NIB.endpointPort ep2)
+  return nib
+
+mkNib2 = do
+  nib <- NIB.newEmptyNIB
+  (Just sw1) <- NIB.addSwitch 0 nib
+  (Just sw2) <- NIB.addSwitch 1 nib
+  (Just ep1) <- NIB.addEndpoint (ethernetAddress64 1111) ip_10_0_0_1 nib
+  (Just ep2) <- NIB.addEndpoint (ethernetAddress64 2222) ip_10_0_0_2 nib
+  (Just p00) <- NIB.addPort 0 sw1
+  (Just p01) <- NIB.addPort 1 sw1
+  (Just p10) <- NIB.addPort 0 sw2
+  (Just p11) <- NIB.addPort 1 sw2
+  True <- NIB.linkPorts p00 (NIB.endpointPort ep1)
+  True <- NIB.linkPorts p10 (NIB.endpointPort ep2)
+  True <- NIB.linkPorts p01 p11
+  return nib
+
+testNib1Path = TestLabel "should find singleton path" $ TestCase $ do
+  nib <- mkNib1 
+  p <- NIB.getPath (ethernetAddress64 1111) (ethernetAddress64 2222) nib
+  assertEqual "paths should be equal" [(0, 0, 1)] p
+
+testNib2Path = TestLabel "should find two-switch path" $ TestCase $ do
+  nib <- mkNib2
+  p <- NIB.getPath (ethernetAddress64 1111) (ethernetAddress64 2222) nib
+  assertEqual "paths should be equal" [(0, 0, 1), (1, 1, 0)] p
+
+nibTests = TestLabel "NIB tests" $ TestList
+  [ testNib1Path
+  , testNib2Path
+  ]
+
 allTests = TestList
   [ tokenGraphTests
   , shareSemanticsTests
   , compileWithNIBTests
+  , nibTests
   ]
 
 main = do

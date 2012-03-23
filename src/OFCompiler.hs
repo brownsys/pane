@@ -11,6 +11,7 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified NIB
 import Flows (toMatch)
+import Control.Monad
 
 -- TODO(arjun): toTimeout will fail if (end - now) does not fit in a Word16
 toTimeout :: Integer -> Limit -> OF.TimeOut
@@ -20,41 +21,58 @@ toTimeout now (DiscreteLimit end) =
   OF.ExpireAfter (fromInteger (end - fromInteger now))
 
 -- |
-compile :: Integer -> NIB.Network -> MatchTable -> Map OF.SwitchID NIB.Switch
-compile now net (MatchTable tbl) = foldl loop (NIB.switches net) tbl where
-  -- TODO(arjun): foldr loop and rule:flows instead of flows ++ [rule]
-  loop switches (_, Nothing) = switches -- TODO(arjun): Maybe is silly here
-  loop switches (fl, Just (ReqDeny, end)) = case NIB.path net (toMatch fl) of
-    Nothing -> error "cannot calculate path"
-    Just [] -> error "empty path for Deny"
-    Just ((sid, inp, _):_) -> Map.adjust upd sid switches
-      where upd (NIB.Switch ports flows) =  NIB.Switch ports (flows ++ [rule])
-            rule = (Flows.toMatch fl, 
-                    [], 
-                    toTimeout now end)
-  loop switches (fl, Just (ReqAllow, end)) = case NIB.path net (toMatch fl) of
-    Nothing -> error "cannot calc path"
-    Just [] -> error "empty path for Allow"
-    Just ((sid, inp, outp):_) -> Map.adjust upd sid switches
-      where upd (NIB.Switch ports flows) = NIB.Switch ports (flows ++ [rule])
-            rule = (Flows.toMatch fl, 
-                    [OF.SendOutPort (OF.PhysicalPort outp)], 
-                    toTimeout now end)
-  loop switches (fl, Just (ReqResv bw, end)) = case NIB.path net (toMatch fl) of
-    Nothing -> error "cannot find path"
-    Just path -> foldl queue switches path
-      where queue switches (swid, inp, outp) = 
-              Map.adjust (updSwitch inp outp) swid switches
-            updSwitch inp outp (NIB.Switch ports flows) = 
-              NIB.Switch ports' (flows ++ [rule])
-                where (queueID, ports') = 
-                        NIB.newQueue ports outp bw' (end - fromInteger now)
-                      bw' = fromInteger bw -- TODO(arjun): requres fit in Word16
-                      rule = (Flows.toMatch fl, 
-                              [OF.Enqueue outp queueID],
-                              toTimeout now end)
-
-     
-
-
-
+compile :: Integer -> NIB.NIB -> MatchTable -> IO (Map OF.SwitchID NIB.Switch)
+compile now nib (MatchTable tbl) = do
+  let -- TODO(arjun): foldr loop and rule:flows instead of flows ++ [rule]
+      withEth flow default_ k = do
+        let match = toMatch flow
+        case (OF.srcIPAddress match, OF.dstIPAddress match) of
+          ((srcIP, 32), (dstIP, 32)) -> do
+            srcEth <- NIB.getEthFromIP srcIP nib
+            dstEth <- NIB.getEthFromIP dstIP nib
+            case (srcEth, dstEth) of
+              (Just s, Just d) -> k s d
+              otherwise -> default_
+          otherwise -> default_
+      loop :: Map OF.SwitchID NIB.Switch -> (FlowGroup, Maybe (ReqData, Limit))
+           -> IO (Map OF.SwitchID NIB.Switch)
+      loop switches (_, Nothing) = do
+        return switches -- TODO(arjun): Maybe is silly here
+      loop switches (fl, Just (ReqDeny, end)) = 
+        --TODO(arjun):error?
+        withEth fl (return switches) $ \srcEth dstEth -> do
+          path <- NIB.getPath srcEth dstEth nib
+          case path of
+            [] -> return switches -- TODO(arjun): error?
+            ((inp, sid,  _):_) -> return (Map.adjust upd sid switches)
+              where upd (NIB.Switch ports flows) =  
+                      NIB.Switch ports (flows ++ [rule])
+                    rule = (Flows.toMatch fl, [],  toTimeout now end)
+      loop switches (fl, Just (ReqAllow, end)) = 
+        -- TODO(arjun): error?
+        withEth fl (return switches) $ \srcEth dstEth -> do
+          path <- NIB.getPath srcEth dstEth nib
+          case path of
+            [] -> return switches -- TODO(arjun): error?
+            ((inp, sid, outp):_) -> return (Map.adjust upd sid switches)
+              where upd (NIB.Switch ports flows) = 
+                      NIB.Switch ports (flows ++ [rule])
+                    port = OF.SendOutPort (OF.PhysicalPort outp)
+                    rule = (Flows.toMatch fl, [port], toTimeout now end)
+      loop switches (fl, Just (ReqResv bw, end)) =
+        --TODO(arjun):error?
+        withEth fl (return switches) $ \srcEth dstEth -> do
+          path <- NIB.getPath srcEth dstEth nib -- TODO(arjun): error on empty?
+          let queue switches (inp, swid, outp) = 
+                  Map.adjust (updSwitch inp outp) swid switches
+              updSwitch inp outp (NIB.Switch ports flows) = 
+                NIB.Switch ports' (flows ++ [rule])
+                  where (queueID, ports') = 
+                          NIB.newQueue ports outp bw' (end - fromInteger now)
+                        bw' = fromInteger bw -- TODO(arjun): fit in Word16
+                        rule = (Flows.toMatch fl, 
+                                [OF.Enqueue outp queueID],
+                                toTimeout now end)
+          return (foldl queue switches path)
+  snap <- NIB.snapshot nib
+  foldM loop snap tbl

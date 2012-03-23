@@ -1,15 +1,20 @@
 module NIB
-  ( Network
-  , Node
-  , Switch (..)
+  ( Switch (..)
   , Endpoint (..)
   , FlowTbl (..)
   , PortCfg (..)
-  , Edge (..)
-  , path
   , newQueue
-  , switches
   , switchWithNPorts
+  , newEmptyNIB
+  , addSwitch
+  , addPort
+  , addEndpoint
+  , linkPorts
+  , getPath
+  , endpointPort
+  , getEthFromIP
+  , snapshot
+  , NIB
   ) where
 
 import Debug.Trace
@@ -22,14 +27,225 @@ import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Word (Word16)
-
-data Queue = Queue Word16 Limit deriving (Show, Eq)
-
-data PortCfg = PortCfg (Map OF.QueueID Queue) deriving (Show, Eq)
+import Data.Int (Int32)
+import Data.IORef
+import Data.HashTable (HashTable)
+import qualified Data.HashTable as Ht
+import Data.Maybe (isJust, fromJust, catMaybes)
+import System.IO.Unsafe (unsafePerformIO)
 
 type FlowTblEntry = (OF.Match, [OF.Action], OF.TimeOut)
 
 type FlowTbl = [FlowTblEntry]
+
+data Queue = Queue Word16 Limit deriving (Show, Eq)
+
+
+data NIB = NIB {
+  nibSwitches  :: HashTable OF.SwitchID SwitchData,
+  nibEndpoints :: HashTable OF.EthernetAddress EndpointData,
+  nibEndpointsByIP :: HashTable OF.IPAddress EndpointData
+}
+
+data EndpointData = EndpointData {
+  endpointEthAddr     :: OF.EthernetAddress,
+  endpointIP          :: OF.IPAddress,
+  endpointPort        :: PortData
+}
+
+data SwitchData = SwitchData {
+  switchSwitchID                 :: OF.SwitchID,
+  switchFlowTable                :: IORef FlowTbl,
+  switchPorts                    :: HashTable OF.PortID PortData,
+  switchFlowTableUpdateListener  :: IORef (FlowTbl -> IO ())
+}
+
+
+data PortData = PortData {
+  portPortID              :: OF.PortID,
+  portQueues              :: HashTable OF.QueueID Queue,
+  portAttachedTo          :: Element,
+  portConnectedTo         :: IORef Element,
+  portQueueUpdateListener :: IORef ([(OF.QueueID, Queue)] -> IO ())
+}
+
+data Element
+  = ToNone
+  | ToEndpoint EndpointData
+  | ToSwitch SwitchData PortData
+
+newEmptyNIB :: IO NIB
+newEmptyNIB = do
+  s <- Ht.new (==) ((Ht.hashInt).fromIntegral)
+  e <- Ht.new (==) ((Ht.hashInt).fromIntegral.(OF.unpack64))
+  i <- Ht.new (==) ((Ht.hashInt).fromIntegral.(OF.ipAddressToWord32))
+  return (NIB s e i)
+
+addSwitch :: OF.SwitchID -> NIB -> IO (Maybe SwitchData)
+addSwitch newSwitchID nib = do
+  maybe <- Ht.lookup (nibSwitches nib) newSwitchID
+  case maybe of
+    Just _  -> return Nothing
+    Nothing -> do
+      flowTbl <- newIORef []
+      ports <- Ht.new (==) ((Ht.hashInt).fromIntegral)
+      updListener <- newIORef (\_ -> return ()) 
+      let sw = SwitchData newSwitchID flowTbl ports updListener
+      Ht.insert (nibSwitches nib) newSwitchID sw
+      return (Just sw)
+
+addPort :: OF.PortID -> SwitchData -> IO (Maybe PortData)
+addPort newPortID switch = do
+  maybe <- Ht.lookup (switchPorts switch) newPortID
+  case maybe of
+    Just _  -> return Nothing
+    Nothing -> do
+      queues <- Ht.new (==) ((Ht.hashInt).fromIntegral)
+      connectedTo <- newIORef ToNone
+      updListener <- newIORef (\_ -> return ())
+      let port = PortData newPortID queues (ToSwitch switch port) 
+                          connectedTo updListener
+      Ht.insert (switchPorts switch) newPortID port
+      return (Just port)
+
+addEndpoint :: OF.EthernetAddress -> OF.IPAddress -> NIB 
+            -> IO (Maybe EndpointData)
+addEndpoint newEthAddr ipAddr nib = do
+  maybe <- Ht.lookup (nibEndpoints nib) newEthAddr
+  case maybe of
+    Just _  -> return Nothing
+    Nothing -> do
+      connectedTo <- newIORef ToNone     
+      queues <- Ht.new (==) ((Ht.hashInt).fromIntegral)
+      updListener <- newIORef (\_ -> return ())
+      let ep = EndpointData newEthAddr ipAddr 
+                            (PortData 0 queues (ToEndpoint ep)
+                                      connectedTo updListener)
+      Ht.insert (nibEndpoints nib) newEthAddr ep
+      Ht.insert (nibEndpointsByIP nib) ipAddr ep
+      return (Just ep)
+
+getEndpoint :: OF.EthernetAddress -> NIB -> IO (Maybe EndpointData)
+getEndpoint ethAddr nib = Ht.lookup (nibEndpoints nib) ethAddr
+
+getPorts :: SwitchData -> IO [PortData]
+getPorts switch = do
+  links <- Ht.toList (switchPorts switch)
+  return (map snd links)
+
+
+followLink :: PortData -> IO (Maybe PortData)
+followLink port = do
+  elem <- readIORef (portConnectedTo port)
+  case elem of
+    ToNone        -> return Nothing
+    ToEndpoint ep -> return (Just (endpointPort ep))
+    ToSwitch sw p -> return (Just p)
+
+
+linkPorts :: PortData -> PortData -> IO Bool
+linkPorts port1 port2 = do
+  conn1 <- readIORef (portConnectedTo port1)
+  conn2 <- readIORef (portConnectedTo port2)
+  case (conn1, conn2) of
+    (ToNone, ToNone) -> do
+      writeIORef (portConnectedTo port1) (portAttachedTo port2)
+      writeIORef (portConnectedTo port2) (portAttachedTo port1)
+      return True
+    otherwise -> return False
+
+
+-- "Neighborhood"
+type NbhWalk = [(OF.PortID,OF.SwitchID, OF.PortID)]
+
+data Nbh 
+  = EpNbh NbhWalk OF.EthernetAddress (Maybe Nbh)
+  | SwNbh NbhWalk OF.SwitchID [Nbh]
+
+getEndpointNbh :: NbhWalk -> EndpointData -> IO Nbh
+getEndpointNbh walk endpoint = do
+  putStrLn $ "in getEndpointNbh " ++ (show $ endpointEthAddr endpoint)
+  otherEnd <- readIORef (portConnectedTo (endpointPort endpoint))
+  case otherEnd of
+    ToNone -> do
+      putStrLn "orphan endpoint"
+      return (EpNbh walk (endpointEthAddr endpoint) Nothing)
+    ToEndpoint otherEndpoint -> do
+      let nbh = unsafePerformIO $ getEndpointNbh walk otherEndpoint
+      return (EpNbh walk (endpointEthAddr endpoint) (Just nbh))
+    ToSwitch switch otherPort -> do
+      putStrLn "connected EP"
+      let nbh = unsafePerformIO $ getSwitchNbh (portPortID otherPort) [] switch
+      return (EpNbh walk (endpointEthAddr endpoint) (Just nbh))
+
+getSwitchNbh :: OF.PortID -> NbhWalk -> SwitchData -> IO Nbh
+getSwitchNbh inPort walk switch = do
+  let continueWalk outPort = do
+        otherEnd <- readIORef (portConnectedTo outPort)
+        let walk' = (inPort, switchSwitchID switch, portPortID outPort):walk
+        case otherEnd of
+          ToNone -> return Nothing
+          ToEndpoint ep -> do
+            let nbh = unsafePerformIO $ getEndpointNbh walk' ep
+            return (Just nbh)
+          ToSwitch switch' inPort' -> do
+            let nbh = unsafePerformIO $
+                        getSwitchNbh (portPortID inPort') walk' switch'
+            return (Just nbh)
+  outPorts <- getPorts switch
+  nbhs <- mapM continueWalk outPorts
+  return (SwNbh walk (switchSwitchID switch) (catMaybes nbhs))
+
+
+getEthFromIP :: OF.IPAddress -> NIB -> IO (Maybe OF.EthernetAddress)
+getEthFromIP ip nib = do
+  maybe <- Ht.lookup (nibEndpointsByIP nib) ip
+  case maybe of
+    Nothing -> return Nothing
+    Just ep -> return (Just (endpointEthAddr ep))
+  
+getPath :: OF.EthernetAddress -> OF.EthernetAddress -> NIB 
+        -> IO NbhWalk
+getPath srcEth dstEth nib = do
+  let loop fringe visited = case fringe of
+        [] -> []
+        ((EpNbh walk eth nbh):rest) -> case eth == dstEth of
+          True  -> reverse walk
+          False -> loop rest visited
+        ((SwNbh walk swID neighbors):fringe') -> 
+          let isVisited (EpNbh _ _ _) = False
+              isVisited (SwNbh _ swID' _) = swID' `Set.member` visited
+              visited' = Set.insert swID visited
+            in loop (fringe' ++ (filter (not.isVisited) neighbors)) visited'
+  maybe <- getEndpoint srcEth nib
+  case maybe of
+    Nothing -> return []
+    Just srcEp -> do
+      nbh <- getEndpointNbh [] srcEp
+      case nbh of
+        EpNbh _ _ (Just nbh) -> return (loop [nbh] Set.empty)
+        otherwise -> return []
+
+snapshotPortData :: (OF.PortID, PortData) -> IO (OF.PortID, PortCfg)
+snapshotPortData (portID, port) = do
+  queues <- Ht.toList (portQueues port)
+  return (portID, PortCfg (Map.fromList queues))
+
+snapshotSwitchData :: (OF.SwitchID, SwitchData) -> IO (OF.SwitchID, Switch)
+snapshotSwitchData (sid, switch) = do
+  ft <- readIORef (switchFlowTable switch)
+  ports <- Ht.toList (switchPorts switch)
+  ports <- mapM snapshotPortData ports
+  return (sid, Switch (Map.fromList ports) ft)
+
+snapshot :: NIB -> IO (Map OF.SwitchID Switch)
+snapshot nib = do
+  lst <- Ht.toList (nibSwitches nib)
+  lst <- mapM snapshotSwitchData lst 
+  return (Map.fromList lst)
+  
+
+data PortCfg = PortCfg (Map OF.QueueID Queue) deriving (Show, Eq)
 
 data Switch = Switch (Map OF.PortID PortCfg) FlowTbl deriving (Show, Eq)
 
@@ -41,62 +257,6 @@ data Edge
   deriving (Show, Eq)
 
 type Network = (Map OF.SwitchID Switch, [Endpoint], [Edge])
-
-type Node = Either OF.IPAddress OF.SwitchID
-
-switches :: Network -> Map OF.SwitchID Switch
-switches (sws, _, _) = sws
-
-neighbors :: Network -> Node -> [(Node, Edge)]
-neighbors (_, _, edges) (Left ip) = map pick (filter pred edges)
-  where pred (Leaf ip' _ _) = ip == ip'
-        pred _              = False
-        pick e@(Leaf _ switchID _) = (Right switchID, e)
-        pick _                     = error "unexpected Inner in neighbors"
-neighbors (_, _, edges) (Right sw) = map pick (filter pred edges)
-  where pred (Leaf _ sw' _) = sw == sw'
-        pred (Inner sw' _ sw'' _) = sw == sw' || sw == sw''
-        pick e@(Leaf ip _ _)       = (Left ip, e)
-        pick e@(Inner sw1 p1 sw2 p2) 
-          | sw == sw1 = (Right sw2, e)
-          | sw == sw2 = (Right sw1, (Inner sw2 p2 sw1 p1))
-          | otherwise = error "bad edge in neighbors"
-
-shortestPath :: Network -> Node -> Node -> Maybe [Edge]
-shortestPath net src dst = bfs (src, []) [] Set.empty
-  where bfs (node, path) fringe visited = case node == dst of
-          True -> Just path
-          False ->
-            let fringe' = fringe ++ 
-                  (filter (\(n,_) -> not (n `Set.member` visited))
-                          (neighbors net node))
-              in case fringe' of
-                   ((next,edge):tl) -> bfs (next, path ++ [edge]) 
-                                           tl (Set.insert node visited)
-                   [] -> Nothing
-
--- |'path network flow' produces the path 'flow' would take through 'network'.
--- The returned path is a sequence of '(switchID, inPort, outPort)' tuples.
---
--- 'path' fails if 'flow' does not exactly specify its endpoints
-path :: Network 
-     -> OF.Match
-     -> Maybe [(OF.SwitchID, OF.PortID, OF.PortID)]
-path net (OF.Match{OF.srcIPAddress=(src,32), OF.dstIPAddress=(dst,32)}) =
-  case shortestPath net (Left src) (Left dst) of
-    Nothing -> Nothing
-    Just edges -> trace ("Path is " ++ show edges) (Just (concisePath edges))
-path _ _ = Nothing
-
-concisePath ((Leaf _ _ p0):(Inner s1 p1 s2 p2):rest) =
-  (s1, p0, p1):(concisePath ((Inner s1 p1 s2 p2):rest))
-concisePath ((Inner _ _ _ inPort):(Inner s1 outPort s2 p2):rest) =
-  (s1,inPort,outPort):(concisePath ((Inner s1 outPort s2 p2):rest))
-concisePath [Leaf _ s p0, Leaf _ _ p1] = 
-  [(s,p0,p1)]
-concisePath [Inner _ _ s p1, Leaf _ _ p2] =
-  [(s, p1, p2)]
-concisePath p = error ("concisePath failed on " ++ show p)
 
 -- |'unusedNum lst' returns the smallest positive number that is not in 'lst'.
 -- Assumes that 'lst' is in ascending order.
