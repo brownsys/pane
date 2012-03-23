@@ -15,6 +15,7 @@ module NIB
   , getEthFromIP
   , snapshot
   , NIB
+  , Snapshot
   ) where
 
 import Debug.Trace
@@ -37,6 +38,8 @@ import System.IO.Unsafe (unsafePerformIO)
 type FlowTblEntry = (OF.Match, [OF.Action], OF.TimeOut)
 
 type FlowTbl = [FlowTblEntry]
+
+type Snapshot = Map OF.SwitchID Switch
 
 data Queue = Queue Word16 Limit deriving (Show, Eq)
 
@@ -238,7 +241,7 @@ snapshotSwitchData (sid, switch) = do
   ports <- mapM snapshotPortData ports
   return (sid, Switch (Map.fromList ports) ft)
 
-snapshot :: NIB -> IO (Map OF.SwitchID Switch)
+snapshot :: NIB -> IO Snapshot
 snapshot nib = do
   lst <- Ht.toList (nibSwitches nib)
   lst <- mapM snapshotSwitchData lst 
