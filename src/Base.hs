@@ -4,7 +4,6 @@ module Base
   , User
   , Host
   , Port
-  , flowInGroup
   , traceFile
   , Shared (..)
   , DNPResult (..)
@@ -17,8 +16,15 @@ module Base
   , Req (..)
   , ReqData (..)
   , parseIPAddress
+  , module Data.IORef
+  , module Control.Monad
+  , module Control.Concurrent
+  , mergeChan
+  , unionChan
   ) where
 
+import Control.Monad
+import Control.Concurrent
 import System.IO.Unsafe
 import Data.IORef
 import Set (Set)
@@ -31,9 +37,39 @@ import Data.Word
 import Nettle.IPv4.IPAddress
 import Nettle.OpenFlow hiding (Port)
 import Flows
+import qualified Nettle.OpenFlow as OF
 
 traceFile :: IORef (Maybe Handle)
 traceFile = unsafePerformIO (newIORef Nothing)
+
+unionChan :: (a -> b -> c) -> (a, Chan a) -> (b, Chan b) -> IO (Chan c)
+unionChan fn (initA, chanA) (initB, chanB) = do
+  merged <- mergeChan chanA chanB
+  result <- newChan
+  let loop a b = do
+        v <- readChan merged
+        case v of
+          Left a' -> do
+            let r = fn a' b
+            writeChan result r
+            loop a' b
+          Right b' -> do
+            let r = fn a b'
+            writeChan result r
+            loop a b'
+  forkIO (loop initA initB)
+  return result
+
+mergeChan :: Chan a -> Chan b -> IO (Chan (Either a b))
+mergeChan chan1 chan2 = do
+  mergedChan <- newChan
+  forkIO $ forever $ do
+    v <- readChan chan1
+    writeChan mergedChan (Left v)
+  forkIO $ forever $ do
+    v <- readChan chan2
+    writeChan mergedChan (Right v)
+  return mergedChan
 
 -- |Data shared between the OpenFlow Controller and the PANE Server.
 type Shared = ([CSMessage], [(Match, Word16, Limit)])
@@ -133,10 +169,12 @@ data Req = Req {
   reqStrict :: Bool
 } deriving (Show, Ord, Eq)
 
-data ReqData = ReqResv Integer
-             | ReqAllow
-             | ReqDeny
-             deriving (Eq, Ord, Show)
+data ReqData 
+  = ReqResv Integer
+  | ReqAllow
+  | ReqDeny
+  | ReqOutPort OF.SwitchID OF.PseudoPort
+  deriving (Eq, Ord, Show)
 
 instance ToJSON Limit where
   toJSON NoLimit           = Null

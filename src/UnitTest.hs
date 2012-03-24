@@ -1,5 +1,6 @@
 module Main where
 
+import Parser (paneMan)
 import Prelude hiding (putStrLn)
 import Test.HUnit
 import qualified TokenGraph as TG
@@ -11,10 +12,19 @@ import qualified FlowController as FC
 import ShareSemantics
 import qualified Flows
 import Nettle.IPv4.IPAddress
+import Nettle.Ethernet.EthernetAddress (ethernetAddress64)
+import qualified Nettle.OpenFlow as OF
 import qualified Set
+import qualified OFCompiler as OFC
+import qualified NIB as NIB
+import qualified Data.Map as Map
+import Data.Maybe (fromJust)
+import qualified MacLearning as ML
+import qualified Data.ByteString as BS
+import Data.HList
+import Data.Word
 
 putStrLn = hPutStrLn stderr
-
 
 testFill = TestLabel "should fill and not exceed capacity" $ TestCase $ do
   let g = TG.new 10 0 50 100
@@ -118,13 +128,15 @@ tokenGraphTests = TestLabel "token graph tests" $ TestList
   , testRegress2
   ]
 
-flow0 = Flows.simple (parseIPAddress "132.161.10.1") (Just 80) 
-                     (parseIPAddress "64.12.23.1") (Just 90)
+ip_10_0_0_1 = fromJust (parseIPAddress "10.0.0.1")
+
+ip_10_0_0_2 = fromJust (parseIPAddress "10.0.0.2")
+
+flow0 = Flows.simple (Just ip_10_0_0_1) (Just 80) (Just ip_10_0_0_2) (Just 90)
 
 flowHttpAll = Flows.simple Nothing Nothing Nothing (Just 80)
 
-flowHttp1 = Flows.simple Nothing Nothing 
-                         (parseIPAddress "10.0.0.1") (Just 80)
+flowHttp1 = Flows.simple (Just ip_10_0_0_2) Nothing (Just ip_10_0_0_1) (Just 80)
 
 testSingleResv = TestLabel "make single reservation" $ TestCase $ do
   let req = Req FC.rootShareRef flow0 0 10 (ReqResv 100) True
@@ -132,7 +144,7 @@ testSingleResv = TestLabel "make single reservation" $ TestCase $ do
     Nothing -> assertFailure "should be able to request in rootShare"
     Just state -> do
       assertEqual "should have a single entry (GMB)"
-                  (MatchTable [(flow0, Action (Just (100, 10)) Nothing)])
+                  (MatchTable [(flow0, Just (ReqResv 100, 10))])
                   (compileShareTree 0 (FC.getShareTree state)) 
 
 testOverlapInShare = TestLabel "make overlap in share" $ TestCase $ do
@@ -150,11 +162,11 @@ testOverlapInShare = TestLabel "make overlap in share" $ TestCase $ do
         Just state -> do
           putStrLn (show (FC.getShareTree state))
           assertEqual "should have allow and deny entries"
-            (MatchTable [(flowHttp1, Action Nothing (Just (Deny, 10))),
-                         (flowHttpAll, Action Nothing (Just (Allow, 15)))])
+            (MatchTable [(flowHttp1, Just (ReqDeny, 10)),
+                         (flowHttpAll, Just (ReqAllow, 15))])
             (compileShareTree 1 (FC.getShareTree state)) 
           assertEqual "should have only the allow entry at t=11"
-            (MatchTable [(flowHttpAll, Action Nothing (Just (Allow, 15)))])
+            (MatchTable [(flowHttpAll, Just (ReqAllow, 15))])
             (compileShareTree 11 (FC.getShareTree state))
 
 testChildParentOverlap = TestLabel "make child/parent overlap" $ TestCase $ do
@@ -165,17 +177,17 @@ testChildParentOverlap = TestLabel "make child/parent overlap" $ TestCase $ do
   case FC.request FC.rootSpeaker req1 FC.emptyState of
     Nothing -> assertFailure "should be able to deny in in rootShare"
     Just s -> case FC.newShare FC.rootSpeaker FC.rootShareRef share s of
-      Nothing -> putStrLn (show s) >> assertFailure "should be able to create sub-share"
+      Nothing -> assertFailure "should be able to create sub-share"
       Just s -> case FC.request FC.rootSpeaker req2 s of
         Nothing -> assertFailure "should be able to allow in sub-share"
         Just s -> do
           putStrLn (show (FC.getShareTree s))
           assertEqual "should have only allow (child overrides)"
-            (MatchTable [(flowHttp1, Action Nothing (Just (Allow, 10)))])
+            (MatchTable [(flowHttp1, Just (ReqAllow, 10))])
             (compileShareTree 1 (FC.getShareTree s)) 
           assertEqual "should have only deny entry at t=11"
-            (MatchTable [(flowHttp1, Action Nothing (Just (Deny, 15)))])
-            (compileShareTree 11 (FC.getShareTree s)) 
+            (MatchTable [(flowHttp1, Just (ReqDeny, 15))])
+             (compileShareTree 11 (FC.getShareTree s)) 
 
 
 shareSemanticsTests = TestLabel "share semantics tests" $ TestList
@@ -184,9 +196,210 @@ shareSemanticsTests = TestLabel "share semantics tests" $ TestList
   , testChildParentOverlap
   ]
 
+testDeny1Switch = TestLabel "compile deny to 1 switch" $ TestCase $ do
+  let req1 = Req FC.rootShareRef flowHttp1 0 15 ReqDeny False
+  case FC.request FC.rootSpeaker req1 FC.emptyState of
+    Nothing -> assertFailure "should be able to deny in rootShare"
+    Just state -> do
+      let tbl = compileShareTree 0 (FC.getShareTree state)
+      putStrLn "testCompile1"
+      nib1 <- mkNib1
+      cfg <- OFC.compile 0 nib1 tbl
+      case Map.toList cfg of
+        [(0, NIB.Switch _ [(m, [], OF.ExpireAfter 15)])] ->
+          assertEqual "should deny flowHttp1" (Flows.toMatch flowHttp1) m
+        x -> assertFailure $ "should see a single deny entry, got " ++ show x
+
+testResv1Switch = TestLabel "compile Resv to 1 switch" $ TestCase $ do
+  let req1 = Req FC.rootShareRef flowHttp1 0 15 (ReqResv 200) True
+  case FC.request FC.rootSpeaker req1 FC.emptyState of
+    Nothing -> assertFailure "should be able to resv in rootShare"
+    Just state -> do
+      let tbl = compileShareTree 0 (FC.getShareTree state)
+      putStrLn "testCompile1"
+      putStrLn (show tbl)
+      nib1 <- mkNib1
+      cfg <- OFC.compile 0 nib1 tbl
+      case Map.toList cfg of
+        [(0, NIB.Switch _ [(m, [OF.Enqueue 0 0], OF.ExpireAfter 15)])] ->
+          assertEqual "should resv flowHttp1" (Flows.toMatch flowHttp1) m
+        x -> assertFailure $ "should see a single enqueue entry, got " ++ show x
+
+testDeny2Switch = TestLabel "compile deny to 2 switches" $ TestCase $ do
+  let req1 = Req FC.rootShareRef flowHttp1 0 15 ReqDeny False
+  case FC.request FC.rootSpeaker req1 FC.emptyState of
+    Nothing -> assertFailure "should be able to deny in rootShare"
+    Just state -> do
+      let tbl = compileShareTree 0 (FC.getShareTree state)
+      putStrLn "----------- testDeny2Switch ---------------"
+      putStrLn (show tbl)
+      nib2 <- mkNib2
+      cfg <- OFC.compile 0 nib2 tbl
+      case Map.toList cfg of
+        [(0, NIB.Switch _ []),
+         (1, NIB.Switch _ [(m, [], OF.ExpireAfter 15)])] ->
+          assertEqual "should deny flowHttp1" (Flows.toMatch flowHttp1) m
+        x -> assertFailure $ "should see a single deny entry, got " ++ show x
+
+testResv2Switch = TestLabel "compile Resv to 2 switches" $ TestCase $ do
+  let req1 = Req FC.rootShareRef flowHttp1 0 15 (ReqResv 200) True
+  case FC.request FC.rootSpeaker req1 FC.emptyState of
+    Nothing -> assertFailure "should be able to resv in rootShare"
+    Just state -> do
+      let tbl = compileShareTree 0 (FC.getShareTree state)
+      putStrLn "---------- testResv2Switch ------------"
+      nib2 <- mkNib2
+      cfg <- OFC.compile 0 nib2 tbl
+      case Map.toList cfg of
+        [(0, NIB.Switch _ [(m1, [OF.Enqueue 0 0], OF.ExpireAfter 15)]),
+         (1, NIB.Switch _ [(m2, [OF.Enqueue 1 0], OF.ExpireAfter 15)])] -> do
+          assertEqual "should resv flowHttp1" (Flows.toMatch flowHttp1) m1
+          assertEqual "should resv flowHttp1" (Flows.toMatch flowHttp1) m2
+        x -> assertFailure $ "should see a single enqueue entry, got " ++ show x
+
+      
+compileWithNIBTests = TestLabel "compile with NIB tests" $ TestList
+  [ testDeny1Switch
+  , testResv1Switch
+  , testDeny2Switch
+  , testResv2Switch
+  ]
+
+mkNib1 = do
+  nib <- NIB.newEmptyNIB
+  (Just sw1) <- NIB.addSwitch 0 nib
+  (Just ep1) <- NIB.addEndpoint (ethernetAddress64 1111) ip_10_0_0_1 nib
+  (Just ep2) <- NIB.addEndpoint (ethernetAddress64 2222) ip_10_0_0_2 nib
+  (Just p0) <- NIB.addPort 0 sw1
+  (Just p1) <- NIB.addPort 1 sw1
+  True <- NIB.linkPorts p0 (NIB.endpointPort ep1)
+  True <- NIB.linkPorts p1 (NIB.endpointPort ep2)
+  return nib
+
+mkNib2 = do
+  nib <- NIB.newEmptyNIB
+  (Just sw1) <- NIB.addSwitch 0 nib
+  (Just sw2) <- NIB.addSwitch 1 nib
+  (Just ep1) <- NIB.addEndpoint (ethernetAddress64 1111) ip_10_0_0_1 nib
+  (Just ep2) <- NIB.addEndpoint (ethernetAddress64 2222) ip_10_0_0_2 nib
+  (Just p00) <- NIB.addPort 0 sw1
+  (Just p01) <- NIB.addPort 1 sw1
+  (Just p10) <- NIB.addPort 0 sw2
+  (Just p11) <- NIB.addPort 1 sw2
+  True <- NIB.linkPorts p00 (NIB.endpointPort ep1)
+  True <- NIB.linkPorts p10 (NIB.endpointPort ep2)
+  True <- NIB.linkPorts p01 p11
+  return nib
+
+testNib1Path = TestLabel "should find singleton path" $ TestCase $ do
+  nib <- mkNib1 
+  p <- NIB.getPath (ethernetAddress64 1111) (ethernetAddress64 2222) nib
+  assertEqual "paths should be equal" [(0, 0, 1)] p
+
+testNib2Path = TestLabel "should find two-switch path" $ TestCase $ do
+  nib <- mkNib2
+  p <- NIB.getPath (ethernetAddress64 1111) (ethernetAddress64 2222) nib
+  assertEqual "paths should be equal" [(0, 0, 1), (1, 1, 0)] p
+
+nibTests = TestLabel "NIB tests" $ TestList
+  [ testNib1Path
+  , testNib2Path
+  ]
+
+packet :: Word64 -- ^ src MAC
+       -> Word64 -- ^ dst MAC
+       -> OF.PortID -- ^ in port
+       -> OF.PacketInfo
+packet srcMAC dstMAC inPort = 
+  let hdr = OF.EthernetHeader (ethernetAddress64 dstMAC)
+                              (ethernetAddress64 srcMAC) 0x0800
+      frame = HCons hdr (HCons (OF.UninterpretedEthernetBody BS.empty) HNil)
+    in OF.PacketInfo Nothing 1500 inPort OF.NotMatched BS.empty (Right frame)
+
+
+testMacLearn1 = TestLabel "should learn route " $ TestCase $ do
+  swChan <- newChan
+  pktChan <- newChan
+  tblChan <- ML.macLearning swChan pktChan
+  writeChan swChan (55, True)
+  writeChan swChan (34, True)
+  b <- isEmptyChan tblChan
+  assertEqual "switches should not trigger table updates" True b
+  writeChan pktChan (34, packet 100 200 1)
+  tbl <- readChan tblChan
+  assertEqual "should learn a flood and 1 route"
+    (MatchTable [ML.rule 34 (ethernetAddress64 100) (Just 1), 
+                 ML.rule 34 (ethernetAddress64 200) Nothing]) tbl 
+  writeChan pktChan (34, packet 200 100 2)
+  tbl <- readChan tblChan
+  assertEqual "should learn two routes"
+    (MatchTable [ML.rule 34 (ethernetAddress64 100) (Just 1), 
+                 ML.rule 34 (ethernetAddress64 200) (Just 2)]) tbl 
+
+
+
+macLearningTests = TestLabel "MAC Learning tests" $ TestList
+  [ testMacLearn1
+  ]
+
+mkPaneMan = do
+  req <- newChan
+  time <- newChan
+  (tbl, resp) <- paneMan req time
+  return (tbl, resp, req, time)
+
+assertReadChanEqual msg val chan = do
+  val' <- readChan chan
+  assertEqual msg val val'
+
+testPane10 = TestLabel "root should be able to create sub-share" $ TestCase $ do
+  (tbl, resp, req, time) <- mkPaneMan
+  writeChan req ("root", "NewShare net0 for (*) [reserve <= 200] on rootShare.")
+  assertReadChanEqual "root should be able create sub-share" 
+    ("root", "True") resp
+
+testPane24 = TestLabel "token graphs should work" $ TestCase $ do
+  (tbl, resp, req, time) <- mkPaneMan
+  writeChan req ("root", "NewShare net0 for (*) [reserve <= 200] on rootShare.")
+  assertReadChanEqual "root should be able to create net0" ("root", "True") resp
+  writeChan req ("root", "reserve(*) = 10 on net0 from 0 to 10.")
+  assertReadChanEqual "root should be able to reserve" ("root", "True") resp
+  writeChan time 0
+  let resvTbl = MatchTable [(Flows.all, Just (ReqResv 10, 10))]
+  assertReadChanEqual "compiled table should have a reservation" resvTbl tbl
+  writeChan req ("root", "reserve(*) = 191 on net0.")
+  assertReadChanEqual "root should be able to reserve" ("root", "False") resp
+  -- Tell root no, and ensure that table is empty!
+  writeChan time 5
+  writeChan req ("root", "reserve(*) = 191 on net0.")
+  assertReadChanEqual "reservation should fail at t=5" ("root", "False") resp
+  assertReadChanEqual "compiled table should be the same" resvTbl tbl
+  writeChan time 7
+  writeChan req ("root", "reserve(*) = 191 on net0.")
+  assertReadChanEqual "reservation should fail at t=7" ("root", "False") resp
+  assertReadChanEqual "compiled table should be the same" resvTbl tbl
+  writeChan time 11
+  writeChan req ("root", "reserve(*) = 200 on net0.")
+  assertReadChanEqual "reservation should pass at t=11" ("root", "True") resp
+  assertReadChanEqual "table should be empty until next tick" emptyTable tbl
+  writeChan time 11
+  assertReadChanEqual "compiled table should have resv of 200"
+    (MatchTable [(Flows.all, Just (ReqResv 200, NoLimit))]) tbl  
+  
+
+
+paneTests = TestLabel "Test PANE manager" $ TestList
+  [ testPane10
+  , testPane24
+  ]
+
 allTests = TestList
   [ tokenGraphTests
   , shareSemanticsTests
+  , compileWithNIBTests
+  , nibTests
+  , macLearningTests
+  , paneTests
   ]
 
 main = do
