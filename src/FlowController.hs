@@ -234,7 +234,7 @@ recursiveRequest req@(Req shareRef _ start end rData _)
                                             shareResv = tg }
                                  return (Tree.update thisShareName thisShare' sT)
            ReqAllow -> Nothing
-           ReqDeny -> Nothing
+           ReqDeny -> Nothing  
     in case foldl f (Just sT) chain of
          Nothing -> Nothing
          Just sT' -> 

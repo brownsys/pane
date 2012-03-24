@@ -18,6 +18,10 @@ import qualified OFCompiler as OFC
 import qualified NIB as NIB
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
+import qualified MacLearning as ML
+import qualified Data.ByteString as BS
+import Data.HList
+import Data.Word
 
 putStrLn = hPutStrLn stderr
 
@@ -301,11 +305,48 @@ nibTests = TestLabel "NIB tests" $ TestList
   , testNib2Path
   ]
 
+packet :: Word64 -- ^ src MAC
+       -> Word64 -- ^ dst MAC
+       -> OF.PortID -- ^ in port
+       -> OF.PacketInfo
+packet srcMAC dstMAC inPort = 
+  let hdr = OF.EthernetHeader (ethernetAddress64 dstMAC)
+                              (ethernetAddress64 srcMAC) 0x0800
+      frame = HCons hdr (HCons (OF.UninterpretedEthernetBody BS.empty) HNil)
+    in OF.PacketInfo Nothing 1500 inPort OF.NotMatched BS.empty (Right frame)
+
+
+testMacLearn1 = TestLabel "should learn route " $ TestCase $ do
+  swChan <- newChan
+  pktChan <- newChan
+  tblChan <- ML.macLearning swChan pktChan
+  writeChan swChan (55, True)
+  writeChan swChan (34, True)
+  b <- isEmptyChan tblChan
+  assertEqual "switches should not trigger table updates" True b
+  writeChan pktChan (34, packet 100 200 1)
+  tbl <- readChan tblChan
+  assertEqual "should learn a flood and 1 route"
+    (MatchTable [ML.rule 34 (ethernetAddress64 100) (Just 1), 
+                 ML.rule 34 (ethernetAddress64 200) Nothing]) tbl 
+  writeChan pktChan (34, packet 200 100 2)
+  tbl <- readChan tblChan
+  assertEqual "should learn two routes"
+    (MatchTable [ML.rule 34 (ethernetAddress64 100) (Just 1), 
+                 ML.rule 34 (ethernetAddress64 200) (Just 2)]) tbl 
+
+
+
+macLearningTests = TestLabel "MAC Learning tests" $ TestList
+  [ testMacLearn1
+  ]
+
 allTests = TestList
   [ tokenGraphTests
   , shareSemanticsTests
   , compileWithNIBTests
   , nibTests
+  , macLearningTests
   ]
 
 main = do

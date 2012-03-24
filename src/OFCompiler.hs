@@ -39,7 +39,7 @@ compile now nib (MatchTable tbl) = do
            -> IO (Map OF.SwitchID NIB.Switch)
       loop switches (_, Nothing) = do
         return switches -- TODO(arjun): Maybe is silly here
-      loop switches (fl, Just (ReqOutPort switchID portID, end)) =
+      loop switches (fl, Just (ReqOutPort switchID pseudoPort, end)) =
         case Flows.flowSwitchMatch fl of
           Nothing -> do
             putStrLn "compile error: ReqOutPort does not match a switch"
@@ -47,7 +47,7 @@ compile now nib (MatchTable tbl) = do
           Just (_, match) -> return (Map.adjust upd switchID switches)
             where upd (NIB.Switch ports flows) =
                     NIB.Switch ports (flows ++ [rule])
-                  rule = (match, [OF.SendOutPort (OF.PhysicalPort portID)],
+                  rule = (match, [OF.SendOutPort pseudoPort],
                           toTimeout now end)
       loop switches (fl, Just (ReqDeny, end)) = 
         --TODO(arjun):error?

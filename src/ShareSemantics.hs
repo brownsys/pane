@@ -4,6 +4,9 @@ module ShareSemantics
   ( Action
   , MatchTable (..)
   , compileShareTree
+  , emptyTable
+  , unionTable
+  , condense
   ) where
 
 import Data.Tree (Tree (..))

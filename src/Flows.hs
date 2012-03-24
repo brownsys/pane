@@ -15,6 +15,7 @@ module Flows
   , simple
   , toMatch
   , flowSwitchMatch
+  , fromSwitchMatch
   ) where
 
 import Prelude hiding (null, all)
@@ -50,6 +51,9 @@ toMatch _         = error "Flows.toMatch Empty"
 flowSwitchMatch :: FlowGroup -> Maybe (OF.SwitchID, OF.Match)
 flowSwitchMatch (FlowMatch (Just sw) match) = Just (sw, match)
 flowSwitchMatch _                           = Nothing
+
+fromSwitchMatch :: OF.SwitchID -> OF.Match -> FlowGroup
+fromSwitchMatch sid m = FlowMatch (Just sid) m
 
 isSubFlow' :: Flow -> Flow -> Bool
 isSubFlow' (Flow su du sp dp sh dh) (Flow su' du' sp' dp' sh' dh') =
