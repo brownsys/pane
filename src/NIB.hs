@@ -3,6 +3,7 @@ module NIB
   , Endpoint (..)
   , FlowTbl (..)
   , PortCfg (..)
+  , Msg (..)
   , newQueue
   , switchWithNPorts
   , newEmptyNIB
@@ -21,6 +22,7 @@ module NIB
 
 import Debug.Trace
 import qualified Nettle.OpenFlow as OF
+import qualified Nettle.Servers.Server as OFS
 import ShareSemantics (MatchTable (..))
 import Base
 import qualified Nettle.OpenFlow as OF
@@ -78,12 +80,31 @@ data Element
   | ToEndpoint EndpointData
   | ToSwitch SwitchData PortData
 
-newEmptyNIB :: IO NIB
-newEmptyNIB = do
+data Msg
+  = NewSwitch OFS.SwitchHandle OF.SwitchFeatures
+
+newEmptyNIB :: Chan Msg -> IO NIB
+newEmptyNIB msg = do
   s <- Ht.new (==) ((Ht.hashInt).fromIntegral)
   e <- Ht.new (==) ((Ht.hashInt).fromIntegral.(OF.unpack64))
   i <- Ht.new (==) ((Ht.hashInt).fromIntegral.(OF.ipAddressToWord32))
-  return (NIB s e i)
+  let nib = NIB s e i
+  forkIO (forever (readChan msg >>= nibMutator nib))
+  return nib
+
+nibMutator :: NIB -> Msg -> IO ()
+nibMutator nib (NewSwitch handle features) = do
+  let swID = OF.switchID features
+  maybe <- addSwitch swID nib
+  case maybe of
+    Nothing -> putStrLn $ "nibMutator: switch already exists" ++ show swID
+    Just sw -> do
+      let addPort' p = do
+            maybe <- addPort (OF.portID p) sw
+            case maybe of
+              Nothing -> putStrLn $ "nibMutator: port already exists"
+              Just _ -> return ()
+      mapM_ addPort' (OF.ports features)
 
 addSwitch :: OF.SwitchID -> NIB -> IO (Maybe SwitchData)
 addSwitch newSwitchID nib = do
@@ -251,7 +272,10 @@ snapshot nib = do
 
 data PortCfg = PortCfg (Map OF.QueueID Queue) deriving (Show, Eq)
 
-data Switch = Switch (Map OF.PortID PortCfg) FlowTbl deriving (Show, Eq)
+data Switch = Switch {
+  switchPortMap :: Map OF.PortID PortCfg,
+  switchTbl :: FlowTbl 
+} deriving (Show, Eq)
 
 data Endpoint = Endpoint OF.IPAddress OF.EthernetAddress deriving (Show, Eq)
 

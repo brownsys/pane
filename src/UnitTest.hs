@@ -267,7 +267,8 @@ compileWithNIBTests = TestLabel "compile with NIB tests" $ TestList
   ]
 
 mkNib1 = do
-  nib <- NIB.newEmptyNIB
+  ch <- newChan
+  nib <- NIB.newEmptyNIB ch
   (Just sw1) <- NIB.addSwitch 0 nib
   (Just ep1) <- NIB.addEndpoint (ethernetAddress64 1111) ip_10_0_0_1 nib
   (Just ep2) <- NIB.addEndpoint (ethernetAddress64 2222) ip_10_0_0_2 nib
@@ -278,7 +279,8 @@ mkNib1 = do
   return nib
 
 mkNib2 = do
-  nib <- NIB.newEmptyNIB
+  ch <- newChan
+  nib <- NIB.newEmptyNIB ch
   (Just sw1) <- NIB.addSwitch 0 nib
   (Just sw2) <- NIB.addSwitch 1 nib
   (Just ep1) <- NIB.addEndpoint (ethernetAddress64 1111) ip_10_0_0_1 nib

@@ -20,6 +20,8 @@ import Control.Concurrent.MVar
 import Control.Concurrent
 import System.Time
 
+import qualified ControllerService as ZZZ
+
 data Argument
   = Trace String
   | Test String
