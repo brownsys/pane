@@ -15,28 +15,16 @@ import Control.Monad
 import Test.HUnit
 import qualified TokenGraph as TG
 import Nettle.IPv4.IPAddress hiding (ipAddressParser)
+import qualified Nettle.OpenFlow as OF
 import Data.Word
 import qualified Flows as Flows
 import ShareSemantics
 import Control.Monad.State
+import Data.List (sort)
 
 type Node = String
 
 type ShareName = String
-
-data Prin
-  = SrcPort Word16
-  | DstPort Word16
-  | SrcHost IPAddress
-  | DstHost IPAddress
--- | App String ? TODO: apps could be strings which map to sets of port numbers
-  | User String -- TODO: split as sending & receiving users? do we even know recv user?
-  | Network String -- TODO: These will refer to sets of nodes
-  deriving (Show, Eq, Ord)
-
-
--- Based on:
---   https://github.com/brownplt/webbits/blob/master/src/BrownPLT/JavaScript/Parser.hs
 
 nat = T.natural lex
 
@@ -61,84 +49,57 @@ boolean = do reserved "True"
       <|> do reserved "False"
              return False
 
-
 -----------------------------
 -- Flow Group handling
 -----------------------------
 
--- explicitly indicated user
 expUser = do
   reserved "user"
   reservedOp "="
   name <- identifier
-  return (User name)
+  return (Flows.fromMatch OF.matchAny)
 
 expSrcPort = do
   reserved "srcPort"
   reservedOp "="
   port <- T.integer lex
-  return (SrcPort $ fromIntegral port)
+  return $ Flows.fromMatch $ 
+    OF.matchAny { OF.srcTransportPort = Just (fromIntegral port) }
 
 expDstPort = do
   reserved "dstPort"
   reservedOp "="
   port <- T.integer lex
-  return (DstPort $ fromIntegral port)
+  return $ Flows.fromMatch $ 
+    OF.matchAny { OF.dstTransportPort = Just (fromIntegral port) }
 
 expSrcHost = do
   reserved "srcHost"
   reservedOp "="
   host <- ipAddressParser
-  return (SrcHost host)
+  return $ Flows.fromMatch $ OF.matchAny { OF.srcIPAddress = (host, 32) }
 
 expDstHost = do
   reserved "dstHost"
   reservedOp "="
   host <- ipAddressParser
-  return (DstHost host)
+  return $ Flows.fromMatch $ OF.matchAny { OF.dstIPAddress = (host, 32) }
 
 expNet = do
   reserved "net"
   reservedOp "="
   name <- identifier
-  return (Network name)
+  return (Flows.fromMatch OF.matchAny)
 
-prin = expUser <|> expSrcPort <|> expDstPort <|> expSrcHost <|> expDstHost <|> expNet
+prin = 
+  expUser <|> expSrcPort <|> expDstPort <|> expSrcHost <|> expDstHost <|> expNet
 
-prinList = do
-  newPrin <- sepBy prin comma
-  return newPrin
-
-forUser (User s) = Just s
-forUser _ = Nothing
-
-forSrcPort (SrcPort n) = Just n
-forSrcPort _ = Nothing
-
-forDstPort (DstPort n) = Just n
-forDstPort _ = Nothing
-
-forSrcHost (SrcHost n) = Just n
-forSrcHost _ = Nothing
-
-forDstHost (DstHost n) = Just n
-forDstHost _ = Nothing
-
-maybeAll [] = Set.all
-maybeAll xs = Set.fromList xs
-
--- TODO(arjun): This is terrible code. We can add a new kind of prin and
--- forget to handle it, which is how "*" used to be handled. This was valid:
--- '*,user=arjun' and was interpreted as 'user=arjun', since the * was just
--- dropped. When we wrote '*', the list would effectively be empty.
 flowGroupSet = do
-  p <- parens prinList
-  let flowSend = maybeAll (catMaybes (map forUser p))
-  let flowSrcPort = maybeAll (catMaybes (map forSrcPort p))
-  let flowDstPort = maybeAll (catMaybes (map forDstPort p))
-  let flowSrcHost = maybeAll (catMaybes (map forSrcHost p))
-  let flowDstHost = maybeAll (catMaybes (map forDstHost p))
-  return (Flows.make flowSend Set.all flowSrcPort flowDstPort flowSrcHost flowDstHost)
+  prins <- parens (sepBy prin comma)
+  let flow = foldl Flows.intersection Flows.all prins
+  case Flows.null flow of
+    True -> fail "invalid flow"
+    False -> return flow
 
 flowGroupAll = do
   parens (reservedOp "*")

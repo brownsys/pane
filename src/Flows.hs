@@ -16,6 +16,7 @@ module Flows
   , toMatch
   , flowSwitchMatch
   , fromSwitchMatch
+  , fromMatch
   ) where
 
 import Prelude hiding (null, all)
@@ -54,6 +55,9 @@ flowSwitchMatch _                           = Nothing
 
 fromSwitchMatch :: OF.SwitchID -> OF.Match -> FlowGroup
 fromSwitchMatch sid m = FlowMatch (Just sid) m
+
+fromMatch :: OF.Match -> FlowGroup
+fromMatch m = FlowMatch Nothing m
 
 isSubFlow' :: Flow -> Flow -> Bool
 isSubFlow' (Flow su du sp dp sh dh) (Flow su' du' sp' dp' sh' dh') =
