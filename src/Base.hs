@@ -20,6 +20,7 @@ module Base
   , module Control.Monad
   , module Control.Concurrent
   , mergeChan
+  , unionChan
   ) where
 
 import Control.Monad
@@ -40,6 +41,24 @@ import qualified Nettle.OpenFlow as OF
 
 traceFile :: IORef (Maybe Handle)
 traceFile = unsafePerformIO (newIORef Nothing)
+
+unionChan :: (a -> b -> c) -> (a, Chan a) -> (b, Chan b) -> IO (Chan c)
+unionChan fn (initA, chanA) (initB, chanB) = do
+  merged <- mergeChan chanA chanB
+  result <- newChan
+  let loop a b = do
+        v <- readChan merged
+        case v of
+          Left a' -> do
+            let r = fn a' b
+            writeChan result r
+            loop a' b
+          Right b' -> do
+            let r = fn a b'
+            writeChan result r
+            loop a b'
+  forkIO (loop initA initB)
+  return result
 
 mergeChan :: Chan a -> Chan b -> IO (Chan (Either a b))
 mergeChan chan1 chan2 = do
