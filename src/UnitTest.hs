@@ -1,5 +1,6 @@
 module Main where
 
+import Parser (paneMan)
 import Prelude hiding (putStrLn)
 import Test.HUnit
 import qualified TokenGraph as TG
@@ -341,12 +342,64 @@ macLearningTests = TestLabel "MAC Learning tests" $ TestList
   [ testMacLearn1
   ]
 
+mkPaneMan = do
+  req <- newChan
+  time <- newChan
+  (tbl, resp) <- paneMan req time
+  return (tbl, resp, req, time)
+
+assertReadChanEqual msg val chan = do
+  val' <- readChan chan
+  assertEqual msg val val'
+
+testPane10 = TestLabel "root should be able to create sub-share" $ TestCase $ do
+  (tbl, resp, req, time) <- mkPaneMan
+  writeChan req ("root", "NewShare net0 for (*) [reserve <= 200] on rootShare.")
+  assertReadChanEqual "root should be able create sub-share" 
+    ("root", "True") resp
+
+testPane24 = TestLabel "token graphs should work" $ TestCase $ do
+  (tbl, resp, req, time) <- mkPaneMan
+  writeChan req ("root", "NewShare net0 for (*) [reserve <= 200] on rootShare.")
+  assertReadChanEqual "root should be able to create net0" ("root", "True") resp
+  writeChan req ("root", "reserve(*) = 10 on net0 from 0 to 10.")
+  assertReadChanEqual "root should be able to reserve" ("root", "True") resp
+  writeChan time 0
+  let resvTbl = MatchTable [(Flows.all, Just (ReqResv 10, 10))]
+  assertReadChanEqual "compiled table should have a reservation" resvTbl tbl
+  writeChan req ("root", "reserve(*) = 191 on net0.")
+  assertReadChanEqual "root should be able to reserve" ("root", "False") resp
+  -- Tell root no, and ensure that table is empty!
+  writeChan time 5
+  writeChan req ("root", "reserve(*) = 191 on net0.")
+  assertReadChanEqual "reservation should fail at t=5" ("root", "False") resp
+  assertReadChanEqual "compiled table should be the same" resvTbl tbl
+  writeChan time 7
+  writeChan req ("root", "reserve(*) = 191 on net0.")
+  assertReadChanEqual "reservation should fail at t=7" ("root", "False") resp
+  assertReadChanEqual "compiled table should be the same" resvTbl tbl
+  writeChan time 11
+  writeChan req ("root", "reserve(*) = 200 on net0.")
+  assertReadChanEqual "reservation should pass at t=11" ("root", "True") resp
+  assertReadChanEqual "table should be empty until next tick" emptyTable tbl
+  writeChan time 11
+  assertReadChanEqual "compiled table should have resv of 200"
+    (MatchTable [(Flows.all, Just (ReqResv 200, NoLimit))]) tbl  
+  
+
+
+paneTests = TestLabel "Test PANE manager" $ TestList
+  [ testPane10
+  , testPane24
+  ]
+
 allTests = TestList
   [ tokenGraphTests
   , shareSemanticsTests
   , compileWithNIBTests
   , nibTests
   , macLearningTests
+  , paneTests
   ]
 
 main = do

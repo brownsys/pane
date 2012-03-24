@@ -16,16 +16,15 @@ module FlowControllerLang
   , runDNP
   ) where
 
-import Control.Monad
-import Data.IORef
 import Base
 import qualified Control.Monad.State as StateM
 import EmitFML
 import FlowController
-import Set(Set)
+import Set (Set)
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.Aeson as Aeson
 import Control.Monad.Trans
+import ShareSemantics
 
 type DNP a = StateM.StateT State IO a
 
@@ -33,7 +32,6 @@ evalDNP :: DNP a -> IO a
 evalDNP m = StateM.evalStateT m emptyState
 
 runDNP = StateM.runStateT
-
 
 fmlDNP :: DNP a -> IO String
 fmlDNP m = do
@@ -59,7 +57,8 @@ giveReferenceM :: Speaker
 giveReferenceM fromSpk share toSpk = 
   boolWrapper (giveReference fromSpk share toSpk)
 
-giveDefaultReferenceM fromSpk share = boolWrapper (giveDefaultReference fromSpk share)
+giveDefaultReferenceM fromSpk share = 
+  boolWrapper (giveDefaultReference fromSpk share)
 
 newShareM x1 x2 x3 = boolWrapper (newShare x1 x2 x3)
 
