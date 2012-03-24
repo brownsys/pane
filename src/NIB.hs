@@ -16,6 +16,7 @@ module NIB
   , snapshot
   , NIB
   , Snapshot
+  , emptySwitch
   ) where
 
 import Debug.Trace
@@ -260,6 +261,8 @@ data Edge
   deriving (Show, Eq)
 
 type Network = (Map OF.SwitchID Switch, [Endpoint], [Edge])
+
+emptySwitch = Switch Map.empty []
 
 -- |'unusedNum lst' returns the smallest positive number that is not in 'lst'.
 -- Assumes that 'lst' is in ascending order.

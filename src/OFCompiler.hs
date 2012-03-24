@@ -1,8 +1,9 @@
 module OFCompiler
   ( compile
+  , compilerService
   ) where
 
-import ShareSemantics (MatchTable (..))
+import ShareSemantics (MatchTable (..), emptyTable)
 import Base
 import qualified Nettle.OpenFlow as OF
 import Data.Map (Map)
@@ -21,7 +22,13 @@ toTimeout _   NoLimit =
 toTimeout now (DiscreteLimit end) = 
   OF.ExpireAfter (fromInteger (end - fromInteger now))
 
--- |
+compilerService :: (Integer, Chan Integer)  -- ^current time
+                -> (NIB.NIB, Chan NIB.NIB)
+                -> Chan MatchTable
+                -> IO (Chan NIB.Snapshot)
+compilerService (initTime, time) (initNIB, nib) tbl =
+  unionChanIO3 compile (initTime, time) (initNIB, nib) (emptyTable, tbl)
+
 compile :: Integer -> NIB.NIB -> MatchTable -> IO (Map OF.SwitchID NIB.Switch)
 compile now nib (MatchTable tbl) = do
   let -- TODO(arjun): foldr loop and rule:flows instead of flows ++ [rule]
@@ -35,7 +42,8 @@ compile now nib (MatchTable tbl) = do
               (Just s, Just d) -> k s d
               otherwise -> default_
           otherwise -> default_
-      loop :: Map OF.SwitchID NIB.Switch -> (FlowGroup, Maybe (ReqData, Limit))
+      loop :: Map OF.SwitchID NIB.Switch 
+           -> (FlowGroup, Maybe (ReqData, Limit))
            -> IO (Map OF.SwitchID NIB.Switch)
       loop switches (_, Nothing) = do
         return switches -- TODO(arjun): Maybe is silly here

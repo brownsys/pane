@@ -20,7 +20,7 @@ import Data.Word
 import qualified Flows as Flows
 import ShareSemantics
 import Control.Monad.State
-import Data.List (sort)
+import qualified Data.List as List
 
 type Node = String
 
@@ -49,6 +49,13 @@ boolean = do reserved "True"
       <|> do reserved "False"
              return False
 
+hexByte = do
+  let hexChar = oneOf ([ '0' .. '9' ] ++ [ 'a' .. 'f' ] ++ [ 'A' .. 'F' ])
+  ch1 <- hexChar
+  ch2 <- hexChar
+  let b :: Word8 = read ['0','x',ch1,ch2]
+  return b
+  
 -----------------------------
 -- Flow Group handling
 -----------------------------
@@ -91,8 +98,35 @@ expNet = do
   name <- identifier
   return (Flows.fromMatch OF.matchAny)
 
+ethAddr = do
+  b0 <- hexByte
+  colon
+  b1 <- hexByte
+  colon
+  b2 <- hexByte
+  colon
+  b3 <- hexByte
+  colon
+  b4 <- hexByte
+  colon
+  b5 <- hexByte
+  return (OF.ethernetAddress b0 b1 b2 b3 b4 b5)
+
+srcEth = do
+  reserved "srcEth"
+  reservedOp "="
+  e <- ethAddr
+  return $ Flows.fromMatch $ OF.matchAny { OF.srcEthAddress = Just e }
+
+dstEth = do
+  reserved "dstEth"
+  reservedOp "="
+  e <- ethAddr
+  return $ Flows.fromMatch $ OF.matchAny { OF.dstEthAddress = Just e }
+
 prin = 
   expUser <|> expSrcPort <|> expDstPort <|> expSrcHost <|> expDstHost <|> expNet
+  <|> srcEth <|> dstEth
 
 flowGroupSet = do
   prins <- parens (sepBy prin comma)

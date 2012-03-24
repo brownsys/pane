@@ -23,6 +23,7 @@ import qualified MacLearning as ML
 import qualified Data.ByteString as BS
 import Data.HList
 import Data.Word
+import CombinedPaneMac
 
 putStrLn = hPutStrLn stderr
 
@@ -385,12 +386,52 @@ testPane24 = TestLabel "token graphs should work" $ TestCase $ do
   writeChan time 11
   assertReadChanEqual "compiled table should have resv of 200"
     (MatchTable [(Flows.all, Just (ReqResv 200, NoLimit))]) tbl  
-  
-
 
 paneTests = TestLabel "Test PANE manager" $ TestList
   [ testPane10
   , testPane24
+  ]
+
+mkPaneWithMacLearning = do
+  switch <- newChan
+  packet <- newChan
+  paneReq <- newChan
+  time <- newChan
+  (tbl, paneResp) <- combinedPaneMac switch packet paneReq time
+  return (tbl, paneResp, switch, packet, paneReq, time)
+
+testPaneMac0 = TestLabel "test PANE overriding MAC learning" $ TestCase $ do
+  (tbl, resp, switch, pkt, req, time) <- mkPaneWithMacLearning
+  writeChan switch (55, True)
+  writeChan switch (34, True)
+  writeChan pkt (34, packet 0xbb 0xfe 1)
+  let ethbb = ethernetAddress64 0xbb
+  assertReadChanEqual "should learn a flood and 1 route"
+    (MatchTable [ML.rule 34 ethbb (Just 1), 
+                 ML.rule 34 (ethernetAddress64 0xfe) Nothing]) 
+    tbl 
+  writeChan pkt (34, packet 0xfe 0xbb 2)
+  assertReadChanEqual "should learn two routes"
+    (MatchTable [ML.rule 34 (ethernetAddress64 0xbb) (Just 1), 
+                 ML.rule 34 (ethernetAddress64 0xfe) (Just 2)])
+    tbl 
+  writeChan req ("root", "deny(dstEth=00:00:00:00:00:bb) on rootShare.")
+  assertReadChanEqual "root should be able to deny" ("root", "True") resp
+  writeChan time 0 -- TODO(arjun): paneMan only writes on ticks. problem?
+  assertReadChanEqual "deny should override MAC learning"
+    (MatchTable [
+      (Flows.fromSwitchMatch 34 (OF.matchAny { OF.dstEthAddress = Just ethbb }),
+       Just (ReqDeny, NoLimit)),
+      (Flows.fromMatch (OF.matchAny { OF.dstEthAddress = Just ethbb }),
+       Just (ReqDeny, NoLimit)),
+      ML.rule 34 (ethernetAddress64 0xfe) (Just 2)])
+    tbl 
+  
+  
+
+
+paneMacTests = TestLabel "Test PANE with Mac learning" $ TestList
+  [ testPaneMac0
   ]
 
 allTests = TestList
@@ -400,6 +441,7 @@ allTests = TestList
   , nibTests
   , macLearningTests
   , paneTests
+  , paneMacTests
   ]
 
 main = do
