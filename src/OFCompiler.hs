@@ -12,6 +12,7 @@ import qualified Data.Set as Set
 import qualified NIB
 import Flows (toMatch)
 import Control.Monad
+import qualified Flows
 
 -- TODO(arjun): toTimeout will fail if (end - now) does not fit in a Word16
 toTimeout :: Integer -> Limit -> OF.TimeOut
@@ -38,6 +39,16 @@ compile now nib (MatchTable tbl) = do
            -> IO (Map OF.SwitchID NIB.Switch)
       loop switches (_, Nothing) = do
         return switches -- TODO(arjun): Maybe is silly here
+      loop switches (fl, Just (ReqOutPort switchID portID, end)) =
+        case Flows.flowSwitchMatch fl of
+          Nothing -> do
+            putStrLn "compile error: ReqOutPort does not match a switch"
+            return switches
+          Just (_, match) -> return (Map.adjust upd switchID switches)
+            where upd (NIB.Switch ports flows) =
+                    NIB.Switch ports (flows ++ [rule])
+                  rule = (match, [OF.SendOutPort (OF.PhysicalPort portID)],
+                          toTimeout now end)
       loop switches (fl, Just (ReqDeny, end)) = 
         --TODO(arjun):error?
         withEth fl (return switches) $ \srcEth dstEth -> do

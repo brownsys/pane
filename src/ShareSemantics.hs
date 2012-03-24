@@ -1,11 +1,9 @@
 -- |Implementation of the gaurantee semantics and forwarding semantics of 
 -- 'ShareTree's.
 module ShareSemantics 
-  ( evalShareTree
-  , Action
+  ( Action
   , MatchTable (..)
   , compileShareTree
-  , evalTable
   ) where
 
 import Data.Tree (Tree (..))
@@ -37,12 +35,11 @@ combineMaybe f (Just (a, s)) (Just (b, t)) = Just (f a b, min s t)
 
 
 combineSiblingActions act1 act2 = combineMaybe f act1 act2
-  where f ReqDeny     _           = ReqDeny
-        f _           ReqDeny     = ReqDeny
-        f (ReqResv m) (ReqResv n) = ReqResv (max m n)
+  where f (ReqResv m) (ReqResv n) = ReqResv (max m n)
         f (ReqResv m) ReqAllow    = ReqResv m
         f ReqAllow    (ReqResv n) = ReqResv n
         f ReqAllow    ReqAllow    = ReqAllow
+        f _           _           = ReqDeny
 
 combineParentChildActions act1 act2 = combineMaybe f act1 act2
   where -- f parent child = child overrides parent, with the exceptions below
@@ -50,6 +47,7 @@ combineParentChildActions act1 act2 = combineMaybe f act1 act2
         f (ReqResv m) ReqAllow    = ReqResv m  -- give guarantee, doesn't hurt
         f _           ch          = ch
 
+{-
 evalShare :: Integer -- ^current time
           -> Share
           -> Flow
@@ -68,6 +66,7 @@ evalShareTree now (Node share children) inFlow = action
         childActions   = map (\tree -> evalShareTree now tree inFlow) children 
         cmbChildAction = foldl combineSiblingActions emptyAction childActions
         action         = combineParentChildActions thisAction cmbChildAction
+-}
 
 -- 
 --
@@ -76,12 +75,14 @@ evalShareTree now (Node share children) inFlow = action
 emptyTable :: MatchTable
 emptyTable = MatchTable []
 
+{-
 evalTable :: MatchTable -> Flow -> Action
 evalTable (MatchTable lst) flow = 
   -- relies on 'find' scanning left to right
   case find (\(fg, _) -> Flows.flowInGroup flow fg) lst of
     Nothing -> emptyAction
     Just (_, action) -> action
+-}
 
 intersectTable :: (Action -> Action -> Action) 
                -> MatchTable 

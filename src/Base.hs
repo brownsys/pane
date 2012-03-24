@@ -4,7 +4,6 @@ module Base
   , User
   , Host
   , Port
-  , flowInGroup
   , traceFile
   , Shared (..)
   , DNPResult (..)
@@ -31,6 +30,7 @@ import Data.Word
 import Nettle.IPv4.IPAddress
 import Nettle.OpenFlow hiding (Port)
 import Flows
+import qualified Nettle.OpenFlow as OF
 
 traceFile :: IORef (Maybe Handle)
 traceFile = unsafePerformIO (newIORef Nothing)
@@ -133,10 +133,12 @@ data Req = Req {
   reqStrict :: Bool
 } deriving (Show, Ord, Eq)
 
-data ReqData = ReqResv Integer
-             | ReqAllow
-             | ReqDeny
-             deriving (Eq, Ord, Show)
+data ReqData 
+  = ReqResv Integer
+  | ReqAllow
+  | ReqDeny
+  | ReqOutPort OF.SwitchID OF.PortID
+  deriving (Eq, Ord, Show)
 
 instance ToJSON Limit where
   toJSON NoLimit           = Null

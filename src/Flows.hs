@@ -1,7 +1,7 @@
 module Flows
   ( Flow (..)
   , FlowGroup
-  , flowInGroup
+  -- , flowInGroup
   , User
   , Host
   , Port
@@ -14,6 +14,7 @@ module Flows
   , make
   , simple
   , toMatch
+  , flowSwitchMatch
   ) where
 
 import Prelude hiding (null, all)
@@ -24,8 +25,8 @@ import Nettle.IPv4.IPAddress
 import qualified Nettle.IPv4.IPAddress as IPAddress
 import Nettle.OpenFlow.Match
 import qualified Nettle.OpenFlow.Match as Match
+import qualified Nettle.OpenFlow as OF
 
--- import qualified FlowMatch as Z
 type User = String
 
 type Port = Word16
@@ -38,13 +39,17 @@ data Flow = Flow (Maybe User) (Maybe User)
   deriving (Eq, Ord, Show)
 
 data FlowGroup 
-  = FlowMatch Match
+  = FlowMatch (Maybe OF.SwitchID) Match
   | Empty
   deriving (Ord, Eq, Show)
 
 toMatch :: FlowGroup -> Match
-toMatch (FlowMatch m) = m
-toMatch Empty         = error "Flows.toMatch Empty"
+toMatch (FlowMatch Nothing m) = m
+toMatch _         = error "Flows.toMatch Empty"
+
+flowSwitchMatch :: FlowGroup -> Maybe (OF.SwitchID, OF.Match)
+flowSwitchMatch (FlowMatch (Just sw) match) = Just (sw, match)
+flowSwitchMatch _                           = Nothing
 
 isSubFlow' :: Flow -> Flow -> Bool
 isSubFlow' (Flow su du sp dp sh dh) (Flow su' du' sp' dp' sh' dh') =
@@ -54,17 +59,17 @@ isSubFlow' (Flow su du sp dp sh dh) (Flow su' du' sp' dp' sh' dh') =
         (Nothing, Just _) -> False
     in su ⊆ su' && du ⊆ du' && sp ⊆ sp' && dp ⊆ dp' && sh ⊆ sh' && dh ⊆ dh'
 
-all = FlowMatch matchAny
+all = FlowMatch Nothing matchAny
 
 simple :: Maybe Host -> Maybe Port -> Maybe Host -> Maybe Port -> FlowGroup
 simple sh sp dh dp = 
   let mHost h = case h of
                   Nothing -> (IPAddress 0, 0)
                   Just ip -> (ip, maxPrefixLen)
-    in FlowMatch (matchAny { srcIPAddress = mHost sh,
-                             dstIPAddress = mHost dh,
-                             srcTransportPort = sp, 
-                             dstTransportPort = dp })
+    in FlowMatch Nothing (matchAny { srcIPAddress = mHost sh,
+                                     dstIPAddress = mHost dh,
+                                     srcTransportPort = sp, 
+                                     dstTransportPort = dp })
 
 
 make :: Set User -> Set User -> Set Port -> Set Port -> Set Host -> Set Host
@@ -87,12 +92,14 @@ make su du sp dp sh dh =
        return $ matchAny { srcIPAddress = sh',  dstIPAddress = dh',
                            srcTransportPort = sp', dstTransportPort = dp' }
     in case makeMatch su du sp dp sh dh of
-         Just m -> FlowMatch m
+         Just m -> FlowMatch Nothing m
          Nothing -> error "flow group unsupported"
 
+-- TODO(arjun): flowInGroup as defined below is nonsensical when FlowGroups
+-- are enriched to include switchIDs. Flows need to specify switches too.
 flowInGroup :: Flow -> FlowGroup -> Bool
 flowInGroup _                      Empty         = False
-flowInGroup (Flow _ _ sp dp sh dh) (FlowMatch m) =
+flowInGroup (Flow _ _ sp dp sh dh) (FlowMatch _ m) =
   sp `portIn` srcTransportPort m && dp `portIn` dstTransportPort m &&
   sh `ipIn` srcIPAddress m && dh `ipIn` dstIPAddress m
     where portIn _        Nothing   = True
@@ -105,9 +112,11 @@ flowInGroup (Flow _ _ sp dp sh dh) (FlowMatch m) =
 intersection :: FlowGroup -> FlowGroup -> FlowGroup
 intersection _              Empty          = Empty
 intersection Empty          _              = Empty
-intersection (FlowMatch m1) (FlowMatch m2) = case Match.intersect m1 m2 of
-  Just m' -> FlowMatch m'
-  Nothing -> Empty
+intersection (FlowMatch sw1 m1) (FlowMatch sw2 m2)
+  | sw1 == sw2 = case Match.intersect m1 m2 of
+                   Just m' -> FlowMatch sw1 m'
+                   Nothing -> Empty
+  | otherwise = Empty
 
 null :: FlowGroup -> Bool
 null Empty = True
@@ -119,12 +128,14 @@ isOverlapped f1 f2 = not (null (intersection f1 f2))
 isSubFlow :: FlowGroup -> FlowGroup -> Bool
 isSubFlow Empty          _              = True
 isSubFlow _              Empty          = False
-isSubFlow (FlowMatch m1) (FlowMatch m2) = Match.subset m1 m2
+isSubFlow (FlowMatch sw1 m1) (FlowMatch sw2 m2) = 
+  sw1 == sw2 && Match.subset m1 m2
 
+-- TODO(arjun): expand is a nonsensical function used only in EmitFML
 expand :: FlowGroup -> [Flow]
 expand Empty = []
-expand (FlowMatch (Match {srcIPAddress=sh,dstIPAddress=dh,
-                          srcTransportPort=sp,dstTransportPort=dp})) =
+expand (FlowMatch _ (Match {srcIPAddress=sh,dstIPAddress=dh,
+                            srcTransportPort=sp,dstTransportPort=dp})) =
   [Flow Nothing Nothing sp dp (ip sh) (ip dh)]
     where ip (addr, 0) = Nothing
           ip (addr, len)
