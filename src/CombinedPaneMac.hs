@@ -14,7 +14,11 @@ combinedPaneMac :: Chan (OF.SwitchID, Bool)
 combinedPaneMac switch packet paneReq time = do
   (paneTbl, paneResp) <- paneMan paneReq time
   macLearnedTbl <- macLearning switch packet
-  combinedTbl <- unionChan (\pt mt -> condense (unionTable (\p _ -> p) pt mt))
+  let cmb pt mt = do
+        putStrLn "PANE+MAC calculating combined table ..."
+        return $ condense (unionTable (\p _ -> p) pt mt)
+  combinedTbl <- unionChan cmb
                            (emptyTable, paneTbl) 
                            (emptyTable, macLearnedTbl)
+  
   return (combinedTbl, paneResp)

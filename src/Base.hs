@@ -73,7 +73,7 @@ unionChanIO3 fn (initA, chanA) (initB, chanB) (initC, chanC) = do
   forkIO (loop initA initB initC)
   return result
 
-unionChan :: (a -> b -> c) -> (a, Chan a) -> (b, Chan b) -> IO (Chan c)
+unionChan :: (a -> b -> IO c) -> (a, Chan a) -> (b, Chan b) -> IO (Chan c)
 unionChan fn (initA, chanA) (initB, chanB) = do
   merged <- mergeChan chanA chanB
   result <- newChan
@@ -81,11 +81,11 @@ unionChan fn (initA, chanA) (initB, chanB) = do
         v <- readChan merged
         case v of
           Left a' -> do
-            let r = fn a' b
+            r <- fn a' b
             writeChan result r
             loop a' b
           Right b' -> do
-            let r = fn a b'
+            r <- fn a b'
             writeChan result r
             loop a b'
   forkIO (loop initA initB)

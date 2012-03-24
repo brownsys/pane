@@ -5,7 +5,7 @@ from mininet.net import Mininet
 from mininet.topolib import TreeTopo
 import re
 
-controller = Popen(['./dnp', '-s', '4242'])
+controller = Popen(['./dnp', '-n', '4242'])
 try:
   tree4 = TreeTopo(depth=1,fanout=2)
   net = Mininet(topo=tree4,controller=RemoteController)

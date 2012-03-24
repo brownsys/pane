@@ -97,13 +97,17 @@ nibMutator nib (NewSwitch handle features) = do
   let swID = OF.switchID features
   maybe <- addSwitch swID nib
   case maybe of
-    Nothing -> putStrLn $ "nibMutator: switch already exists" ++ show swID
+    Nothing -> putStrLn $ "nibMutator: switch already exists " ++ show swID
     Just sw -> do
+      putStrLn $ "NIB added switch " ++ show swID
       let addPort' p = do
             maybe <- addPort (OF.portID p) sw
             case maybe of
               Nothing -> putStrLn $ "nibMutator: port already exists"
-              Just _ -> return ()
+              Just _ -> do
+                putStrLn $ "NIB added port " ++ show (OF.portID p) ++ 
+                           " on switch " ++ show swID
+                return ()
       mapM_ addPort' (OF.ports features)
 
 addSwitch :: OF.SwitchID -> NIB -> IO (Maybe SwitchData)
