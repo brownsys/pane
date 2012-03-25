@@ -38,33 +38,35 @@ controller netSnapshot toNIB packets switches port = do
     writeChan toNIB (NIB.NewSwitch switch switchFeatures)
     netSnapshot <- dupChan netSnapshot
     writeChan switches (OFS.handle2SwitchID switch, True)
-    forkIO (handleSwitch packets switches switch)
+    forkIO (handleSwitch packets toNIB switches switch)
     forkIO (configureSwitch netSnapshot switch NIB.emptySwitch)
   OFS.closeServer server
 
 handleSwitch :: Chan PacketIn
+             -> Chan NIB.Msg
              -> Chan (OF.SwitchID, Bool)
              -> OFS.SwitchHandle
              -> IO ()
-handleSwitch packets switches switch = do
+handleSwitch packets toNIB switches switch = do
   let swID = OFS.handle2SwitchID switch
   putStrLn $ "Switch " ++ show swID ++ " entered."
-  OFS.untilNothing (retryOnExns (OFS.receiveFromSwitch switch))
-                   (\msg -> ignoreExns (messageHandler packets switch msg))
+  OFS.untilNothing 
+    (retryOnExns (OFS.receiveFromSwitch switch))
+    (\msg -> ignoreExns (messageHandler packets toNIB switch msg))
   OFS.closeSwitchHandle switch
   writeChan switches (swID, False)
   putStrLn $ "Connection to switch " ++ show swID ++ " closed."
 
 messageHandler :: Chan PacketIn
+               -> Chan NIB.Msg
                -> OFS.SwitchHandle
                -> (OF.TransactionID, OF.SCMessage)
                -> IO ()
-messageHandler packets switch (xid, msg) = case msg of
+messageHandler packets toNIB switch (xid, msg) = case msg of
   OF.PacketIn pkt -> do
-    putStrLn $ "OpenFlow controller received packet from switch " ++
-               (show (OFS.handle2SwitchID switch))
     (TOD now _) <- getClockTime
     writeChan packets (now, OFS.handle2SwitchID switch, pkt)
+    writeChan toNIB (NIB.PacketIn (OFS.handle2SwitchID switch) pkt)
   otherwise -> putStrLn $ "unhandled message" ++ show msg
 
 configureSwitch :: Chan NIB.Snapshot

@@ -82,7 +82,6 @@ action [NewServer port] = do
   (tbl, paneResp) <- combinedPaneMac switches packetIn paneReq time
   putStrLn $ "Starting PANE console on port " ++ show port ++ " ..."
   interactions port paneResp paneReq
-  -- TODO(arjun): read from paneResp
   nibUpdates <- newChan -- TODO(arjun): write into this
   putStrLn "Starting compiler ..."
   netSnapshot <- compilerService (nib, nibUpdates) tbl

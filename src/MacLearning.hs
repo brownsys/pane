@@ -39,11 +39,9 @@ macLearning switchChan packetChan = do
   learned <- Ht.new (==) ((Ht.hashInt).fromIntegral)
   tbl <- newIORef emptyTable
   let loop (Left (newSwitchID, True)) = do
-        putStrLn $ "MAC learning discovered switch " ++ show newSwitchID
         macs <- Ht.new (==) ((Ht.hashInt).fromIntegral.(OF.unpack64))
         Ht.insert learned newSwitchID macs
       loop (Left (oldSwitchID, False)) = do
-        putStrLn $ "MAC learning forgot switch " ++ show oldSwitchID
         Ht.delete learned oldSwitchID
       loop (Right (now, switchID, packet)) = case getPacketMac packet of
         Just (srcPort, srcMac, dstMac) -> do
@@ -51,7 +49,6 @@ macLearning switchChan packetChan = do
           case maybeFwdTbl of
             Nothing -> putStrLn "MAC learning error: no table"
             Just fwdTbl -> do
-              putStrLn "MAC learning learned route."
               Ht.insert fwdTbl srcMac srcPort
               maybeDstPort <- Ht.lookup fwdTbl dstMac
               let singleTbl = MatchTable 
@@ -62,7 +59,7 @@ macLearning switchChan packetChan = do
               let tbl' = condense $ unionTable (\_ new -> new) oldTbl singleTbl
               writeIORef tbl tbl'
               writeChan outChan tbl'
-        Nothing -> putStrLn $ "unhandled packet: " ++ show packet
+        Nothing -> return ()
   forkIO $ forever (readChan msgChan >>= loop)
   return outChan 
 
