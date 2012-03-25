@@ -36,7 +36,7 @@ controller netSnapshot toNIB packets switches pktOut port = do
   server <- OFS.startOpenFlowServer Nothing port
   forkIO $ forever $ do
     (swID, xid, pktOut) <- readChan pktOut
-    putStrLn $ "SEND packet-out" ++ show (OF.bufferIDData pktOut)
+    -- putStrLn $ "SEND packet-out" ++ show (OF.bufferIDData pktOut)
     OFS.sendToSwitchWithID server swID (xid, OF.PacketOut pktOut)
   forever $ do
     (switch, switchFeatures) <- OFS.acceptSwitch server
@@ -90,9 +90,9 @@ configureSwitch netSnapshot switchHandle oldSw@(NIB.Switch oldPorts oldTbl) = do
     Just sw@(NIB.Switch ports tbl) -> do
       (TOD now _) <- getClockTime
       let msgs = mkFlowMods now tbl oldTbl
-      unless (null msgs) $ do
-        putStrLn $ "OpenFlow controller modifying tables on " ++ show switchID
-        putStrLn (show tbl)
+      -- unless (null msgs) $ do
+      --   putStrLn $ "OpenFlow controller modifying tables on " ++ show switchID
+      --   putStrLn (show tbl)
       mapM_ (OFS.sendToSwitch switchHandle) (zip [84 ..] msgs)
       configureSwitch netSnapshot switchHandle sw
 

@@ -64,7 +64,7 @@ macLearning switchChan packetChan = do
                   let action = case maybeDstPort of
                         Nothing -> OF.flood
                         Just port -> OF.sendOnPort port
-                  putStrLn $ "RECV packet-in " ++ show bufID
+                  -- putStrLn $ "RECV packet-in " ++ show bufID
                   writeChan packetOut
                     (switchID, 0, 
                      OF.PacketOutRecord (Left bufID) (Just srcPort) action)
