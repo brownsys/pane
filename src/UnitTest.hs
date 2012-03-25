@@ -15,6 +15,7 @@ import Nettle.IPv4.IPAddress
 import Nettle.Ethernet.EthernetAddress (ethernetAddress64)
 import qualified Nettle.OpenFlow as OF
 import qualified Set
+import qualified Data.Set as S
 import qualified OFCompiler as OFC
 import qualified NIB as NIB
 import qualified Data.Map as Map
@@ -207,9 +208,11 @@ testDeny1Switch = TestLabel "compile deny to 1 switch" $ TestCase $ do
       nib1 <- mkNib1
       cfg <- OFC.compile nib1 tbl
       case Map.toList cfg of
-        [(0, NIB.Switch _ [(m, [], 15)])] ->
-          assertEqual "should deny flowHttp1" (Flows.toMatch flowHttp1) m
-        x -> assertFailure $ "should see a single deny entry, got " ++ show x
+        [(0, NIB.Switch _ tbl)] ->
+          assertEqual "expected deny rule"
+            [(65535, Flows.toMatch flowHttp1, [], 15)]
+            (S.toList tbl)
+        x -> assertFailure $ "should see a single switch, got " ++ show x
 
 testResv1Switch = TestLabel "compile Resv to 1 switch" $ TestCase $ do
   let req1 = Req FC.rootShareRef flowHttp1 0 15 (ReqResv 200) True
@@ -222,9 +225,11 @@ testResv1Switch = TestLabel "compile Resv to 1 switch" $ TestCase $ do
       nib1 <- mkNib1
       cfg <- OFC.compile nib1 tbl
       case Map.toList cfg of
-        [(0, NIB.Switch _ [(m, [OF.Enqueue 0 0], 15)])] ->
-          assertEqual "should resv flowHttp1" (Flows.toMatch flowHttp1) m
-        x -> assertFailure $ "should see a single enqueue entry, got " ++ show x
+        [(0, NIB.Switch _ tbl)] ->
+          assertEqual "should resv flowHttp1" 
+            [(65535, Flows.toMatch flowHttp1, [OF.Enqueue 0 0], 15)]
+            (S.toList tbl)
+        x -> assertFailure $ "should see a single switch, got " ++ show x
 
 testDeny2Switch = TestLabel "compile deny to 2 switches" $ TestCase $ do
   let req1 = Req FC.rootShareRef flowHttp1 0 15 ReqDeny False
@@ -237,10 +242,12 @@ testDeny2Switch = TestLabel "compile deny to 2 switches" $ TestCase $ do
       nib2 <- mkNib2
       cfg <- OFC.compile nib2 tbl
       case Map.toList cfg of
-        [(0, NIB.Switch _ []),
-         (1, NIB.Switch _ [(m, [], 15)])] ->
-          assertEqual "should deny flowHttp1" (Flows.toMatch flowHttp1) m
-        x -> assertFailure $ "should see a single deny entry, got " ++ show x
+        [(0, NIB.Switch _ tbl0), (1, NIB.Switch _ tbl1)] -> do
+          assertEqual "should have empty table at switch 0" [] (S.toList tbl0)
+          assertEqual "should have 1 deny in switch 1"
+            [(65535, Flows.toMatch flowHttp1, [], 15)]
+            (S.toList tbl1)
+        x -> assertFailure $ "should see two switches, got " ++ show x
 
 testResv2Switch = TestLabel "compile Resv to 2 switches" $ TestCase $ do
   let req1 = Req FC.rootShareRef flowHttp1 0 15 (ReqResv 200) True
@@ -252,11 +259,14 @@ testResv2Switch = TestLabel "compile Resv to 2 switches" $ TestCase $ do
       nib2 <- mkNib2
       cfg <- OFC.compile nib2 tbl
       case Map.toList cfg of
-        [(0, NIB.Switch _ [(m1, [OF.Enqueue 0 0], 15)]),
-         (1, NIB.Switch _ [(m2, [OF.Enqueue 1 0], 15)])] -> do
-          assertEqual "should resv flowHttp1" (Flows.toMatch flowHttp1) m1
-          assertEqual "should resv flowHttp1" (Flows.toMatch flowHttp1) m2
-        x -> assertFailure $ "should see a single enqueue entry, got " ++ show x
+        [(0, NIB.Switch _ tbl0), (1, NIB.Switch _ tbl1)] -> do
+          assertEqual "should have queue on switch 0"
+            [(65535, Flows.toMatch flowHttp1, [OF.Enqueue 0 0], 15)]
+            (S.toList tbl0)
+          assertEqual "should have queue on switch 1"
+            [(65535, Flows.toMatch flowHttp1, [OF.Enqueue 1 0], 15)]
+            (S.toList tbl1)
+        x -> assertFailure $ "should see two switches, got " ++ show x
 
       
 compileWithNIBTests = TestLabel "compile with NIB tests" $ TestList

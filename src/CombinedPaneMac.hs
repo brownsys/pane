@@ -7,7 +7,7 @@ import MacLearning
 import Parser (paneMan)
 
 combinedPaneMac :: Chan (OF.SwitchID, Bool)
-                -> Chan (Integer, OF.SwitchID, OF.PacketInfo)
+                -> Chan (OF.TransactionID, Integer, OF.SwitchID, OF.PacketInfo)
                 -> Chan (Speaker, String)
                 -> Chan Integer
                 -> IO (Chan MatchTable, Chan (Speaker, String), PacketOutChan)

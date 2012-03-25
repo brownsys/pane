@@ -6,10 +6,12 @@ module OFCompiler
 import ShareSemantics (MatchTable (..), emptyTable)
 import Base
 import qualified Nettle.OpenFlow as OF
+import qualified Nettle.OpenFlow.Match as OFMatch
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
+import qualified Data.List as List
 import qualified NIB
 import Flows (toMatch)
 import Control.Monad
@@ -21,6 +23,30 @@ compilerService :: (NIB.NIB, Chan NIB.NIB)
                 -> IO (Chan NIB.Snapshot)
 compilerService (initNIB, nib) tbl =
   unionChan compile (initNIB, nib) (emptyTable, tbl)
+
+
+
+toFlowTbl :: [(OF.Match, [OF.Action], Limit)]
+          -> NIB.FlowTbl
+toFlowTbl lst = Set.fromList prioritizedRules
+  where isOverlapped (m, _, _) (m', _, _) = case OFMatch.intersect m m' of
+          Just _  -> True
+          Nothing -> False
+        mergePriority group [] = (group, [])
+        mergePriority group (hd:tl) = case List.find (isOverlapped hd) group of
+          Just _  -> (group, hd:tl)
+          Nothing -> mergePriority (hd:group) tl
+        groupByPriority lst = case mergePriority [] lst of
+          ([], [])      -> []
+          (group, [])   -> [group]
+          (group, lst') -> group:(groupByPriority lst)
+        groups = groupByPriority lst
+        prioritizedGroups = zip [ 65535, 65534 .. ] groups
+        ruleWithPriority p (m, f, t) = (p, m, f, t)
+        prioritizedRules = 
+          List.concatMap (\(p, rules) -> map (ruleWithPriority p) rules)
+                         prioritizedGroups
+          
 
 compile :: NIB.NIB -> MatchTable -> IO (Map OF.SwitchID NIB.Switch)
 compile nib (MatchTable tbl) = do
@@ -35,9 +61,6 @@ compile nib (MatchTable tbl) = do
               (Just s, Just d) -> k s d
               otherwise -> default_
           otherwise -> default_
-      loop :: Map OF.SwitchID NIB.Switch 
-           -> (FlowGroup, Maybe (ReqData, Limit))
-           -> IO (Map OF.SwitchID NIB.Switch)
       loop switches (_, Nothing) = do
         return switches -- TODO(arjun): Maybe is silly here
       loop switches (fl, Just (ReqOutPort switchID pseudoPort, end)) =
@@ -46,8 +69,7 @@ compile nib (MatchTable tbl) = do
             putStrLn "compile error: ReqOutPort does not match a switch"
             return switches
           Just (_, match) -> return (Map.adjust upd switchID switches)
-            where upd (NIB.Switch ports flows) =
-                    NIB.Switch ports (flows ++ [rule])
+            where upd (ports, flows) = (ports, flows ++ [rule])
                   rule = (match, [OF.SendOutPort pseudoPort], end)
       loop switches (fl, Just (ReqDeny, end)) = 
         --TODO(arjun):error?
@@ -56,8 +78,7 @@ compile nib (MatchTable tbl) = do
           case path of
             [] -> return switches -- TODO(arjun): error?
             ((inp, sid,  _):_) -> return (Map.adjust upd sid switches)
-              where upd (NIB.Switch ports flows) =  
-                      NIB.Switch ports (flows ++ [rule])
+              where upd (ports, flows) =  (ports, flows ++ [rule])
                     rule = (Flows.toMatch fl, [],  end)
       loop switches (fl, Just (ReqAllow, end)) = 
         -- TODO(arjun): error?
@@ -66,8 +87,7 @@ compile nib (MatchTable tbl) = do
           case path of
             [] -> return switches -- TODO(arjun): error?
             ((inp, sid, outp):_) -> return (Map.adjust upd sid switches)
-              where upd (NIB.Switch ports flows) = 
-                      NIB.Switch ports (flows ++ [rule])
+              where upd (ports, flows) = (ports, flows ++ [rule])
                     port = OF.SendOutPort (OF.PhysicalPort outp)
                     rule = (Flows.toMatch fl, [port], end)
       loop switches (fl, Just (ReqResv bw, end)) =
@@ -76,14 +96,14 @@ compile nib (MatchTable tbl) = do
           path <- NIB.getPath srcEth dstEth nib -- TODO(arjun): error on empty?
           let queue switches (inp, swid, outp) = 
                   Map.adjust (updSwitch inp outp) swid switches
-              updSwitch inp outp (NIB.Switch ports flows) = 
-                NIB.Switch ports' (flows ++ [rule])
-                  where (queueID, ports') = 
-                          NIB.newQueue ports outp bw' end
-                        bw' = fromInteger bw -- TODO(arjun): fit in Word16
-                        rule = (Flows.toMatch fl, 
-                                [OF.Enqueue outp queueID],
-                                end)
+              updSwitch inp outp (ports, flows) = (ports', flows ++ [rule])
+                where (queueID, ports') = NIB.newQueue ports outp bw' end
+                      bw' = fromInteger bw -- TODO(arjun): fit in Word16
+                      m   = Flows.toMatch fl
+                      rule = (m, [OF.Enqueue outp queueID], end)
           return (foldl queue switches path)
   snap <- NIB.snapshot nib
-  foldM loop snap tbl
+  let cfgs = Map.map (\(NIB.Switch p _) -> (p, [])) snap
+  cfgs' <- foldM loop cfgs tbl
+  let f (ports, flows) = NIB.Switch ports (toFlowTbl flows)
+  return (Map.map f cfgs')

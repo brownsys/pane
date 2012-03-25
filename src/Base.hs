@@ -24,8 +24,11 @@ module Base
   , unionChan
   , unionChanIO3
   , module Control.Exception
+  , catMaybes
+  , mapMaybe
   ) where
 
+import Data.Maybe
 import Control.Monad
 import Control.Concurrent
 import System.IO.Unsafe

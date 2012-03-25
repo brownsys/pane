@@ -5,10 +5,12 @@ from mininet.net import Mininet
 from mininet.topolib import TreeTopo
 from mininet.topo import LinearTopo
 import re
+import os
 
+os.system('mn -c')
 controller = Popen(['./dnp', '-n', '4242'])
 try:
-  theTopo = TreeTopo(depth=2,fanout=2)
+  theTopo = TreeTopo(depth=3,fanout=2)
   #theTopo = LinearTopo(k=3)
   net = Mininet(topo=theTopo,controller=RemoteController)
   net.start()

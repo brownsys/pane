@@ -11,8 +11,10 @@ import qualified NIB
 import qualified Nettle.OpenFlow as OF
 import qualified Nettle.Servers.Server as OFS
 import qualified Data.Map as Map
+import qualified Data.Set as Set
+import qualified Data.List as List
 
-type PacketIn = (Integer, OF.SwitchID, OF.PacketInfo)
+type PacketIn = (OF.TransactionID, Integer, OF.SwitchID, OF.PacketInfo)
 
 retryOnExns :: IO a -> IO a
 retryOnExns action = action `catch` handle
@@ -70,7 +72,7 @@ messageHandler :: Chan PacketIn
 messageHandler packets toNIB switch (xid, msg) = case msg of
   OF.PacketIn pkt -> do
     (TOD now _) <- getClockTime
-    writeChan packets (now, OFS.handle2SwitchID switch, pkt)
+    writeChan packets (xid, now, OFS.handle2SwitchID switch, pkt)
     writeChan toNIB (NIB.PacketIn (OFS.handle2SwitchID switch) pkt)
   otherwise -> putStrLn $ "unhandled message from switch " ++ 
                  (show $ OFS.handle2SwitchID switch) -- ++ "\n" ++ show msg
@@ -90,9 +92,10 @@ configureSwitch netSnapshot switchHandle oldSw@(NIB.Switch oldPorts oldTbl) = do
     Just sw@(NIB.Switch ports tbl) -> do
       (TOD now _) <- getClockTime
       let msgs = mkFlowMods now tbl oldTbl
-      -- unless (null msgs) $ do
-      --   putStrLn $ "OpenFlow controller modifying tables on " ++ show switchID
-      --   putStrLn (show tbl)
+      unless (null msgs) $ do
+         putStrLn $ "OpenFlow controller modifying tables on " ++ show switchID
+         mapM_ (putStrLn.show) msgs
+         return ()
       mapM_ (OFS.sendToSwitch switchHandle) (zip [84 ..] msgs)
       configureSwitch netSnapshot switchHandle sw
 
@@ -100,11 +103,10 @@ mkFlowMods :: Integer
            -> NIB.FlowTbl
            -> NIB.FlowTbl
            -> [OF.CSMessage]
-mkFlowMods now newTbl oldTbl = map OF.FlowMod msgs
-  where newTblPrio = zip newTbl [65536, 65534 .. ]
-        delMsg = OF.DeleteFlows OF.matchAny Nothing
-        addMsgs =  map mkAddFlow newTblPrio
-        mkAddFlow ((match, acts, expiry), prio) = 
+mkFlowMods now newTbl oldTbl = map OF.FlowMod (delMsgs ++ addMsgs)
+  where delMsgs = mapMaybe mkDelFlow (Set.toList oldRules)
+        addMsgs = map mkAddFlow (Set.toList newRules) 
+        mkAddFlow (prio, match, acts, expiry) = 
           OF.AddFlow {
             OF.match = match,
             OF.priority = prio,
@@ -116,10 +118,11 @@ mkFlowMods now newTbl oldTbl = map OF.FlowMod msgs
             OF.applyToPacket = Nothing,
             OF.overlapAllowed = True
           }
-        msgs = case newTbl == oldTbl of
-          True -> []
-          False -> delMsg:addMsgs
-
+        mkDelFlow (prio, match, _, expiry) = case expiry <= fromInteger now of
+          True -> Nothing
+          False -> Just (OF.DeleteExactFlow match Nothing prio)
+        newRules = Set.difference newTbl oldTbl
+        oldRules = Set.difference oldTbl newTbl
       
 -- TODO(arjun): toTimeout will fail if (end - now) does not fit in a Word16
 toTimeout :: Integer -> Limit -> OF.TimeOut

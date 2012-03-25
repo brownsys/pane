@@ -2,6 +2,7 @@ module NIB
   ( Switch (..)
   , Endpoint (..)
   , FlowTbl (..)
+  , FlowTblEntry
   , PortCfg (..)
   , Msg (..)
   , newQueue
@@ -40,9 +41,9 @@ import Data.Maybe (isJust, fromJust, catMaybes)
 import System.IO.Unsafe (unsafePerformIO)
 import qualified Data.HList as HL
 
-type FlowTblEntry = (OF.Match, [OF.Action], Limit)
+type FlowTblEntry = (Word16, OF.Match, [OF.Action], Limit)
 
-type FlowTbl = [FlowTblEntry]
+type FlowTbl = Set FlowTblEntry
 
 type Snapshot = Map OF.SwitchID Switch
 
@@ -116,8 +117,8 @@ nibMutator nib (NewSwitch handle features) = do
             case maybe of
               Nothing -> putStrLn $ "nibMutator: port already exists"
               Just _ -> do
-                putStrLn $ "NIB added port " ++ show (OF.portID p) ++ 
-                           " on switch " ++ show swID
+                -- putStrLn $ "NIB added port " ++ show (OF.portID p) ++ 
+                --           " on switch " ++ show swID
                 sendDP handle (OF.portID p)
                 return ()
       mapM_ addPort' (OF.ports features)
@@ -150,8 +151,8 @@ nibMutator nib (PacketIn tS pkt) = case OF.enclosedFrame pkt of
 
 sendDP :: OFS.SwitchHandle -> OF.PortID -> IO ()
 sendDP handle portID = do
-  let hdr = OF.EthernetHeader OF.broadcastAddress OF.broadcastAddress
-                              OF.ethTypePaneDP
+  let ethAddr = OF.ethernetAddress64 0
+  let hdr = OF.EthernetHeader ethAddr ethAddr OF.ethTypePaneDP
   let body = OF.PaneDPInEthernet (OFS.handle2SwitchID handle) portID
   let frm = HL.HCons hdr (HL.HCons body HL.HNil)
   let bs = OFBS.runPutToByteString 200 (OF.putEthFrame frm)
@@ -164,7 +165,7 @@ addSwitch newSwitchID nib = do
   case maybe of
     Just _  -> return Nothing
     Nothing -> do
-      flowTbl <- newIORef []
+      flowTbl <- newIORef Set.empty
       ports <- Ht.new (==) ((Ht.hashInt).fromIntegral)
       updListener <- newIORef (\_ -> return ()) 
       let sw = SwitchData newSwitchID flowTbl ports updListener
@@ -338,7 +339,7 @@ data Edge
 
 type Network = (Map OF.SwitchID Switch, [Endpoint], [Edge])
 
-emptySwitch = Switch Map.empty []
+emptySwitch = Switch Map.empty Set.empty
 
 -- |'unusedNum lst' returns the smallest positive number that is not in 'lst'.
 -- Assumes that 'lst' is in ascending order.
@@ -366,4 +367,4 @@ newQueue ports portID gmb timeOut = (queueID, ports')
 
 switchWithNPorts :: Word16 -> Switch
 switchWithNPorts n = 
-  Switch (Map.fromList [(k, PortCfg Map.empty) | k <- [0 .. n-1]]) []
+  Switch (Map.fromList [(k, PortCfg Map.empty) | k <- [0 .. n-1]]) Set.empty

@@ -32,7 +32,7 @@ rule now sw eth port =
 type PacketOutChan = Chan (OF.SwitchID, OF.TransactionID, OF.PacketOut)
 
 macLearning :: Chan (OF.SwitchID, Bool)          -- ^switches (created/deleted)
-            -> Chan (Integer, OF.SwitchID, OF.PacketInfo)
+            -> Chan (OF.TransactionID, Integer, OF.SwitchID, OF.PacketInfo)
                  -- ^packets seen by controller
             -> IO (Chan MatchTable, PacketOutChan)
 macLearning switchChan packetChan = do
@@ -47,7 +47,7 @@ macLearning switchChan packetChan = do
         Ht.insert learned newSwitchID macs
       loop (Left (oldSwitchID, False)) = do
         Ht.delete learned oldSwitchID
-      loop (Right (now, switchID, packet)) = case getPacketMac packet of
+      loop (Right (xid, now, switchID, packet)) = case getPacketMac packet of
         Just (srcPort, srcMac, dstMac) -> do
           maybeFwdTbl <- Ht.lookup learned switchID
           case maybeFwdTbl of
@@ -66,7 +66,7 @@ macLearning switchChan packetChan = do
                         Just port -> OF.sendOnPort port
                   -- putStrLn $ "RECV packet-in " ++ show bufID
                   writeChan packetOut
-                    (switchID, 0, 
+                    (switchID, xid, 
                      OF.PacketOutRecord (Left bufID) (Just srcPort) action)
               oldTbl <- readIORef tbl
               let tbl' = condense $ unionTable (\_ new -> new) oldTbl singleTbl
