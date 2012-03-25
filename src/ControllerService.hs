@@ -5,13 +5,13 @@ module ControllerService
 
 import Prelude hiding (catch)
 import Base
-
+import System.Time
 import qualified NIB
 import qualified Nettle.OpenFlow as OF
 import qualified Nettle.Servers.Server as OFS
 import qualified Data.Map as Map
 
-type PacketIn = (OF.SwitchID, OF.PacketInfo)
+type PacketIn = (Integer, OF.SwitchID, OF.PacketInfo)
 
 retryOnExns :: IO a -> IO a
 retryOnExns action = action `catch` handle
@@ -63,7 +63,8 @@ messageHandler packets switch (xid, msg) = case msg of
   OF.PacketIn pkt -> do
     putStrLn $ "OpenFlow controller received packet from switch " ++
                (show (OFS.handle2SwitchID switch))
-    writeChan packets (OFS.handle2SwitchID switch, pkt)
+    (TOD now _) <- getClockTime
+    writeChan packets (now, OFS.handle2SwitchID switch, pkt)
   otherwise -> putStrLn $ "unhandled message" ++ show msg
 
 configureSwitch :: Chan NIB.Snapshot
@@ -79,28 +80,36 @@ configureSwitch netSnapshot switchHandle oldSw@(NIB.Switch oldPorts oldTbl) = do
                  " in the NIB snapshot."
       configureSwitch netSnapshot switchHandle oldSw
     Just sw@(NIB.Switch ports tbl) -> do
-      let msgs = mkFlowMods tbl oldTbl
+      (TOD now _) <- getClockTime
+      let msgs = mkFlowMods now tbl oldTbl
       mapM_ (OFS.sendToSwitch switchHandle) (zip [84 ..] msgs)
       configureSwitch netSnapshot switchHandle sw
 
-mkFlowMods :: NIB.FlowTbl
+mkFlowMods :: Integer
+           -> NIB.FlowTbl
            -> NIB.FlowTbl
            -> [OF.CSMessage]
-mkFlowMods newTbl oldTbl = map OF.FlowMod (delMsg:msgs)
+mkFlowMods now newTbl oldTbl = map OF.FlowMod (delMsg:msgs)
   where newTblPrio = zip newTbl [65536, 65534 .. ]
         delMsg = OF.DeleteFlows OF.matchAny Nothing
         msgs =  map mkAddFlow newTblPrio
-        mkAddFlow ((match, acts, timeOut), prio) = 
+        mkAddFlow ((match, acts, expiry), prio) = 
           OF.AddFlow {
             OF.match = match,
             OF.priority = prio,
             OF.actions = acts,
             OF.cookie = 0,
             OF.idleTimeOut = OF.Permanent,
-            OF.hardTimeOut = timeOut,
+            OF.hardTimeOut = toTimeout now expiry ,
             OF.notifyWhenRemoved = False,
             OF.applyToPacket = Nothing,
             OF.overlapAllowed = True
          }
 
       
+-- TODO(arjun): toTimeout will fail if (end - now) does not fit in a Word16
+toTimeout :: Integer -> Limit -> OF.TimeOut
+toTimeout _   NoLimit = 
+  OF.Permanent
+toTimeout now (DiscreteLimit end) = 
+  OF.ExpireAfter (fromInteger (end - fromInteger now))

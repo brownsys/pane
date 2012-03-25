@@ -15,22 +15,15 @@ import Flows (toMatch)
 import Control.Monad
 import qualified Flows
 
--- TODO(arjun): toTimeout will fail if (end - now) does not fit in a Word16
-toTimeout :: Integer -> Limit -> OF.TimeOut
-toTimeout _   NoLimit = 
-  OF.Permanent
-toTimeout now (DiscreteLimit end) = 
-  OF.ExpireAfter (fromInteger (end - fromInteger now))
 
-compilerService :: (Integer, Chan Integer)  -- ^current time
-                -> (NIB.NIB, Chan NIB.NIB)
+compilerService :: (NIB.NIB, Chan NIB.NIB)
                 -> Chan MatchTable
                 -> IO (Chan NIB.Snapshot)
-compilerService (initTime, time) (initNIB, nib) tbl =
-  unionChanIO3 compile (initTime, time) (initNIB, nib) (emptyTable, tbl)
+compilerService (initNIB, nib) tbl =
+  unionChan compile (initNIB, nib) (emptyTable, tbl)
 
-compile :: Integer -> NIB.NIB -> MatchTable -> IO (Map OF.SwitchID NIB.Switch)
-compile now nib (MatchTable tbl) = do
+compile :: NIB.NIB -> MatchTable -> IO (Map OF.SwitchID NIB.Switch)
+compile nib (MatchTable tbl) = do
   let -- TODO(arjun): foldr loop and rule:flows instead of flows ++ [rule]
       withEth flow default_ k = do
         let match = toMatch flow
@@ -55,8 +48,7 @@ compile now nib (MatchTable tbl) = do
           Just (_, match) -> return (Map.adjust upd switchID switches)
             where upd (NIB.Switch ports flows) =
                     NIB.Switch ports (flows ++ [rule])
-                  rule = (match, [OF.SendOutPort pseudoPort],
-                          toTimeout now end)
+                  rule = (match, [OF.SendOutPort pseudoPort], end)
       loop switches (fl, Just (ReqDeny, end)) = 
         --TODO(arjun):error?
         withEth fl (return switches) $ \srcEth dstEth -> do
@@ -66,7 +58,7 @@ compile now nib (MatchTable tbl) = do
             ((inp, sid,  _):_) -> return (Map.adjust upd sid switches)
               where upd (NIB.Switch ports flows) =  
                       NIB.Switch ports (flows ++ [rule])
-                    rule = (Flows.toMatch fl, [],  toTimeout now end)
+                    rule = (Flows.toMatch fl, [],  end)
       loop switches (fl, Just (ReqAllow, end)) = 
         -- TODO(arjun): error?
         withEth fl (return switches) $ \srcEth dstEth -> do
@@ -77,7 +69,7 @@ compile now nib (MatchTable tbl) = do
               where upd (NIB.Switch ports flows) = 
                       NIB.Switch ports (flows ++ [rule])
                     port = OF.SendOutPort (OF.PhysicalPort outp)
-                    rule = (Flows.toMatch fl, [port], toTimeout now end)
+                    rule = (Flows.toMatch fl, [port], end)
       loop switches (fl, Just (ReqResv bw, end)) =
         --TODO(arjun):error?
         withEth fl (return switches) $ \srcEth dstEth -> do
@@ -87,12 +79,12 @@ compile now nib (MatchTable tbl) = do
               updSwitch inp outp (NIB.Switch ports flows) = 
                 NIB.Switch ports' (flows ++ [rule])
                   where (queueID, ports') = 
-                          NIB.newQueue ports outp bw' (end - fromInteger now)
+                          NIB.newQueue ports outp bw' end
                         bw' = fromInteger bw -- TODO(arjun): fit in Word16
                         rule = (Flows.toMatch fl, 
                                 [OF.Enqueue outp queueID],
-                                toTimeout now end)
+                                end)
           return (foldl queue switches path)
   snap <- NIB.snapshot nib
-  putStrLn $ "Compiler recalculating network configuration. t=" ++ show now
+  putStrLn $ "Compiler recalculating network configuration."
   foldM loop snap tbl

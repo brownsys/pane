@@ -38,7 +38,7 @@ import qualified Data.HashTable as Ht
 import Data.Maybe (isJust, fromJust, catMaybes)
 import System.IO.Unsafe (unsafePerformIO)
 
-type FlowTblEntry = (OF.Match, [OF.Action], OF.TimeOut)
+type FlowTblEntry = (OF.Match, [OF.Action], Limit)
 
 type FlowTbl = [FlowTblEntry]
 
