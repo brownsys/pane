@@ -1,0 +1,52 @@
+200  20000 8000 30000 false
+log4j:WARN No appenders could be found for logger (com.netflix.curator.framework.imps.CuratorFrameworkImpl).
+log4j:WARN No appenders could be found for logger (com.netflix.curator.framework.imps.CuratorFrameworkImpl).
+log4j:WARN Please initialize the log4j system properly.
+log4j:WARN Please initialize the log4j system properly.
+log4j:WARN No appenders could be found for logger (com.netflix.curator.framework.imps.CuratorFrameworkImpl).
+log4j:WARN Please initialize the log4j system properly.
+log4j:WARN No appenders could be found for logger (com.netflix.curator.framework.imps.CuratorFrameworkImpl).
+log4j:WARN Please initialize the log4j system properly.
+2-i'm done, reqs:34243
+4-i'm done, reqs:35051
+3-i'm done, reqs:35367
+0-i'm done, reqs:35516
+1-i'm done, reqs:34397
+READ finished, time elapsed(sec):30.0 operations:154574 avg rate:5152.466666666666
+1-i'm done, reqs:45956
+0-i'm done, reqs:46955
+4-i'm done, reqs:45148
+2-i'm done, reqs:47136
+3-i'm done, reqs:45549
+READ finished, time elapsed(sec):30.0 operations:210744 avg rate:7024.8
+1-i'm done, reqs:43296
+4-i'm done, reqs:45456
+0-i'm done, reqs:43468
+2-i'm done, reqs:45751
+3-i'm done, reqs:47412
+SETSINGLE finished, time elapsed(sec):30.0 operations:205383 avg rate:6846.1
+1-i'm done, reqs:46464
+0-i'm done, reqs:46266
+4-i'm done, reqs:45482
+2-i'm done, reqs:46239
+3-i'm done, reqs:45981
+CREATE finished, time elapsed(sec):30.0 operations:210432 avg rate:7014.4
+1-i'm done, reqs:45569
+4-i'm done, reqs:46466
+0-i'm done, reqs:46245
+2-i'm done, reqs:47146
+3-i'm done, reqs:45419
+SETMUTI finished, time elapsed(sec):30.0 operations:210845 avg rate:7028.166666666667
+0-i'm done, reqs:55835
+1-i'm done, reqs:57025
+4-i'm done, reqs:55545
+2-i'm done, reqs:55709
+3-i'm done, reqs:54796
+DELETE finished, time elapsed(sec):30.0 operations:258910 avg rate:8630.333333333334
+tests done cleaning
+4-i'm done, reqs:0
+2-i'm done, reqs:0
+3-i'm done, reqs:0
+0-i'm done, reqs:0
+1-i'm done, reqs:0
+all finished

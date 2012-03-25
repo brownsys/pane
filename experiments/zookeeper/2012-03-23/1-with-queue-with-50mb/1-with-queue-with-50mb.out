@@ -1,0 +1,54 @@
+200  20000 8000 30000 false
+log4j:WARN No appenders could be found for logger (com.netflix.curator.framework.imps.CuratorFrameworkImpl).
+log4j:WARN Please initialize the log4j system properly.
+log4j:WARN No appenders could be found for logger (com.netflix.curator.framework.imps.CuratorFrameworkImpl).
+log4j:WARN No appenders could be found for logger (com.netflix.curator.framework.imps.CuratorFrameworkImpl).
+log4j:WARN No appenders could be found for logger (com.netflix.curator.framework.imps.CuratorFrameworkImpl).
+log4j:WARN Please initialize the log4j system properly.
+log4j:WARN Please initialize the log4j system properly.
+log4j:WARN No appenders could be found for logger (com.netflix.curator.framework.imps.CuratorFrameworkImpl).
+log4j:WARN Please initialize the log4j system properly.
+log4j:WARN Please initialize the log4j system properly.
+1-i'm done, reqs:27247
+2-i'm done, reqs:27224
+0-i'm done, reqs:26246
+4-i'm done, reqs:26836
+3-i'm done, reqs:29129
+READ finished, time elapsed(sec):30.0 operations:116682 avg rate:3889.4
+3-i'm done, reqs:36727
+2-i'm done, reqs:38383
+1-i'm done, reqs:40615
+4-i'm done, reqs:38604
+0-i'm done, reqs:40750
+READ finished, time elapsed(sec):30.0 operations:175079 avg rate:5835.966666666666
+3-i'm done, reqs:39678
+2-i'm done, reqs:42733
+1-i'm done, reqs:37498
+4-i'm done, reqs:41421
+0-i'm done, reqs:40349
+SETSINGLE finished, time elapsed(sec):30.0 operations:181679 avg rate:6055.966666666666
+3-i'm done, reqs:42188
+2-i'm done, reqs:38195
+4-i'm done, reqs:47364
+1-i'm done, reqs:34756
+0-i'm done, reqs:40173
+CREATE finished, time elapsed(sec):30.0 operations:182676 avg rate:6089.2
+4-i'm done, reqs:44310
+3-i'm done, reqs:40454
+2-i'm done, reqs:42095
+1-i'm done, reqs:37504
+0-i'm done, reqs:51816
+SETMUTI finished, time elapsed(sec):30.0 operations:196179 avg rate:6539.3
+1-i'm done, reqs:44972
+2-i'm done, reqs:45914
+3-i'm done, reqs:44023
+4-i'm done, reqs:53100
+0-i'm done, reqs:43064
+DELETE finished, time elapsed(sec):30.0 operations:211073 avg rate:7035.766666666666
+tests done cleaning
+4-i'm done, reqs:0
+0-i'm done, reqs:0
+2-i'm done, reqs:0
+1-i'm done, reqs:0
+3-i'm done, reqs:0
+all finished

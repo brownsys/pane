@@ -1,0 +1,46 @@
+200  20000 8000 30000 true
+log4j:WARN No appenders could be found for logger (com.netflix.curator.framework.imps.CuratorFrameworkImpl).
+log4j:WARN Please initialize the log4j system properly.
+0-i'm done, reqs:5974
+3-i'm done, reqs:6597
+4-i'm done, reqs:6154
+1-i'm done, reqs:6153
+2-i'm done, reqs:6331
+READ finished, time elapsed(sec):30.0 operations:31209 avg rate:1040.3
+0-i'm done, reqs:7161
+1-i'm done, reqs:7399
+2-i'm done, reqs:7192
+3-i'm done, reqs:7790
+4-i'm done, reqs:7194
+READ finished, time elapsed(sec):30.0 operations:36736 avg rate:1224.5333333333333
+0-i'm done, reqs:1078
+4-i'm done, reqs:1057
+2-i'm done, reqs:1073
+1-i'm done, reqs:1077
+3-i'm done, reqs:1253
+SETSINGLE finished, time elapsed(sec):30.0 operations:5538 avg rate:184.6
+1-i'm done, reqs:1015
+2-i'm done, reqs:964
+0-i'm done, reqs:989
+3-i'm done, reqs:1156
+4-i'm done, reqs:1009
+CREATE finished, time elapsed(sec):30.0 operations:5133 avg rate:171.1
+1-i'm done, reqs:1080
+3-i'm done, reqs:1262
+2-i'm done, reqs:1005
+4-i'm done, reqs:1095
+0-i'm done, reqs:1085
+SETMUTI finished, time elapsed(sec):30.0 operations:5527 avg rate:184.23333333333332
+1-i'm done, reqs:1302
+0-i'm done, reqs:1291
+4-i'm done, reqs:1298
+2-i'm done, reqs:1312
+3-i'm done, reqs:1497
+DELETE finished, time elapsed(sec):30.0 operations:6700 avg rate:223.33333333333334
+tests done cleaning
+0-i'm done, reqs:0
+2-i'm done, reqs:0
+1-i'm done, reqs:0
+4-i'm done, reqs:0
+3-i'm done, reqs:0
+all finished
