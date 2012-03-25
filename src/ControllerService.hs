@@ -6,6 +6,7 @@ module ControllerService
 import Prelude hiding (catch)
 import Base
 import System.Time
+import MacLearning (PacketOutChan)
 import qualified NIB
 import qualified Nettle.OpenFlow as OF
 import qualified Nettle.Servers.Server as OFS
@@ -28,9 +29,10 @@ controller :: Chan NIB.Snapshot
            -> Chan NIB.Msg
            -> Chan PacketIn
            -> Chan (OF.SwitchID, Bool)
+           -> PacketOutChan
            -> Word16 
            -> IO ()
-controller netSnapshot toNIB packets switches port = do
+controller netSnapshot toNIB packets switches pktOut port = do
   server <- OFS.startOpenFlowServer Nothing port
   forever $ do
     (switch, switchFeatures) <- OFS.acceptSwitch server
@@ -40,6 +42,9 @@ controller netSnapshot toNIB packets switches port = do
     writeChan switches (OFS.handle2SwitchID switch, True)
     forkIO (handleSwitch packets toNIB switches switch)
     forkIO (configureSwitch netSnapshot switch NIB.emptySwitch)
+  forever $ do
+    (swID, xid, pktOut) <- readChan pktOut
+    OFS.sendToSwitchWithID server swID (xid, OF.PacketOut pktOut)
   OFS.closeServer server
 
 handleSwitch :: Chan PacketIn
@@ -86,6 +91,7 @@ configureSwitch netSnapshot switchHandle oldSw@(NIB.Switch oldPorts oldTbl) = do
       let msgs = mkFlowMods now tbl oldTbl
       unless (null msgs) $ do
         putStrLn $ "OpenFlow controller modifying tables on " ++ show switchID
+        putStrLn (show tbl)
       mapM_ (OFS.sendToSwitch switchHandle) (zip [84 ..] msgs)
       configureSwitch netSnapshot switchHandle sw
 

@@ -323,7 +323,7 @@ packet srcMAC dstMAC inPort =
 testMacLearn1 = TestLabel "should learn route " $ TestCase $ do
   swChan <- newChan
   pktChan <- newChan
-  tblChan <- ML.macLearning swChan pktChan
+  (tblChan, _) <- ML.macLearning swChan pktChan
   writeChan swChan (55, True)
   writeChan swChan (34, True)
   b <- isEmptyChan tblChan
@@ -399,7 +399,7 @@ mkPaneWithMacLearning = do
   packet <- newChan
   paneReq <- newChan
   time <- newChan
-  (tbl, paneResp) <- combinedPaneMac switch packet paneReq time
+  (tbl, paneResp, _) <- combinedPaneMac switch packet paneReq time
   return (tbl, paneResp, switch, packet, paneReq, time)
 
 testPaneMac0 = TestLabel "test PANE overriding MAC learning" $ TestCase $ do

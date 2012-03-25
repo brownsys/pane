@@ -79,14 +79,14 @@ action [NewServer port] = do
   switches <- newChan
   paneReq <- newChan
   putStrLn "Creating PANE + MAC Learning system..."
-  (tbl, paneResp) <- combinedPaneMac switches packetIn paneReq time
+  (tbl, paneResp, pktOut) <- combinedPaneMac switches packetIn paneReq time
   putStrLn $ "Starting PANE console on port " ++ show port ++ " ..."
   interactions port paneResp paneReq
   nibUpdates <- newChan -- TODO(arjun): write into this
   putStrLn "Starting compiler ..."
   netSnapshot <- compilerService (nib, nibUpdates) tbl
   putStrLn "Starting OpenFlow controller ..."
-  controller netSnapshot nibMsg packetIn switches 6633
+  controller netSnapshot nibMsg packetIn switches pktOut 6633
 action _ = fail "too many args"
 
 mainBody = do
