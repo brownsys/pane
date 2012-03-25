@@ -77,8 +77,8 @@ serverAction actionsVar conn cmd stRef = do
   return stRef
 
 authUser conn st actionsVar = do
-   -- TODO: what if command longer than 1024? or falls over a boundary?
-  msg <- recv conn 1024
+   -- TODO: what if command longer than 4096? or falls over a boundary?
+  msg <- recv conn 4096
   let msgStr = C.unpack msg
   let (spk, _:restMsg)  = span (/='.') msgStr
   processLoop spk conn st restMsg actionsVar
@@ -87,7 +87,7 @@ processLoop spk conn st msg actionsVar = do
   putStr (spk ++ " : ")
   putStrLn msg
   st' <- parseInteractive' spk msg (serverAction actionsVar conn) st
-  msg' <- recv conn 1024
+  msg' <- recv conn 4096
   if S.null msg'
     then do putStrLn (spk ++ " disconnected")
     else do processLoop spk conn st' (C.unpack msg') actionsVar

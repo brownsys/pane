@@ -37,6 +37,7 @@ Executable dnp
     aeson >= 0.4.0 && < 0.5,
     nettle-openflow,
     old-time,
-    HList
+    HList,
+    process
   ghc-options:
     -fwarn-incomplete-patterns

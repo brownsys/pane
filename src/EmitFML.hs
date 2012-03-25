@@ -105,6 +105,7 @@ flowToMatch (Flow srcUser destUser srcPort dstPort srcIP dstIP) =
   matchAny {
     srcTransportPort = srcPort,
     dstTransportPort = dstPort,
+    matchIPProtocol = Just ipTypeTcp, -- TODO: Will need to handle other transport protos, or ALL
     srcIPAddress = toIPPrefix srcIP,
     dstIPAddress = toIPPrefix dstIP,
     ethFrameType = Just ethTypeIP -- TODO: Will eventually need to match on MAC addrs as well

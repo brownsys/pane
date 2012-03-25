@@ -26,6 +26,7 @@ import Data.IORef
 import System.IO.Unsafe
 import Control.Exception (catch, SomeException)
 import qualified Nettle.Ethernet.EthernetAddress as EthAddr
+import System.Process
 
 learnedMACs :: HashTable SwitchID (HashTable EthernetAddress PortID)
 learnedMACs = unsafePerformIO (Ht.new (==) fromIntegral)
@@ -35,7 +36,7 @@ learnedRoutes :: IORef (Map IPAddress PortID)
 learnedRoutes = unsafePerformIO (newIORef Map.empty)
 
 nextQueueID :: IORef QueueID
-nextQueueID = unsafePerformIO (newIORef 0)
+nextQueueID = unsafePerformIO (newIORef 1)
 
 newQueueID :: IO QueueID
 newQueueID = do
@@ -83,7 +84,8 @@ reconfLoop ofpServer switches configMsgsVar = do
                 qid <- newQueueID
                 let cfg = ExtQueueModify dstPort
                             [QueueConfig qid [MinRateQueue (Enabled size)]]
-                sendToSwitchWithID ofpServer sw (11, cfg)
+                -- sendToSwitchWithID ofpServer sw (11, cfg)
+		rawSystem "./ovs-set-port-queue-min.sh" [show dstPort, show qid, show size]
                 let timeOut = case expiry of
                                 NoLimit -> Permanent
                                 DiscreteLimit n -> ExpireAfter (fromIntegral n)
@@ -108,7 +110,9 @@ reconfLoop ofpServer switches configMsgsVar = do
                            putStrLn "deleting queue..."
                            let cfg = ExtQueueDelete dstPort
                                        [QueueConfig qid []]
-                           sendToSwitchWithID ofpServer sw (12, cfg)
+                           -- sendToSwitchWithID ofpServer sw (12, cfg)
+			   rawSystem "./ovs-delete-port-queue.sh" [show dstPort, show qid]
+			   return ()
                     forkIO deleteQueue
                     return ()
   mapM_ (\sw -> mapM_ (createQueue sw) resvs) (Set.toList sws)
