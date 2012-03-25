@@ -23,6 +23,7 @@ import qualified NIB
 import ControllerService
 import OFCompiler (compilerService)
 import CombinedPaneMac
+import PaneInteractionServer (interactions)
 
 data Argument
   = Trace String
@@ -76,9 +77,11 @@ action [NewServer port] = do
   nib <- NIB.newEmptyNIB nibMsg
   packetIn <- newChan
   switches <- newChan
-  paneReq <- newChan -- TODO(arjun): write into this
+  paneReq <- newChan
   putStrLn "Creating PANE + MAC Learning system..."
   (tbl, paneResp) <- combinedPaneMac switches packetIn paneReq time
+  putStrLn $ "Starting PANE console on port " ++ show port ++ " ..."
+  interactions port paneResp paneReq
   -- TODO(arjun): read from paneResp
   nibUpdates <- newChan -- TODO(arjun): write into this
   putStrLn "Starting compiler ..."
