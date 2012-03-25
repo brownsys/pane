@@ -8,10 +8,11 @@ import re
 
 controller = Popen(['./dnp', '-n', '4242'])
 try:
-  theTopo = TreeTopo(depth=2,fanout=2)
+  theTopo = TreeTopo(depth=1,fanout=2)
   #theTopo = LinearTopo(k=3)
   net = Mininet(topo=theTopo,controller=RemoteController)
   net.start()
+  net.interact()
   print "Starting ping storm ..."
   for src in net.hosts:
     for dst in net.hosts:
