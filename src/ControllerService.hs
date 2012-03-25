@@ -82,6 +82,8 @@ configureSwitch netSnapshot switchHandle oldSw@(NIB.Switch oldPorts oldTbl) = do
     Just sw@(NIB.Switch ports tbl) -> do
       (TOD now _) <- getClockTime
       let msgs = mkFlowMods now tbl oldTbl
+      unless (null msgs) $ do
+        putStrLn $ "OpenFlow controller modifying tables on " ++ show switchID
       mapM_ (OFS.sendToSwitch switchHandle) (zip [84 ..] msgs)
       configureSwitch netSnapshot switchHandle sw
 
@@ -89,10 +91,10 @@ mkFlowMods :: Integer
            -> NIB.FlowTbl
            -> NIB.FlowTbl
            -> [OF.CSMessage]
-mkFlowMods now newTbl oldTbl = map OF.FlowMod (delMsg:msgs)
+mkFlowMods now newTbl oldTbl = map OF.FlowMod msgs
   where newTblPrio = zip newTbl [65536, 65534 .. ]
         delMsg = OF.DeleteFlows OF.matchAny Nothing
-        msgs =  map mkAddFlow newTblPrio
+        addMsgs =  map mkAddFlow newTblPrio
         mkAddFlow ((match, acts, expiry), prio) = 
           OF.AddFlow {
             OF.match = match,
@@ -104,7 +106,10 @@ mkFlowMods now newTbl oldTbl = map OF.FlowMod (delMsg:msgs)
             OF.notifyWhenRemoved = False,
             OF.applyToPacket = Nothing,
             OF.overlapAllowed = True
-         }
+          }
+        msgs = case newTbl == oldTbl of
+          True -> []
+          False -> delMsg:addMsgs
 
       
 -- TODO(arjun): toTimeout will fail if (end - now) does not fit in a Word16

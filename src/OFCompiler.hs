@@ -86,5 +86,4 @@ compile nib (MatchTable tbl) = do
                                 end)
           return (foldl queue switches path)
   snap <- NIB.snapshot nib
-  putStrLn $ "Compiler recalculating network configuration."
   foldM loop snap tbl

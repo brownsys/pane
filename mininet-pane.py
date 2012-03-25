@@ -13,7 +13,7 @@ try:
   print "Starting ping storm ..."
   for src in net.hosts:
     for dst in net.hosts:
-      cmd = 'ping -c1 %s' % dst.IP()
+      cmd = 'ping -c5 %s' % dst.IP()
       out = src.cmd(cmd)
       m = re.search(r"(\d+)% packet loss", out)
       if True:
