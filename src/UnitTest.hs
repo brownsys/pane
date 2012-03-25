@@ -23,6 +23,7 @@ import qualified MacLearning as ML
 import qualified Data.ByteString as BS
 import Data.HList
 import Data.Word
+import CombinedPaneMac
 
 putStrLn = hPutStrLn stderr
 
@@ -204,9 +205,9 @@ testDeny1Switch = TestLabel "compile deny to 1 switch" $ TestCase $ do
       let tbl = compileShareTree 0 (FC.getShareTree state)
       putStrLn "testCompile1"
       nib1 <- mkNib1
-      cfg <- OFC.compile 0 nib1 tbl
+      cfg <- OFC.compile nib1 tbl
       case Map.toList cfg of
-        [(0, NIB.Switch _ [(m, [], OF.ExpireAfter 15)])] ->
+        [(0, NIB.Switch _ [(m, [], 15)])] ->
           assertEqual "should deny flowHttp1" (Flows.toMatch flowHttp1) m
         x -> assertFailure $ "should see a single deny entry, got " ++ show x
 
@@ -219,9 +220,9 @@ testResv1Switch = TestLabel "compile Resv to 1 switch" $ TestCase $ do
       putStrLn "testCompile1"
       putStrLn (show tbl)
       nib1 <- mkNib1
-      cfg <- OFC.compile 0 nib1 tbl
+      cfg <- OFC.compile nib1 tbl
       case Map.toList cfg of
-        [(0, NIB.Switch _ [(m, [OF.Enqueue 0 0], OF.ExpireAfter 15)])] ->
+        [(0, NIB.Switch _ [(m, [OF.Enqueue 0 0], 15)])] ->
           assertEqual "should resv flowHttp1" (Flows.toMatch flowHttp1) m
         x -> assertFailure $ "should see a single enqueue entry, got " ++ show x
 
@@ -234,10 +235,10 @@ testDeny2Switch = TestLabel "compile deny to 2 switches" $ TestCase $ do
       putStrLn "----------- testDeny2Switch ---------------"
       putStrLn (show tbl)
       nib2 <- mkNib2
-      cfg <- OFC.compile 0 nib2 tbl
+      cfg <- OFC.compile nib2 tbl
       case Map.toList cfg of
         [(0, NIB.Switch _ []),
-         (1, NIB.Switch _ [(m, [], OF.ExpireAfter 15)])] ->
+         (1, NIB.Switch _ [(m, [], 15)])] ->
           assertEqual "should deny flowHttp1" (Flows.toMatch flowHttp1) m
         x -> assertFailure $ "should see a single deny entry, got " ++ show x
 
@@ -249,10 +250,10 @@ testResv2Switch = TestLabel "compile Resv to 2 switches" $ TestCase $ do
       let tbl = compileShareTree 0 (FC.getShareTree state)
       putStrLn "---------- testResv2Switch ------------"
       nib2 <- mkNib2
-      cfg <- OFC.compile 0 nib2 tbl
+      cfg <- OFC.compile nib2 tbl
       case Map.toList cfg of
-        [(0, NIB.Switch _ [(m1, [OF.Enqueue 0 0], OF.ExpireAfter 15)]),
-         (1, NIB.Switch _ [(m2, [OF.Enqueue 1 0], OF.ExpireAfter 15)])] -> do
+        [(0, NIB.Switch _ [(m1, [OF.Enqueue 0 0], 15)]),
+         (1, NIB.Switch _ [(m2, [OF.Enqueue 1 0], 15)])] -> do
           assertEqual "should resv flowHttp1" (Flows.toMatch flowHttp1) m1
           assertEqual "should resv flowHttp1" (Flows.toMatch flowHttp1) m2
         x -> assertFailure $ "should see a single enqueue entry, got " ++ show x
@@ -266,7 +267,8 @@ compileWithNIBTests = TestLabel "compile with NIB tests" $ TestList
   ]
 
 mkNib1 = do
-  nib <- NIB.newEmptyNIB
+  ch <- newChan
+  nib <- NIB.newEmptyNIB ch
   (Just sw1) <- NIB.addSwitch 0 nib
   (Just ep1) <- NIB.addEndpoint (ethernetAddress64 1111) ip_10_0_0_1 nib
   (Just ep2) <- NIB.addEndpoint (ethernetAddress64 2222) ip_10_0_0_2 nib
@@ -277,7 +279,8 @@ mkNib1 = do
   return nib
 
 mkNib2 = do
-  nib <- NIB.newEmptyNIB
+  ch <- newChan
+  nib <- NIB.newEmptyNIB ch
   (Just sw1) <- NIB.addSwitch 0 nib
   (Just sw2) <- NIB.addSwitch 1 nib
   (Just ep1) <- NIB.addEndpoint (ethernetAddress64 1111) ip_10_0_0_1 nib
@@ -320,21 +323,21 @@ packet srcMAC dstMAC inPort =
 testMacLearn1 = TestLabel "should learn route " $ TestCase $ do
   swChan <- newChan
   pktChan <- newChan
-  tblChan <- ML.macLearning swChan pktChan
+  (tblChan, _) <- ML.macLearning swChan pktChan
   writeChan swChan (55, True)
   writeChan swChan (34, True)
   b <- isEmptyChan tblChan
   assertEqual "switches should not trigger table updates" True b
-  writeChan pktChan (34, packet 100 200 1)
+  writeChan pktChan (0, 34, packet 100 200 1)
   tbl <- readChan tblChan
   assertEqual "should learn a flood and 1 route"
-    (MatchTable [ML.rule 34 (ethernetAddress64 100) (Just 1), 
-                 ML.rule 34 (ethernetAddress64 200) Nothing]) tbl 
-  writeChan pktChan (34, packet 200 100 2)
+    (MatchTable [ML.rule 0 34 (ethernetAddress64 100) (Just 1), 
+                 ML.rule 0 34 (ethernetAddress64 200) Nothing]) tbl 
+  writeChan pktChan (0, 34, packet 200 100 2)
   tbl <- readChan tblChan
   assertEqual "should learn two routes"
-    (MatchTable [ML.rule 34 (ethernetAddress64 100) (Just 1), 
-                 ML.rule 34 (ethernetAddress64 200) (Just 2)]) tbl 
+    (MatchTable [ML.rule 0 34 (ethernetAddress64 100) (Just 1), 
+                 ML.rule 0 34 (ethernetAddress64 200) (Just 2)]) tbl 
 
 
 
@@ -385,12 +388,52 @@ testPane24 = TestLabel "token graphs should work" $ TestCase $ do
   writeChan time 11
   assertReadChanEqual "compiled table should have resv of 200"
     (MatchTable [(Flows.all, Just (ReqResv 200, NoLimit))]) tbl  
-  
-
 
 paneTests = TestLabel "Test PANE manager" $ TestList
   [ testPane10
   , testPane24
+  ]
+
+mkPaneWithMacLearning = do
+  switch <- newChan
+  packet <- newChan
+  paneReq <- newChan
+  time <- newChan
+  (tbl, paneResp, _) <- combinedPaneMac switch packet paneReq time
+  return (tbl, paneResp, switch, packet, paneReq, time)
+
+testPaneMac0 = TestLabel "test PANE overriding MAC learning" $ TestCase $ do
+  (tbl, resp, switch, pkt, req, time) <- mkPaneWithMacLearning
+  writeChan switch (55, True)
+  writeChan switch (34, True)
+  writeChan pkt (0, 34, packet 0xbb 0xfe 1)
+  let ethbb = ethernetAddress64 0xbb
+  assertReadChanEqual "should learn a flood and 1 route"
+    (MatchTable [ML.rule 0 34 ethbb (Just 1), 
+                 ML.rule 0 34 (ethernetAddress64 0xfe) Nothing]) 
+    tbl 
+  writeChan pkt (0, 34, packet 0xfe 0xbb 2)
+  assertReadChanEqual "should learn two routes"
+    (MatchTable [ML.rule 0 34 (ethernetAddress64 0xbb) (Just 1), 
+                 ML.rule 0 34 (ethernetAddress64 0xfe) (Just 2)])
+    tbl 
+  writeChan req ("root", "deny(dstEth=00:00:00:00:00:bb) on rootShare.")
+  assertReadChanEqual "root should be able to deny" ("root", "True") resp
+  writeChan time 0 -- TODO(arjun): paneMan only writes on ticks. problem?
+  assertReadChanEqual "deny should override MAC learning"
+    (MatchTable [
+      (Flows.fromSwitchMatch 34 (OF.matchAny { OF.dstEthAddress = Just ethbb }),
+       Just (ReqDeny, NoLimit)),
+      (Flows.fromMatch (OF.matchAny { OF.dstEthAddress = Just ethbb }),
+       Just (ReqDeny, NoLimit)),
+      ML.rule 0 34 (ethernetAddress64 0xfe) (Just 2)])
+    tbl 
+  
+  
+
+
+paneMacTests = TestLabel "Test PANE with Mac learning" $ TestList
+  [ testPaneMac0
   ]
 
 allTests = TestList
@@ -400,6 +443,7 @@ allTests = TestList
   , nibTests
   , macLearningTests
   , paneTests
+  , paneMacTests
   ]
 
 main = do

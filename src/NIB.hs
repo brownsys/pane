@@ -3,6 +3,7 @@ module NIB
   , Endpoint (..)
   , FlowTbl (..)
   , PortCfg (..)
+  , Msg (..)
   , newQueue
   , switchWithNPorts
   , newEmptyNIB
@@ -16,13 +17,16 @@ module NIB
   , snapshot
   , NIB
   , Snapshot
+  , emptySwitch
   ) where
 
 import Debug.Trace
 import qualified Nettle.OpenFlow as OF
+import qualified Nettle.Servers.Server as OFS
 import ShareSemantics (MatchTable (..))
 import Base
 import qualified Nettle.OpenFlow as OF
+import qualified Nettle.OpenFlow.StrictPut as OFBS
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
@@ -34,8 +38,9 @@ import Data.HashTable (HashTable)
 import qualified Data.HashTable as Ht
 import Data.Maybe (isJust, fromJust, catMaybes)
 import System.IO.Unsafe (unsafePerformIO)
+import qualified Data.HList as HL
 
-type FlowTblEntry = (OF.Match, [OF.Action], OF.TimeOut)
+type FlowTblEntry = (OF.Match, [OF.Action], Limit)
 
 type FlowTbl = [FlowTblEntry]
 
@@ -77,12 +82,81 @@ data Element
   | ToEndpoint EndpointData
   | ToSwitch SwitchData PortData
 
-newEmptyNIB :: IO NIB
-newEmptyNIB = do
+instance Show Element where
+  show ToNone = "<nothing>"
+  show (ToEndpoint ep) = show (endpointIP ep)
+  show (ToSwitch sw _) = show (switchSwitchID sw)
+
+instance Show PortData where
+  show p = show (portAttachedTo p) ++ ":" ++ show (portPortID p)
+
+data Msg
+  = NewSwitch OFS.SwitchHandle OF.SwitchFeatures
+  | PacketIn OF.SwitchID OF.PacketInfo
+
+newEmptyNIB :: Chan Msg -> IO NIB
+newEmptyNIB msg = do
   s <- Ht.new (==) ((Ht.hashInt).fromIntegral)
   e <- Ht.new (==) ((Ht.hashInt).fromIntegral.(OF.unpack64))
   i <- Ht.new (==) ((Ht.hashInt).fromIntegral.(OF.ipAddressToWord32))
-  return (NIB s e i)
+  let nib = NIB s e i
+  forkIO (forever (readChan msg >>= nibMutator nib))
+  return nib
+
+nibMutator :: NIB -> Msg -> IO ()
+nibMutator nib (NewSwitch handle features) = do
+  let swID = OF.switchID features
+  maybe <- addSwitch swID nib
+  case maybe of
+    Nothing -> putStrLn $ "nibMutator: switch already exists " ++ show swID
+    Just sw -> do
+      putStrLn $ "NIB added switch " ++ show swID ++ "."
+      let addPort' p = do
+            maybe <- addPort (OF.portID p) sw
+            case maybe of
+              Nothing -> putStrLn $ "nibMutator: port already exists"
+              Just _ -> do
+                putStrLn $ "NIB added port " ++ show (OF.portID p) ++ 
+                           " on switch " ++ show swID
+                sendDP handle (OF.portID p)
+                return ()
+      mapM_ addPort' (OF.ports features)
+nibMutator nib (PacketIn tS pkt) = case OF.enclosedFrame pkt of
+  Right (HL.HCons _ (HL.HCons (OF.PaneDPInEthernet fS fP) HL.HNil)) -> do
+    let tP = OF.receivedOnPort pkt
+    yFromSwitch <- Ht.lookup (nibSwitches nib) fS
+    yToSwitch <- Ht.lookup (nibSwitches nib) tS
+    case (yFromSwitch, yToSwitch) of
+      (Just fromSwitch, Just toSwitch) -> do
+        yFromPort <- Ht.lookup (switchPorts fromSwitch) fP
+        yToPort <- Ht.lookup (switchPorts toSwitch) tP
+        case (yFromPort, yToPort) of
+          (Just fromPort, Just toPort) -> do
+            b <- linkPorts fromPort toPort
+            case b of
+              True -> putStrLn $ "NIB added link from " ++ show (fS, fP) ++ 
+                                 " to " ++  show (tS, tP)
+              False -> do
+                fromPort' <- followLink fromPort
+                toPort' <- followLink toPort
+                putStrLn $ "NIB warning: ports already linked: " ++ 
+                  show (fromPort, fromPort') ++ " and " ++ 
+                  show (toPort, toPort')
+          otherwise -> putStrLn "NIB failed to find port(s)"
+      otherwise -> putStrLn "NIB failed to find switch(s)"
+  otherwise -> return ()
+ 
+  
+
+sendDP :: OFS.SwitchHandle -> OF.PortID -> IO ()
+sendDP handle portID = do
+  let hdr = OF.EthernetHeader OF.broadcastAddress OF.broadcastAddress
+                              OF.ethTypePaneDP
+  let body = OF.PaneDPInEthernet (OFS.handle2SwitchID handle) portID
+  let frm = HL.HCons hdr (HL.HCons body HL.HNil)
+  let bs = OFBS.runPutToByteString 200 (OF.putEthFrame frm)
+  let out = OF.PacketOutRecord (Right bs) Nothing (OF.sendOnPort portID)
+  OFS.sendToSwitch handle (0xbe, OF.PacketOut out)
 
 addSwitch :: OF.SwitchID -> NIB -> IO (Maybe SwitchData)
 addSwitch newSwitchID nib = do
@@ -250,7 +324,10 @@ snapshot nib = do
 
 data PortCfg = PortCfg (Map OF.QueueID Queue) deriving (Show, Eq)
 
-data Switch = Switch (Map OF.PortID PortCfg) FlowTbl deriving (Show, Eq)
+data Switch = Switch {
+  switchPortMap :: Map OF.PortID PortCfg,
+  switchTbl :: FlowTbl 
+} deriving (Show, Eq)
 
 data Endpoint = Endpoint OF.IPAddress OF.EthernetAddress deriving (Show, Eq)
 
@@ -260,6 +337,8 @@ data Edge
   deriving (Show, Eq)
 
 type Network = (Map OF.SwitchID Switch, [Endpoint], [Edge])
+
+emptySwitch = Switch Map.empty []
 
 -- |'unusedNum lst' returns the smallest positive number that is not in 'lst'.
 -- Assumes that 'lst' is in ascending order.

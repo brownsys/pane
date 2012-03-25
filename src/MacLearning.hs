@@ -1,6 +1,7 @@
 module MacLearning 
   ( rule
   , macLearning
+  , PacketOutChan
   ) where
 
 import Base
@@ -18,22 +19,26 @@ getPacketMac pkt = case OF.enclosedFrame pkt of
             dstMac = OF.destMACAddress ethHdr
   otherwise -> Nothing
 
-rule :: OF.SwitchID -> OF.EthernetAddress -> Maybe OF.PortID 
+rule :: Integer
+     -> OF.SwitchID -> OF.EthernetAddress -> Maybe OF.PortID 
      -> (Flows.FlowGroup, Action)
-rule sw eth port =  
+rule now sw eth port =  
   (Flows.fromSwitchMatch sw (OF.matchAny { OF.dstEthAddress = Just eth }),
    case port of
-     Nothing -> Just (ReqOutPort sw OF.Flood, 5)
-     Just portID -> Just (ReqOutPort sw (OF.PhysicalPort portID), 60))
+     Nothing -> Just (ReqOutPort sw OF.Flood, fromInteger $ now + 5)
+     Just portID -> Just (ReqOutPort sw (OF.PhysicalPort portID), 
+                          fromInteger $ now + 60))
 
+type PacketOutChan = Chan (OF.SwitchID, OF.TransactionID, OF.PacketOut)
 
--- TODO(arjun): expire flood rules
 macLearning :: Chan (OF.SwitchID, Bool)          -- ^switches (created/deleted)
-            -> Chan (OF.SwitchID, OF.PacketInfo) -- ^packets seen by controller
-            -> IO (Chan MatchTable)              -- ^MAC learned routes
+            -> Chan (Integer, OF.SwitchID, OF.PacketInfo)
+                 -- ^packets seen by controller
+            -> IO (Chan MatchTable, PacketOutChan)
 macLearning switchChan packetChan = do
   msgChan <- mergeChan switchChan packetChan
   outChan <- newChan
+  packetOut <- newChan
   -- learned :: HashTable SwitchID (HashTable EthernetAddress PortID)
   learned <- Ht.new (==) ((Ht.hashInt).fromIntegral)
   tbl <- newIORef emptyTable
@@ -42,7 +47,7 @@ macLearning switchChan packetChan = do
         Ht.insert learned newSwitchID macs
       loop (Left (oldSwitchID, False)) = do
         Ht.delete learned oldSwitchID
-      loop (Right (switchID, packet)) = case getPacketMac packet of
+      loop (Right (now, switchID, packet)) = case getPacketMac packet of
         Just (srcPort, srcMac, dstMac) -> do
           maybeFwdTbl <- Ht.lookup learned switchID
           case maybeFwdTbl of
@@ -50,15 +55,24 @@ macLearning switchChan packetChan = do
             Just fwdTbl -> do
               Ht.insert fwdTbl srcMac srcPort
               maybeDstPort <- Ht.lookup fwdTbl dstMac
-              let singleTbl = MatchTable [rule switchID srcMac (Just srcPort),
-                                          rule switchID dstMac maybeDstPort]
-
+              let singleTbl = MatchTable 
+                    [rule now switchID srcMac (Just srcPort),
+                     rule now switchID dstMac maybeDstPort]
+              case OF.bufferID packet of
+                Nothing -> return ()
+                Just bufID -> do
+                  let action = case maybeDstPort of
+                        Nothing -> OF.flood
+                        Just port -> OF.sendOnPort port
+                  writeChan packetOut
+                    (switchID, 0, 
+                     OF.PacketOutRecord (Left bufID) (Just srcPort) action)
               oldTbl <- readIORef tbl
               let tbl' = condense $ unionTable (\_ new -> new) oldTbl singleTbl
               writeIORef tbl tbl'
               writeChan outChan tbl'
-        Nothing -> putStrLn $ "unhandled packet: " ++ show packet
+        Nothing -> return ()
   forkIO $ forever (readChan msgChan >>= loop)
-  return outChan 
+  return (outChan, packetOut)
 
         

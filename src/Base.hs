@@ -4,6 +4,7 @@ module Base
   , User
   , Host
   , Port
+  , Word16
   , traceFile
   , Shared (..)
   , DNPResult (..)
@@ -21,6 +22,8 @@ module Base
   , module Control.Concurrent
   , mergeChan
   , unionChan
+  , unionChanIO3
+  , module Control.Exception
   ) where
 
 import Control.Monad
@@ -38,11 +41,39 @@ import Nettle.IPv4.IPAddress
 import Nettle.OpenFlow hiding (Port)
 import Flows
 import qualified Nettle.OpenFlow as OF
+import Control.Exception (catch, SomeException)
 
 traceFile :: IORef (Maybe Handle)
 traceFile = unsafePerformIO (newIORef Nothing)
 
-unionChan :: (a -> b -> c) -> (a, Chan a) -> (b, Chan b) -> IO (Chan c)
+unionChanIO3 :: (a -> b -> c -> IO d) 
+             -> (a, Chan a)
+             -> (b, Chan b)
+             -> (c, Chan c)
+             -> IO (Chan d)
+unionChanIO3 fn (initA, chanA) (initB, chanB) (initC, chanC) = do
+  merged' <- mergeChan chanA chanB
+  merged <- mergeChan merged' chanC
+  result <- newChan
+  let loop a b c = do
+        v <- readChan merged
+        case v of
+          Left (Left a') -> do
+            r <- fn a' b c
+            writeChan result r
+            loop a' b c
+          Left (Right b') -> do
+            r <- fn a b' c
+            writeChan result r
+            loop a b' c
+          Right c' -> do
+            r <- fn a b c'
+            writeChan result r
+            loop a b c'
+  forkIO (loop initA initB initC)
+  return result
+
+unionChan :: (a -> b -> IO c) -> (a, Chan a) -> (b, Chan b) -> IO (Chan c)
 unionChan fn (initA, chanA) (initB, chanB) = do
   merged <- mergeChan chanA chanB
   result <- newChan
@@ -50,11 +81,11 @@ unionChan fn (initA, chanA) (initB, chanB) = do
         v <- readChan merged
         case v of
           Left a' -> do
-            let r = fn a' b
+            r <- fn a' b
             writeChan result r
             loop a' b
           Right b' -> do
-            let r = fn a b'
+            r <- fn a b'
             writeChan result r
             loop a b'
   forkIO (loop initA initB)

@@ -120,11 +120,16 @@ flowInGroup (Flow _ _ sp dp sh dh) (FlowMatch _ m) =
 intersection :: FlowGroup -> FlowGroup -> FlowGroup
 intersection _              Empty          = Empty
 intersection Empty          _              = Empty
-intersection (FlowMatch sw1 m1) (FlowMatch sw2 m2)
-  | sw1 == sw2 = case Match.intersect m1 m2 of
-                   Just m' -> FlowMatch sw1 m'
-                   Nothing -> Empty
-  | otherwise = Empty
+intersection (FlowMatch sw1 m1) (FlowMatch sw2 m2) = 
+  let sw' = case (sw1, sw2) of
+              (Just s, Just s') -> if s == s' then Just (Just s) else Nothing
+              (Just s, Nothing) -> Just (Just s)
+              (Nothing, Just s') -> Just (Just s')
+              (Nothing, Nothing) -> Just Nothing
+      m' = Match.intersect m1 m2
+    in case (sw', m') of
+         (Just s, Just m) -> FlowMatch s m
+         otherwise -> Empty
 
 null :: FlowGroup -> Bool
 null Empty = True
@@ -137,7 +142,11 @@ isSubFlow :: FlowGroup -> FlowGroup -> Bool
 isSubFlow Empty          _              = True
 isSubFlow _              Empty          = False
 isSubFlow (FlowMatch sw1 m1) (FlowMatch sw2 m2) = 
-  sw1 == sw2 && Match.subset m1 m2
+  let swContained = case (sw1, sw2) of
+        (_, Nothing) -> True
+        (Just s, Just s') -> s == s'
+        (Nothing, Just _) -> False
+    in swContained && Match.subset m1 m2
 
 -- TODO(arjun): expand is a nonsensical function used only in EmitFML
 expand :: FlowGroup -> [Flow]
