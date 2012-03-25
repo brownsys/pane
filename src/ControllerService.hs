@@ -74,8 +74,10 @@ messageHandler packets toNIB switch (xid, msg) = case msg of
     (TOD now _) <- getClockTime
     writeChan packets (xid, now, OFS.handle2SwitchID switch, pkt)
     writeChan toNIB (NIB.PacketIn (OFS.handle2SwitchID switch) pkt)
-  otherwise -> putStrLn $ "unhandled message from switch " ++ 
-                 (show $ OFS.handle2SwitchID switch) -- ++ "\n" ++ show msg
+  otherwise -> do
+    -- putStrLn $ "unhandled message from switch " ++ 
+    --             (show $ OFS.handle2SwitchID switch) -- ++ "\n" ++ show msg
+    return ()
 
 configureSwitch :: Chan NIB.Snapshot
                 -> OFS.SwitchHandle
@@ -92,10 +94,12 @@ configureSwitch netSnapshot switchHandle oldSw@(NIB.Switch oldPorts oldTbl) = do
     Just sw@(NIB.Switch ports tbl) -> do
       (TOD now _) <- getClockTime
       let msgs = mkFlowMods now tbl oldTbl
-      unless (null msgs) $ do
+      {- unless (null msgs) $ do
          putStrLn $ "OpenFlow controller modifying tables on " ++ show switchID
-         mapM_ (putStrLn.show) msgs
-         return ()
+         putStrLn $ "sending " ++ show (length msgs) ++ " messages; oldTbl size = " ++ show (Set.size oldTbl) ++ " tbl size = " ++ show (Set.size tbl)
+         mapM_ (\x -> putStrLn $ "   " ++ show x) msgs
+         putStrLn "-------------------------------------------------"
+         return () -}
       mapM_ (OFS.sendToSwitch switchHandle) (zip [84 ..] msgs)
       configureSwitch netSnapshot switchHandle sw
 

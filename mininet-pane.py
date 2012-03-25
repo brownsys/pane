@@ -14,7 +14,7 @@ def time():
 os.system('mn -c')
 controller = Popen(['./dnp', '-n', '4242'])
 try:
-  theTopo = TreeTopo(depth=4,fanout=2)
+  theTopo = TreeTopo(depth=3,fanout=2)
   #theTopo = LinearTopo(k=2)
   net = Mininet(topo=theTopo,controller=RemoteController)
   net.start()

@@ -14,6 +14,7 @@ module Flows
   , make
   , simple
   , toMatch
+  , toMatch'
   , flowSwitchMatch
   , fromSwitchMatch
   , fromMatch
@@ -45,13 +46,18 @@ data FlowGroup
   | Empty
   deriving (Ord, Eq, Show)
 
-toMatch :: FlowGroup -> Match
-toMatch (FlowMatch Nothing m) = m
-toMatch _         = error "Flows.toMatch Empty"
+toMatch :: FlowGroup -> Maybe Match
+toMatch (FlowMatch _ m) = Just m
+toMatch _               = Nothing
 
-flowSwitchMatch :: FlowGroup -> Maybe (OF.SwitchID, OF.Match)
-flowSwitchMatch (FlowMatch (Just sw) match) = Just (sw, match)
-flowSwitchMatch _                           = Nothing
+toMatch' :: FlowGroup -> Match
+toMatch' f = case toMatch f of
+  Just m -> m
+  Nothing -> error "Flows.toMatch invalid argument"
+
+flowSwitchMatch :: FlowGroup -> Maybe (Maybe OF.SwitchID, OF.Match)
+flowSwitchMatch (FlowMatch sw match) = Just (sw, match)
+flowSwitchMatch _                    = Nothing
 
 fromSwitchMatch :: OF.SwitchID -> OF.Match -> FlowGroup
 fromSwitchMatch sid m = FlowMatch (Just sid) m

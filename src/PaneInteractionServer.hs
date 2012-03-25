@@ -27,6 +27,7 @@ interactions port toClient fromClient = do
 authUser conn fromClient toClient = do
   msg <- hGetLine conn
   let (spk, _)  = span (/='.') msg
+  writeChan toClient (spk, "logged in")
   forkIO $ forever $ do
     (spk', msg) <- readChan toClient
     when (spk == spk') $ do

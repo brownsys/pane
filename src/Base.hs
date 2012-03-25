@@ -207,7 +207,7 @@ data ReqData
   = ReqResv Integer
   | ReqAllow
   | ReqDeny
-  | ReqOutPort OF.SwitchID OF.PseudoPort
+  | ReqOutPort (Maybe OF.SwitchID) OF.PseudoPort
   deriving (Eq, Ord, Show)
 
 instance ToJSON Limit where

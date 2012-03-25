@@ -23,6 +23,7 @@ module NIB
 
 import Debug.Trace
 import qualified Nettle.OpenFlow as OF
+import qualified Nettle.Ethernet.AddressResolutionProtocol as OFARP
 import qualified Nettle.Servers.Server as OFS
 import ShareSemantics (MatchTable (..))
 import Base
@@ -133,24 +134,65 @@ nibMutator nib (PacketIn tS pkt) = case OF.enclosedFrame pkt of
         yToPort <- Ht.lookup (switchPorts toSwitch) tP
         case (yFromPort, yToPort) of
           (Just fromPort, Just toPort) -> do
-            b <- linkPorts fromPort toPort
-            case b of
-              True -> putStrLn $ "NIB added link from " ++ show (fS, fP) ++ 
-                                 " to " ++  show (tS, tP)
-              False -> do
-                fromPort' <- followLink fromPort
-                toPort' <- followLink toPort
-                putStrLn $ "NIB warning: ports already linked: " ++ 
-                  show (fromPort, fromPort') ++ " and " ++ 
-                  show (toPort, toPort')
+            toDevice <- readIORef (portConnectedTo fromPort)
+            case toDevice of
+              ToNone -> do
+                linkPorts fromPort toPort
+                return ()
+              ToEndpoint ep -> do
+                Ht.delete (nibEndpoints nib) (endpointEthAddr ep)
+                Ht.delete (nibEndpointsByIP nib) (endpointIP ep)
+                writeIORef (portConnectedTo fromPort) ToNone
+                writeIORef (portConnectedTo toPort) ToNone
+                linkPorts fromPort toPort
+                return ()
+              ToSwitch _ _ -> do
+                putStrLn "NIB already linked to a switch"
           otherwise -> putStrLn "NIB failed to find port(s)"
       otherwise -> putStrLn "NIB failed to find switch(s)"
+  Right (HL.HCons hdr (HL.HCons (OF.ARPInEthernet arp) HL.HNil)) -> do
+    let srcEth = OF.sourceMACAddress hdr
+    let srcIP = case arp of
+          OFARP.ARPQuery qp -> OFARP.querySenderIPAddress qp
+          OFARP.ARPReply rp -> OFARP.replySenderIPAddress rp
+    let srcPort = OF.receivedOnPort pkt
+    ySwitch <- Ht.lookup (nibSwitches nib) tS
+    let hostStr = show (srcEth, srcIP)
+    case ySwitch of
+      Nothing -> do
+        putStrLn $ "NIB cannot find switch for " ++ hostStr
+        return ()
+      Just switch -> do
+        maybe <- Ht.lookup (switchPorts switch) srcPort
+        case maybe of
+          Nothing -> do
+            putStrLn $ "NIB cannot find switch for " ++ hostStr
+            return ()
+          Just port -> do
+            connectedTo <- readIORef (portConnectedTo port)
+            case connectedTo of
+              ToNone -> do
+                maybe <- addEndpoint srcEth srcIP nib
+                case maybe of
+                  Nothing -> do
+                    putStrLn $ "NIB already knows " ++ hostStr
+                    return ()
+                  Just endpoint -> do
+                    b <- linkPorts port (endpointPort endpoint)
+                    putStrLn $ "NIB discovered host " ++ (show (srcEth, srcIP)) ++ " " ++ show b
+                    return ()
+              conn -> do
+                putStrLn $ "NIB already connects " ++ hostStr ++ " to " ++ 
+                           show conn
+                return ()
+
   otherwise -> return ()
  
   
 
 sendDP :: OFS.SwitchHandle -> OF.PortID -> IO ()
 sendDP handle portID = do
+  threadDelay 1000
   let ethAddr = OF.ethernetAddress64 0
   let hdr = OF.EthernetHeader ethAddr ethAddr OF.ethTypePaneDP
   let body = OF.PaneDPInEthernet (OFS.handle2SwitchID handle) portID
@@ -162,15 +204,12 @@ sendDP handle portID = do
 addSwitch :: OF.SwitchID -> NIB -> IO (Maybe SwitchData)
 addSwitch newSwitchID nib = do
   maybe <- Ht.lookup (nibSwitches nib) newSwitchID
-  case maybe of
-    Just _  -> return Nothing
-    Nothing -> do
-      flowTbl <- newIORef Set.empty
-      ports <- Ht.new (==) ((Ht.hashInt).fromIntegral)
-      updListener <- newIORef (\_ -> return ()) 
-      let sw = SwitchData newSwitchID flowTbl ports updListener
-      Ht.insert (nibSwitches nib) newSwitchID sw
-      return (Just sw)
+  flowTbl <- newIORef Set.empty
+  ports <- Ht.new (==) ((Ht.hashInt).fromIntegral)
+  updListener <- newIORef (\_ -> return ()) 
+  let sw = SwitchData newSwitchID flowTbl ports updListener
+  Ht.insert (nibSwitches nib) newSwitchID sw
+  return (Just sw)
 
 addPort :: OF.PortID -> SwitchData -> IO (Maybe PortData)
 addPort newPortID switch = do
@@ -242,17 +281,14 @@ data Nbh
 
 getEndpointNbh :: NbhWalk -> EndpointData -> IO Nbh
 getEndpointNbh walk endpoint = do
-  putStrLn $ "in getEndpointNbh " ++ (show $ endpointEthAddr endpoint)
   otherEnd <- readIORef (portConnectedTo (endpointPort endpoint))
   case otherEnd of
     ToNone -> do
-      putStrLn "orphan endpoint"
       return (EpNbh walk (endpointEthAddr endpoint) Nothing)
     ToEndpoint otherEndpoint -> do
       let nbh = unsafePerformIO $ getEndpointNbh walk otherEndpoint
       return (EpNbh walk (endpointEthAddr endpoint) (Just nbh))
     ToSwitch switch otherPort -> do
-      putStrLn "connected EP"
       let nbh = unsafePerformIO $ getSwitchNbh (portPortID otherPort) [] switch
       return (EpNbh walk (endpointEthAddr endpoint) (Just nbh))
 

@@ -25,9 +25,15 @@ rule :: Integer
 rule now sw eth port =  
   (Flows.fromSwitchMatch sw (OF.matchAny { OF.dstEthAddress = Just eth }),
    case port of
-     Nothing -> Just (ReqOutPort sw OF.Flood, fromInteger $ now + 5)
-     Just (portID, t) -> Just (ReqOutPort sw (OF.PhysicalPort portID), 
-                               fromInteger t))
+     Nothing -> Just (ReqOutPort (Just sw) OF.Flood, fromInteger $ now + 5)
+     Just (portID, t) -> Just (ReqOutPort (Just sw) (OF.PhysicalPort portID), 
+                               fromInteger $ t + 60))
+
+broadcastRule switchID srcMac srcPort t =
+  (Flows.fromSwitchMatch switchID
+     (OF.matchAny { OF.srcEthAddress = Just srcMac,
+                    OF.dstEthAddress = Just OF.broadcastAddress }),
+      Just (ReqOutPort (Just switchID) OF.Flood, fromInteger $ t + 60))
 
 type PacketOutChan = Chan (OF.SwitchID, OF.TransactionID, OF.PacketOut)
 
@@ -53,32 +59,38 @@ macLearning switchChan packetChan = do
           case maybeFwdTbl of
             Nothing -> putStrLn "MAC learning error: no table"
             Just fwdTbl -> do
+              {- putStrLn $ "RECV t=" ++ show now ++ " srcEth=" ++ 
+                              show srcMac ++ " dstEth=" ++ show dstMac ++
+                             " switch=" ++ show switchID ++ " port=" ++ 
+                             show srcPort  -}
+
               maybe <- Ht.lookup fwdTbl srcMac
               -- now' avoid refreshing MAC learned rules on switches when
               -- lots of PacketIn messags appear in a short (2sec) interval.
               let now' = case maybe of
-                   Just (srcPort', now') | srcPort' == srcPort && now' + 2 < now ->
+                   Just (srcPort', now') | srcPort' == srcPort && now - now' <= 2 ->
                      now'
                    otherwise -> now
               Ht.insert fwdTbl srcMac (srcPort, now')
               maybeDstPortTime <- Ht.lookup fwdTbl dstMac
+              
+              let learnedRule = rule now switchID srcMac (Just (srcPort, now'))
               let singleTbl = MatchTable 
-                    [rule now switchID srcMac (Just (srcPort, now')),
-                     rule now switchID dstMac maybeDstPortTime ]
+                    [ -- learnedRule
+                     -- , broadcastRule switchID srcMac srcPort now',
+                     rule now switchID dstMac maybeDstPortTime 
+                    ]
               case OF.bufferID packet of
                 Nothing -> return ()
                 Just bufID -> do
                   let action = case maybeDstPortTime of
                         Nothing -> OF.flood
                         Just (port, _) -> OF.sendOnPort port
-                  putStrLn $ "RECV t=" ++ show now ++ " srcEth=" ++ 
-                              show srcMac ++
-                             " switch= " ++ show switchID ++ " port=" ++ 
-                             show srcPort
                   writeChan packetOut
                     (switchID, xid, 
                      OF.PacketOutRecord (Left bufID) (Just srcPort) action)
               oldTbl <- readIORef tbl
+              -- putStrLn $ "LEARNED " ++ show learnedRule
               let tbl' = condense $ unionTable (\_ new -> new) oldTbl singleTbl
               writeIORef tbl tbl'
               writeChan outChan tbl'
