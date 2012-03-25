@@ -20,14 +20,14 @@ getPacketMac pkt = case OF.enclosedFrame pkt of
   otherwise -> Nothing
 
 rule :: Integer
-     -> OF.SwitchID -> OF.EthernetAddress -> Maybe OF.PortID 
+     -> OF.SwitchID -> OF.EthernetAddress -> Maybe (OF.PortID, Integer)
      -> (Flows.FlowGroup, Action)
 rule now sw eth port =  
   (Flows.fromSwitchMatch sw (OF.matchAny { OF.dstEthAddress = Just eth }),
    case port of
      Nothing -> Just (ReqOutPort sw OF.Flood, fromInteger $ now + 5)
-     Just portID -> Just (ReqOutPort sw (OF.PhysicalPort portID), 
-                          fromInteger $ now + 60))
+     Just (portID, t) -> Just (ReqOutPort sw (OF.PhysicalPort portID), 
+                               fromInteger t))
 
 type PacketOutChan = Chan (OF.SwitchID, OF.TransactionID, OF.PacketOut)
 
@@ -53,18 +53,28 @@ macLearning switchChan packetChan = do
           case maybeFwdTbl of
             Nothing -> putStrLn "MAC learning error: no table"
             Just fwdTbl -> do
-              Ht.insert fwdTbl srcMac srcPort
-              maybeDstPort <- Ht.lookup fwdTbl dstMac
+              maybe <- Ht.lookup fwdTbl srcMac
+              -- now' avoid refreshing MAC learned rules on switches when
+              -- lots of PacketIn messags appear in a short (2sec) interval.
+              let now' = case maybe of
+                   Just (srcPort', now') | srcPort' == srcPort && now' + 2 < now ->
+                     now'
+                   otherwise -> now
+              Ht.insert fwdTbl srcMac (srcPort, now')
+              maybeDstPortTime <- Ht.lookup fwdTbl dstMac
               let singleTbl = MatchTable 
-                    [rule now switchID srcMac (Just srcPort),
-                     rule now switchID dstMac maybeDstPort]
+                    [rule now switchID srcMac (Just (srcPort, now')),
+                     rule now switchID dstMac maybeDstPortTime ]
               case OF.bufferID packet of
                 Nothing -> return ()
                 Just bufID -> do
-                  let action = case maybeDstPort of
+                  let action = case maybeDstPortTime of
                         Nothing -> OF.flood
-                        Just port -> OF.sendOnPort port
-                  -- putStrLn $ "RECV packet-in " ++ show bufID
+                        Just (port, _) -> OF.sendOnPort port
+                  putStrLn $ "RECV t=" ++ show now ++ " srcEth=" ++ 
+                              show srcMac ++
+                             " switch= " ++ show switchID ++ " port=" ++ 
+                             show srcPort
                   writeChan packetOut
                     (switchID, xid, 
                      OF.PacketOutRecord (Left bufID) (Just srcPort) action)
