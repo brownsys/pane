@@ -365,6 +365,34 @@ assertReadChanEqual msg val chan = do
   val' <- readChan chan
   assertEqual msg val val'
 
+testAdmComm1 = TestLabel "overlapping non-strict admission control decisions \
+  \ should succeed" $ TestCase $ do
+  (tbl, resp, req, _) <- mkPaneMan
+  writeChan req ("root", "allow(user=adf) on rootShare.")
+  assertReadChanEqual "allow should succeed" ("root", "True") resp
+  writeChan req ("root", "deny(user=adf, dstHost=10.200.0.1) on rootShare.")
+  assertReadChanEqual "deny should also succeed" ("root", "True") resp
+  -- Flip order of requests
+  (tbl, resp', req, _) <- mkPaneMan
+  writeChan req ("root", "deny(user=adf, dstHost=10.200.0.1) on rootShare.")
+  assertReadChanEqual "deny also succeed" ("root", "True") resp
+  writeChan req ("root", "allow(user=adf) on rootShare.")
+  assertReadChanEqual "allow should also succeed" ("root", "True") resp
+
+testAdmComm2 = TestLabel "strict should comm" $ TestCase $ do
+  (tbl, resp, req, time) <- mkPaneMan
+  writeChan req ("root", "deny(user=adf, dstHost=10.200.0.1) on rootShare.")
+  assertReadChanEqual "deny should succeed" ("root", "True") resp
+  writeChan req ("root", "allow(user=adf) strict on rootShare.")
+  assertReadChanEqual "strict allow should fail" ("root", "True") resp
+  -- Flip order of requests
+  (tbl, resp, req, time) <- mkPaneMan
+  writeChan req ("root", "allow(user=adf) strict on rootShare.")
+  assertReadChanEqual "allow should succeed" ("root", "True") resp
+  writeChan req ("root", "deny(user=adf, dstHost=10.200.0.1) on rootShare.")
+  assertReadChanEqual "deny should fail (breaks allow)" ("root", "False") resp
+
+
 testPane10 = TestLabel "root should be able to create sub-share" $ TestCase $ do
   (tbl, resp, req, time) <- mkPaneMan
   writeChan req ("root", "NewShare net0 for (*) [reserve <= 200] on rootShare.")
@@ -402,6 +430,8 @@ testPane24 = TestLabel "token graphs should work" $ TestCase $ do
 paneTests = TestLabel "Test PANE manager" $ TestList
   [ testPane10
   , testPane24
+  , testAdmComm1
+  , testAdmComm2
   ]
 
 mkPaneWithMacLearning = do
