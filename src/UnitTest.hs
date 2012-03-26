@@ -210,7 +210,7 @@ testDeny1Switch = TestLabel "compile deny to 1 switch" $ TestCase $ do
       case Map.toList cfg of
         [(0, NIB.Switch _ tbl)] ->
           assertEqual "expected deny rule"
-            [(65535, Flows.toMatch flowHttp1, [], 15)]
+            [(65535, Flows.toMatch' flowHttp1, [], 15)]
             (S.toList tbl)
         x -> assertFailure $ "should see a single switch, got " ++ show x
 
@@ -227,7 +227,7 @@ testResv1Switch = TestLabel "compile Resv to 1 switch" $ TestCase $ do
       case Map.toList cfg of
         [(0, NIB.Switch _ tbl)] ->
           assertEqual "should resv flowHttp1" 
-            [(65535, Flows.toMatch flowHttp1, [OF.Enqueue 0 0], 15)]
+            [(65535, Flows.toMatch' flowHttp1, [OF.Enqueue 0 0], 15)]
             (S.toList tbl)
         x -> assertFailure $ "should see a single switch, got " ++ show x
 
@@ -245,7 +245,7 @@ testDeny2Switch = TestLabel "compile deny to 2 switches" $ TestCase $ do
         [(0, NIB.Switch _ tbl0), (1, NIB.Switch _ tbl1)] -> do
           assertEqual "should have empty table at switch 0" [] (S.toList tbl0)
           assertEqual "should have 1 deny in switch 1"
-            [(65535, Flows.toMatch flowHttp1, [], 15)]
+            [(65535, Flows.toMatch' flowHttp1, [], 15)]
             (S.toList tbl1)
         x -> assertFailure $ "should see two switches, got " ++ show x
 
@@ -261,10 +261,10 @@ testResv2Switch = TestLabel "compile Resv to 2 switches" $ TestCase $ do
       case Map.toList cfg of
         [(0, NIB.Switch _ tbl0), (1, NIB.Switch _ tbl1)] -> do
           assertEqual "should have queue on switch 0"
-            [(65535, Flows.toMatch flowHttp1, [OF.Enqueue 0 0], 15)]
+            [(65535, Flows.toMatch' flowHttp1, [OF.Enqueue 0 0], 15)]
             (S.toList tbl0)
           assertEqual "should have queue on switch 1"
-            [(65535, Flows.toMatch flowHttp1, [OF.Enqueue 1 0], 15)]
+            [(65535, Flows.toMatch' flowHttp1, [OF.Enqueue 1 0], 15)]
             (S.toList tbl1)
         x -> assertFailure $ "should see two switches, got " ++ show x
 
@@ -338,16 +338,16 @@ testMacLearn1 = TestLabel "should learn route " $ TestCase $ do
   writeChan swChan (34, True)
   b <- isEmptyChan tblChan
   assertEqual "switches should not trigger table updates" True b
-  writeChan pktChan (0, 34, packet 100 200 1)
+  writeChan pktChan (99 {- txID -}, 0, 34, packet 100 200 1)
   tbl <- readChan tblChan
   assertEqual "should learn a flood and 1 route"
-    (MatchTable [ML.rule 0 34 (ethernetAddress64 100) (Just 1), 
+    (MatchTable [ML.rule 0 34 (ethernetAddress64 100) (Just (1, 60)), 
                  ML.rule 0 34 (ethernetAddress64 200) Nothing]) tbl 
-  writeChan pktChan (0, 34, packet 200 100 2)
+  writeChan pktChan (98 {- txID -}, 0, 34, packet 200 100 2)
   tbl <- readChan tblChan
   assertEqual "should learn two routes"
-    (MatchTable [ML.rule 0 34 (ethernetAddress64 100) (Just 1), 
-                 ML.rule 0 34 (ethernetAddress64 200) (Just 2)]) tbl 
+    (MatchTable [ML.rule 0 34 (ethernetAddress64 100) (Just (1, 60)), 
+                 ML.rule 0 34 (ethernetAddress64 200) (Just (2, 60))]) tbl 
 
 
 
@@ -416,16 +416,16 @@ testPaneMac0 = TestLabel "test PANE overriding MAC learning" $ TestCase $ do
   (tbl, resp, switch, pkt, req, time) <- mkPaneWithMacLearning
   writeChan switch (55, True)
   writeChan switch (34, True)
-  writeChan pkt (0, 34, packet 0xbb 0xfe 1)
+  writeChan pkt (977 {- txID -}, 0, 34, packet 0xbb 0xfe 1)
   let ethbb = ethernetAddress64 0xbb
   assertReadChanEqual "should learn a flood and 1 route"
-    (MatchTable [ML.rule 0 34 ethbb (Just 1), 
+    (MatchTable [ML.rule 0 34 ethbb (Just (1, 60)), 
                  ML.rule 0 34 (ethernetAddress64 0xfe) Nothing]) 
     tbl 
-  writeChan pkt (0, 34, packet 0xfe 0xbb 2)
+  writeChan pkt (988 {- txID -}, 0, 34, packet 0xfe 0xbb 2)
   assertReadChanEqual "should learn two routes"
-    (MatchTable [ML.rule 0 34 (ethernetAddress64 0xbb) (Just 1), 
-                 ML.rule 0 34 (ethernetAddress64 0xfe) (Just 2)])
+    (MatchTable [ML.rule 0 34 (ethernetAddress64 0xbb) (Just (1, 60)), 
+                 ML.rule 0 34 (ethernetAddress64 0xfe) (Just (2, 60))])
     tbl 
   writeChan req ("root", "deny(dstEth=00:00:00:00:00:bb) on rootShare.")
   assertReadChanEqual "root should be able to deny" ("root", "True") resp
@@ -436,7 +436,7 @@ testPaneMac0 = TestLabel "test PANE overriding MAC learning" $ TestCase $ do
        Just (ReqDeny, NoLimit)),
       (Flows.fromMatch (OF.matchAny { OF.dstEthAddress = Just ethbb }),
        Just (ReqDeny, NoLimit)),
-      ML.rule 0 34 (ethernetAddress64 0xfe) (Just 2)])
+      ML.rule 0 34 (ethernetAddress64 0xfe) (Just (2, 60))])
     tbl 
   
   
