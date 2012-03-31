@@ -97,6 +97,7 @@ intersectTable cmb (MatchTable tbl1) (MatchTable tbl2) = MatchTable tbl'
                                         not (Flows.null (f1 ∩ f2)) ]
         (∩) = Flows.intersection
 
+-- Note: this is a left-biased union.
 unionTable :: (Action -> Action -> Action)
            -> MatchTable
            -> MatchTable
@@ -123,6 +124,8 @@ shareTreeToTable now (Node share children) = tbl
           foldl (unionTable combineSiblingActions) emptyTable childTbls
         tbl         = unionTable combineParentChildActions thisTbl cmbChildTbl
 
+-- Scans MatchTable left to right and drops any rules whose flow is shadowed
+-- by a flow to the left in the table.
 condense :: MatchTable -> MatchTable
 condense (MatchTable tbl) = MatchTable (loop [] tbl)
   where loop _           [] = []

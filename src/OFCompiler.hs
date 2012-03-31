@@ -22,7 +22,7 @@ compilerService :: (NIB.NIB, Chan NIB.NIB)
                 -> Chan MatchTable
                 -> IO (Chan NIB.Snapshot)
 compilerService (initNIB, nib) tbl =
-  unionChan compile (initNIB, nib) (emptyTable, tbl)
+  liftChan compile (initNIB, nib) (emptyTable, tbl)
 
 
 

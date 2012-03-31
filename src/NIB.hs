@@ -273,6 +273,7 @@ linkPorts port1 port2 = do
 
 
 -- "Neighborhood"
+-- (ingress port, switch, egress port)
 type NbhWalk = [(OF.PortID,OF.SwitchID, OF.PortID)]
 
 data Nbh 

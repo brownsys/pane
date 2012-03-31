@@ -30,6 +30,17 @@ import Nettle.OpenFlow.Match
 import qualified Nettle.OpenFlow.Match as Match
 import qualified Nettle.OpenFlow as OF
 
+-- TODO(adf): We have lost the richness of the original FlowGroups (from
+-- Hot-ICE paper)... which supports sets of users, sets of srcIP, etc. We
+-- should return to supporting those by implementing Flows as *sets* of
+-- Match rules with duplicated actions.
+-- TODO(adf): Might also be able to return "union" operation to Flows at
+-- that time.
+-- TODO(adf): At one time, we used to consider parsing "Applications" which
+-- expanded into sets of parts, or "Network" which expanded into a set of
+-- IP addresses (maybe should be CIDR blocks?), or "Group" which was a set
+-- of users.
+
 type User = String
 
 type Port = Word16
@@ -68,7 +79,7 @@ fromMatch m = FlowMatch Nothing m
 isSubFlow' :: Flow -> Flow -> Bool
 isSubFlow' (Flow su du sp dp sh dh) (Flow su' du' sp' dp' sh' dh') =
   let (⊆) s1 s2 = case (s1, s2) of
-        (_, Nothing)      -> True
+        (_, Nothing)      -> True -- Remember: "Nothing" represents wildcard
         (Just x, Just y)  -> x == y
         (Nothing, Just _) -> False
     in su ⊆ su' && du ⊆ du' && sp ⊆ sp' && dp ⊆ dp' && sh ⊆ sh' && dh ⊆ dh'
@@ -114,6 +125,7 @@ make su du sp dp sh dh =
 flowInGroup :: Flow -> FlowGroup -> Bool
 flowInGroup _                      Empty         = False
 flowInGroup (Flow _ _ sp dp sh dh) (FlowMatch _ m) =
+  -- TODO(adf): what about users?
   sp `portIn` srcTransportPort m && dp `portIn` dstTransportPort m &&
   sh `ipIn` srcIPAddress m && dh `ipIn` dstIPAddress m
     where portIn _        Nothing   = True

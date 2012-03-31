@@ -21,8 +21,8 @@ module Base
   , module Control.Monad
   , module Control.Concurrent
   , mergeChan
-  , unionChan
-  , unionChanIO3
+  , liftChan
+  , liftChanIO3
   , module Control.Exception
   , catMaybes
   , mapMaybe
@@ -49,12 +49,12 @@ import Control.Exception (catch, SomeException)
 traceFile :: IORef (Maybe Handle)
 traceFile = unsafePerformIO (newIORef Nothing)
 
-unionChanIO3 :: (a -> b -> c -> IO d) 
+liftChanIO3 :: (a -> b -> c -> IO d) 
              -> (a, Chan a)
              -> (b, Chan b)
              -> (c, Chan c)
              -> IO (Chan d)
-unionChanIO3 fn (initA, chanA) (initB, chanB) (initC, chanC) = do
+liftChanIO3 fn (initA, chanA) (initB, chanB) (initC, chanC) = do
   merged' <- mergeChan chanA chanB
   merged <- mergeChan merged' chanC
   result <- newChan
@@ -76,8 +76,8 @@ unionChanIO3 fn (initA, chanA) (initB, chanB) (initC, chanC) = do
   forkIO (loop initA initB initC)
   return result
 
-unionChan :: (a -> b -> IO c) -> (a, Chan a) -> (b, Chan b) -> IO (Chan c)
-unionChan fn (initA, chanA) (initB, chanB) = do
+liftChan :: (a -> b -> IO c) -> (a, Chan a) -> (b, Chan b) -> IO (Chan c)
+liftChan fn (initA, chanA) (initB, chanB) = do
   merged <- mergeChan chanA chanB
   result <- newChan
   let loop a b = do

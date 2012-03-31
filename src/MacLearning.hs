@@ -67,6 +67,8 @@ macLearning switchChan packetChan = do
               maybe <- Ht.lookup fwdTbl srcMac
               -- now' avoid refreshing MAC learned rules on switches when
               -- lots of PacketIn messags appear in a short (2sec) interval.
+              -- TODO(adf): This feels like a hack. what should we really be
+              -- doing here?
               let now' = case maybe of
                    Just (srcPort', now') | srcPort' == srcPort && now - now' <= 2 ->
                      now'

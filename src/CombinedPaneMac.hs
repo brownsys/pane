@@ -20,7 +20,7 @@ combinedPaneMac switch packet paneReq time = do
   let cmb pt mt = do
         return $ condense (unionTable (\p _ -> p) pt mt)
                              -- broadcastTable)
-  combinedTbl <- unionChan cmb
+  combinedTbl <- liftChan cmb
                            (emptyTable, paneTbl) 
                            (emptyTable, macLearnedTbl)
   
