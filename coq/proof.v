@@ -48,7 +48,6 @@ Inductive T : Type :=
 
 
 Inductive wf_tree : nat -> T -> Prop :=
-  | wf_tree_nil : forall (n : nat) (s : S), wf_tree n (Tree s nil)
   | wf_tree_lst : forall (s : S) (lst : list T) (n : nat),
     (forall (t' : T), In t' lst -> wf_tree n t') ->
     wf_tree (Datatypes.S n) (Tree s lst).
@@ -57,21 +56,99 @@ Fixpoint height (tree : T) : nat := match tree with
   | Tree _ children => 1 + fold_right max 0 (map height children)
 end.
 
-Lemma wf_exists : forall (tree : T) (n : nat),
+
+Require Import Omega.
+
+Lemma max_le : forall (l m n : nat),
+  max l m <= n ->
+  l <= n /\ m <= n.
+Proof with auto.
+
+intros.
+assert (l <= m \/ m < l). apply le_or_lt.
+destruct H0.
+assert (max l m = m). apply max_r...
+rewrite -> H1 in H.
+omega.
+assert (max l m = l). apply max_l. omega.
+omega.
+Qed.
+
+Lemma split_height: forall (s : S) (a : T) (L : list T) (n : nat),
+  height (Tree s (a :: L)) <= n ->
+  height (Tree s L) <= n.
+Proof with auto.
+intros.
+generalize dependent a.
+induction L; intros.
+simpl in *.
+omega.
+(* inductive *)
+simpl.
+simpl in H.
+rewrite -> succ_max_distr in H.
+apply max_le in H.
+destruct H.
+exact H0.
+Qed.
+
+Lemma height_list : forall (lst : list T) (n : nat) (t : T),
+  fold_right max 0 (map height lst) <= n ->
+  In t lst ->
+  height t <= n.
+Proof with auto.
+intros.
+induction lst.
+inversion H0.
+simpl in H.
+apply max_le in H.
+destruct H.
+simpl in H0.
+destruct H0.
+subst...
+apply IHlst in H1...
+Qed.
+
+Lemma decreasing_height: forall (s : S) (lst : list T) (t : T) (n : nat),
+  height (Tree s lst) <= n ->
+  In t lst ->
+  height t < n.
+Proof with auto.
+intros.
+generalize dependent lst.
+induction n; intros.
+
+apply le_n_0_eq in H.
+simpl in H. inversion H.
+
+simpl in H.
+apply le_S_n in H.
+assert (height t <= n). apply height_list with (lst := lst)...
+omega.
+Qed.
+
+Lemma wf_exists_aux : forall (tree : T) (n : nat),
   height tree <= n -> wf_tree n tree.
-Proof.
+Proof with simpl; auto.
 intros.
 generalize dependent tree.
-induction n.
-intros.
-destruct tree.
+induction n; intros; destruct tree.
 simpl in H. inversion H.
 (* Inductive *)
-intros.
-destruct tree.
 apply wf_tree_lst.
+intros. apply IHn.
+assert (height t' < Datatypes.S n).
+ apply decreasing_height with (s := s) (lst := l)...
+apply lt_n_Sm_le in H1...
+Qed.
+
+Lemma wf_exists : forall (tree : T),
+  wf_tree (height tree) tree.
+Proof.
 intros.
-Admitted.
+apply wf_exists_aux. auto.
+Qed.
+
 
 Definition plus_P (a1 : A) (a2 : A) : A := match (a1, a2) with
   | (_, None) => a1
@@ -662,31 +739,8 @@ Proof with simpl; auto.
   induction n.
   intros.
   inversion H.
-  simpl.
-  assert (eval_S pkt s +P None = eval_S pkt s).
-    apply well_behaved_plus_P.
-  rewrite -> H2.
-  rewrite -> union_comm.
-  assert (scan pkt (lin_S s) +P scan pkt nil = scan pkt (lin_S s)).
-    apply well_behaved_plus_P.
-  rewrite -> H3.
-  apply flatten_eval_S...
-  auto.
-  apply well_behaved_plus_P.
-  (* INDUCTIVE *)
   intros.
-  inversion H. simpl.
-  assert (eval_S pkt s +P None = eval_S pkt s).
-    apply well_behaved_plus_P.
-  rewrite -> H2.
-  rewrite -> union_comm.
-  assert (scan pkt (lin_S s) +P scan pkt nil = scan pkt (lin_S s)).
-    apply well_behaved_plus_P.
-  rewrite -> H3.
-  apply flatten_eval_S.
-  exact Hpacket. exact Hpacket.
-  apply well_behaved_plus_P.
- (* REALLY INDUCTIVE *)
+  destruct tree.
  subst.
  simpl.
 rewrite -> union_comm.
@@ -695,18 +749,31 @@ assert (eval_S pkt s = scan pkt (lin_S s)).
 exact Hpacket.
 rewrite -> H0.
 clear H0.
-assert (fold_right plus_C None (map (eval_T pkt) lst) =
-        scan pkt (fold_right (union plus_C) nil (map lin_T lst))).
-  
-  induction lst...
+assert (fold_right plus_C None (map (eval_T pkt) l) =
+        scan pkt (fold_right (union plus_C) nil (map lin_T l))).
+  induction l...
   rewrite -> union_comm.
   assert (eval_T pkt a = scan pkt (lin_T a)).
-  apply IHn. apply H1. apply in_eq.
+  apply IHn. inversion H. subst.  apply H2. apply in_eq.
   rewrite -> H0.
-  assert (fold_right plus_C None (map (eval_T pkt) lst) = scan pkt (fold_right (union plus_C) nil (map lin_T lst))).
-  apply IHlst. intros. apply H1. apply in_cons. exact H2.
-  apply wf_tree_lst. intros. apply H1. apply in_cons. exact H2.
-  rewrite -> H2.
-  reflexivity. exact Hpacket. apply well_behaved_plus_C. rewrite -> H0. reflexivity. exact Hpacket.
-  apply well_behaved_plus_P.
+  assert (fold_right plus_C None (map (eval_T pkt) l) = 
+          scan pkt (fold_right (union plus_C) nil (map lin_T l))).
+  apply IHl. intros. apply wf_tree_lst. 
+   inversion H; subst. intros. apply H3. apply in_cons...
+  rewrite -> H1.
+  reflexivity.
+auto.
+apply well_behaved_plus_C.
+rewrite -> H0...
+auto.
+apply well_behaved_plus_P.
+Qed.
+
+Lemma eval_scan_eq : forall (n : nat) (tree : T) (pkt : M),
+  is_packet pkt = true ->
+  eval_T pkt tree = scan pkt (lin_T tree).
+Proof with auto.
+intros.
+assert (wf_tree (height tree) tree). apply wf_exists.
+apply flatten_eval_T with (n := height tree)...
 Qed.
