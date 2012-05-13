@@ -68,6 +68,7 @@ def test(net):
   print "Packets successfully dropped. Sleeping until deny expires ..."
   sleep(4)
   print "Pinging from h1 to h2 ..."
+  out = h1.cmd('ping -i 0.5 -c5 %s' % h2.IP())
   m = re.search(r"(\d+)% packet loss", out)
   if m == None or m.group(1) != "0":
     print "Packets lost during ping:"
