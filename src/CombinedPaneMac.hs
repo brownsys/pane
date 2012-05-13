@@ -15,13 +15,7 @@ combinedPaneMac :: Chan (OF.SwitchID, Bool)
 combinedPaneMac switch packet paneReq time = do
   (paneTbl, paneResp) <- paneMan paneReq time
   (macLearnedTbl, pktOutChan) <- macLearning switch packet
-  let broadcastTable = MatchTable
-        [(Flows.fromMatch (OF.matchAny { OF.dstEthAddress = Just OF.broadcastAddress }), Just (ReqOutPort Nothing OF.Flood, NoLimit))]
   let cmb pt mt = do
         return $ condense (unionTable (\p _ -> p) pt mt)
-                             -- broadcastTable)
-  combinedTbl <- liftChan cmb
-                           (emptyTable, paneTbl) 
-                           (emptyTable, macLearnedTbl)
-  
+  combinedTbl <- liftChan cmb (emptyTable, paneTbl) (emptyTable, macLearnedTbl)
   return (combinedTbl, paneResp, pktOutChan)
