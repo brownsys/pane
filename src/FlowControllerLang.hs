@@ -12,13 +12,11 @@ module FlowControllerLang
   , listShareRefsByUserM
   , getScheduleM
   , evalDNP
-  , fmlDNP
   , runDNP
   ) where
 
 import Base
 import qualified Control.Monad.State as StateM
-import EmitFML
 import FlowController
 import Set (Set)
 import qualified Data.ByteString.Lazy as BS
@@ -32,11 +30,6 @@ evalDNP :: DNP a -> IO a
 evalDNP m = StateM.evalStateT m emptyState
 
 runDNP = StateM.runStateT
-
-fmlDNP :: DNP a -> IO String
-fmlDNP m = do
-  st <- StateM.execStateT m emptyState
-  return (emitFML st)
 
 boolWrapper exp = do
   s <- StateM.get

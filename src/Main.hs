@@ -13,7 +13,6 @@ import Parser
 import FlowControllerLang
 import FlowController (emptyStateWithTime, State)
 import Test.HUnit hiding (State)
-import Server
 import Controller
 import Base
 import Control.Concurrent.MVar
@@ -29,13 +28,11 @@ data Argument
   = Trace String
   | Test String
   | Interactive String
-  | Server Word16
   | NewServer Word16
 
 argSpec =
   [ Option ['t'] ["trace"] (ReqArg Trace "FILE") "trace file"
   , Option ['f'] ["test"] (ReqArg Test "FILE") "run test case"
-  , Option ['s'] ["server"] (ReqArg (Server . read) "PORT") "server"
   , Option ['n'] [] (ReqArg (NewServer . read) "PORT") "new server"
   ]
 
@@ -59,16 +56,6 @@ timeService = do
   return (initNow, time)
 
 action [Test file] = runTestFile file
-action [Server port] = do
-  (TOD now _) <- getClockTime
-  let initialState = emptyStateWithTime now
-  paneConfigVar <- newEmptyMVar
-  terminate <- newEmptyMVar
-  let terminator body = do
-        body `finally` (putMVar terminate ())
-  tid1 <- forkIO (terminator $ serverMain paneConfigVar port initialState)
-  tid2 <- forkIO (terminator $ controllerMain paneConfigVar 6633)
-  takeMVar terminate
 action [NewServer port] = do
   putStrLn "Starting PANE  ..."
   (initTime, time) <- timeService
