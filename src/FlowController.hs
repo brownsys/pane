@@ -11,7 +11,6 @@ module FlowController
   , request
   , tick
   , isAdmControl
-  , currentRequests
   , reqDepth
   , stateNow
   , stateSeqn
@@ -363,8 +362,6 @@ tickInternal t st@(State { shareTree    = shares,
                                            (shareReq sh)
 -- TODO: After we can delete reservations, make it possible to delete shares
         byEnd'' = foldr PQ.enqueue byEnd' startingNow
-
-currentRequests = PQ.toList.activeReqs
 
 -----------------------------
 -- Query Functions

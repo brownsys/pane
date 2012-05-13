@@ -5,7 +5,6 @@ module FlowControllerLang
   , giveDefaultReferenceM
   , newShareM
   , requestM
-  , currentRequestsM
   , tickM
   , getTimeM
   , listShareRefsByFlowGroupM
@@ -56,11 +55,6 @@ giveDefaultReferenceM fromSpk share =
 newShareM x1 x2 x3 = boolWrapper (newShare x1 x2 x3)
 
 requestM x1 x2 = boolWrapper (request x1 x2)
-
-currentRequestsM :: DNP ([Req])
-currentRequestsM = do
-  s <- StateM.get
-  return (currentRequests s)
 
 getScheduleM :: Speaker -> ShareRef -> DNP DNPResult
 getScheduleM speaker shareName = do
