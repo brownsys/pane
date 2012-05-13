@@ -208,7 +208,7 @@ sharePerms = do
 tick "root" = do
   reserved "Tick"
   t <- T.integer lex
-  return (tickM t)
+  return (return (BoolResult True))
 
 tick _ = fail "only root can tick the clock"
 
