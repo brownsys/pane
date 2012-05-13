@@ -5,7 +5,6 @@ module FlowControllerLang
   , giveDefaultReferenceM
   , newShareM
   , requestM
-  , tickM
   , getTimeM
   , listShareRefsByFlowGroupM
   , listShareRefsByUserM
@@ -62,20 +61,6 @@ getScheduleM speaker shareName = do
   case getSchedule speaker shareName state of
     Nothing -> return (BoolResult False)
     Just sched -> return (ScheduleResult sched)
-  
-
-tickM :: Integer -> DNP DNPResult
-tickM t = do
-  s <- StateM.get
-  showStateHandle <- lift (readIORef traceFile)
-  case showStateHandle of
-    Nothing -> return ()
-    Just handle -> do
-      let str = BS.concat ["var instant = ", Aeson.encode s, ";\n"]
-      lift $ BS.hPutStr handle str
-  let s' = tick t s
-  StateM.put s'
-  return (BoolResult True)
 
 getTimeM :: DNP(Integer)
 getTimeM = do

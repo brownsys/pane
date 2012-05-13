@@ -9,7 +9,6 @@ module FlowController
   , giveDefaultReference
   , newShare
   , request
-  , tick
   , isAdmControl
   , reqDepth
   , stateNow

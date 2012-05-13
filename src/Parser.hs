@@ -8,7 +8,7 @@ import qualified Text.Parsec.Token as T
 import qualified Set as Set
 import Data.Maybe (catMaybes)
 import FlowControllerLang
-import FlowController hiding (tick, newShare, getSchedule)
+import FlowController hiding (newShare, getSchedule)
 import Control.Monad.IO.Class
 import Control.Monad.Trans
 import Control.Monad
