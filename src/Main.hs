@@ -13,7 +13,6 @@ import Parser
 import FlowControllerLang
 import FlowController (emptyStateWithTime, State)
 import Test.HUnit hiding (State)
-import Controller
 import Base
 import Control.Concurrent.MVar
 import Control.Concurrent
