@@ -5,6 +5,7 @@ module NIB
   , FlowTblEntry
   , PortCfg (..)
   , Msg (..)
+  , Queue (..)
   , newQueue
   , switchWithNPorts
   , newEmptyNIB
@@ -390,14 +391,14 @@ unusedNum lst = loop 0 lst
 newQueue :: Map OF.PortID PortCfg -- ^ports
          -> OF.PortID             -- ^port to adjust
          -> Word16                -- ^queue GMB
-         -> Limit                 -- ^queue lifetime
+         -> Limit                 -- ^queue ending time
          -> (OF.QueueID, Map OF.PortID PortCfg) -- ^new configuration
-newQueue ports portID gmb timeOut = (queueID, ports')
+newQueue ports portID gmb end = (queueID, ports')
   where queueID = unusedNum (Map.keys queues)
         queues  = case Map.lookup portID ports of
                     Just (PortCfg q)  -> q
                     Nothing -> error "newQueue: bad portID"
-        queues' = Map.insert queueID (Queue gmb timeOut) queues
+        queues' = Map.insert queueID (Queue gmb end) queues
         ports'  = Map.adjust (\(PortCfg queues) -> PortCfg queues') portID ports
 
 

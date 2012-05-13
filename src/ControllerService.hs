@@ -6,6 +6,7 @@ module ControllerService
 import Prelude hiding (catch)
 import Base
 import System.Time
+import Data.Map (Map)
 import MacLearning (PacketOutChan)
 import qualified NIB
 import qualified Nettle.OpenFlow as OF
@@ -93,14 +94,17 @@ configureSwitch netSnapshot switchHandle oldSw@(NIB.Switch oldPorts oldTbl) = do
       configureSwitch netSnapshot switchHandle oldSw
     Just sw@(NIB.Switch ports tbl) -> do
       (TOD now _) <- getClockTime
-      let msgs = mkFlowMods now tbl oldTbl
-      {- unless (null msgs) $ do
+      let (deleteQueueTimers, msgs') = mkPortMods now oldPorts ports 
+                                         (OFS.sendToSwitch switchHandle)
+      let msgs = mkFlowMods now tbl oldTbl ++ msgs'
+      unless (null msgs) $ do
          putStrLn $ "OpenFlow controller modifying tables on " ++ show switchID
          putStrLn $ "sending " ++ show (length msgs) ++ " messages; oldTbl size = " ++ show (Set.size oldTbl) ++ " tbl size = " ++ show (Set.size tbl)
          mapM_ (\x -> putStrLn $ "   " ++ show x) msgs
          putStrLn "-------------------------------------------------"
-         return () -}
+         return ()
       mapM_ (OFS.sendToSwitch switchHandle) (zip [84 ..] msgs)
+      deleteQueueTimers
       configureSwitch netSnapshot switchHandle sw
 
 mkFlowMods :: Integer
@@ -127,6 +131,34 @@ mkFlowMods now newTbl oldTbl = map OF.FlowMod (delMsgs ++ addMsgs)
           False -> Just (OF.DeleteExactFlow match Nothing prio)
         newRules = Set.difference newTbl oldTbl
         oldRules = Set.difference oldTbl newTbl
+
+-- |We cannot have queues automatically expire with the slicing extension.
+-- So, we return an action that sets up timers to delete queues.
+mkPortMods :: Integer
+           -> Map OF.PortID NIB.PortCfg
+           -> Map OF.PortID NIB.PortCfg
+           -> ((OF.TransactionID, OF.CSMessage) -> IO ())
+           -> (IO (), [OF.CSMessage])
+mkPortMods now portsNow portsNext sendCmd = (delTimers, addMsgs)
+  where addMsgs = map newQueueMsg newQueues
+        delTimers = sequence_ (map delQueueAction newQueues)
+        newQueueMsg ((pid, qid), NIB.Queue resv _) =
+          OF.ExtQueueModify pid 
+            [OF.QueueConfig qid [OF.MinRateQueue (OF.Enabled resv)]]
+        delQueueAction ((_, _), NIB.Queue _ NoLimit) = return ()
+        delQueueAction ((pid, qid), NIB.Queue _ (DiscreteLimit end)) = do
+          forkIO $ do
+            threadDelay (10^6 * (fromIntegral $ end - now))
+            sendCmd (85, OF.ExtQueueDelete pid [OF.QueueConfig qid []]) 
+          return ()
+        newQueues = Map.toList $
+          flatten portsNext `Map.difference` flatten portsNow
+        flatten portMap = Map.fromList $
+          concatMap (\(pid, NIB.PortCfg qMap) ->
+                      map (\(qid, q) -> ((pid, qid), q)) (Map.toList qMap))
+                    (Map.toList portMap)
+            
+              
       
 -- TODO(arjun): toTimeout will fail if (end - now) does not fit in a Word16
 toTimeout :: Integer -> Limit -> OF.TimeOut
