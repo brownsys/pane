@@ -367,7 +367,7 @@ tickInternal t st@(State { shareTree    = shares,
 -----------------------------
 
 listShareRefsByFlowGroup :: FlowGroup -> State -> [ShareRef]
-listShareRefsByFlowGroup fg st@(State {shareTree=sT}) =
+listShareRefsByFlowGroup fg (State {shareTree=sT}) =
   findInTree fg (rootShareRef, (Tree.lookup rootShareRef sT)) sT where
     findInTree flow (shareRef, share) tr = 
       let next = (foldl (++) [] (map (\x -> findInTree flow x tr)
@@ -377,7 +377,7 @@ listShareRefsByFlowGroup fg st@(State {shareTree=sT}) =
           True -> shareRef:next
 
 listShareRefsByUser :: User -> State -> [ShareRef]
-listShareRefsByUser user st@(State {shareTree=sT}) =
+listShareRefsByUser user (State {shareTree=sT}) =
   findInTree user (rootShareRef, (Tree.lookup rootShareRef sT)) sT where
     findInTree holder (shareRef, share) tr = 
       let next = (foldl (++) [] (map (\x -> findInTree holder x tr)
@@ -387,17 +387,17 @@ listShareRefsByUser user st@(State {shareTree=sT}) =
           True -> shareRef:next
 
 listReqByFlowGroup :: FlowGroup -> State -> [Req]
-listReqByFlowGroup fg st@(State {acceptedReqs=accepted,activeReqs=active}) =
+listReqByFlowGroup fg (State {acceptedReqs=accepted,activeReqs=active}) =
   PQ.toList (PQ.filter (\x -> fg `Flows.isSubFlow` (reqFlows x)) active) ++
     PQ.toList (PQ.filter (\x -> fg `Flows.isSubFlow` (reqFlows x)) accepted)
 
 listReqWithSubFlow :: FlowGroup -> State -> [Req]
-listReqWithSubFlow fg st@(State {acceptedReqs=accepted,activeReqs=active}) =
+listReqWithSubFlow fg (State {acceptedReqs=accepted,activeReqs=active}) =
   PQ.toList (PQ.filter (\x -> (reqFlows x) `Flows.isSubFlow` fg) active) ++
     PQ.toList (PQ.filter (\x -> (reqFlows x) `Flows.isSubFlow` fg) accepted)
 
 listReqByIntersectingFG :: FlowGroup -> State -> [Req]
-listReqByIntersectingFG fg st@(State {acceptedReqs=accepted,activeReqs=active}) =
+listReqByIntersectingFG fg (State {acceptedReqs=accepted,activeReqs=active}) =
   PQ.toList (PQ.filter (\x -> fg `Flows.isOverlapped` (reqFlows x)) active) ++
     PQ.toList (PQ.filter (\x -> fg `Flows.isOverlapped` (reqFlows x)) accepted)
 

@@ -24,7 +24,9 @@ emptyAction = Nothing
 
 activeAt now req = reqStart req <= now && fromInteger now <= reqEnd req
 
--- TODO(arjun): I believe its okay to skip strict. Explain why in a comment.
+-- Strictness is a static restriction on share trees. They are not part of
+-- HFTs. The Req datatype was designed to be a share-tree element, but we're
+-- overloading it here to be an HFT. 
 reqToAction (Req _ _ _ end req strict) = Just (req, end)
 
 combineMaybe :: (a -> a -> a) 
