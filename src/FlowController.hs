@@ -12,7 +12,6 @@ module FlowController
   , isAdmControl
   , reqDepth
   , stateNow
-  , stateSeqn
   , listShareRefsByFlowGroup
   , listShareRefsByUser
   , Share (..)
@@ -61,7 +60,6 @@ data State = State {
   acceptedReqs :: PQ Req,
   activeReqs :: PQ Req,
   stateNow :: Integer,
-  stateSeqn :: Integer,
   eventsNow :: [Req]
 } deriving Show
 
@@ -86,7 +84,6 @@ emptyStateWithTime t =
         (PQ.empty reqStartOrder)
         (PQ.empty reqEndOrder)
         t
-        0
         []
 
 emptyState = emptyStateWithTime 0
@@ -343,15 +340,10 @@ tickInternal :: Integer -> State -> State
 tickInternal t st@(State { shareTree    = shares,
                    acceptedReqs = byStart,
                    activeReqs   = byEnd, 
-                   stateNow     = now,
-                   stateSeqn    = seqn }) =
+                   stateNow     = now }) =
   st { acceptedReqs = byStart',
        activeReqs   = byEnd'',
        stateNow     = now',
-       stateSeqn = if null startingNow && null endingNow then
-                     seqn
-                   else
-                     seqn + 1,
        eventsNow = startingNow,
        shareTree = fmap removeEndingNow (shareTree st)
      } 
@@ -423,7 +415,7 @@ instance ToJSON Share where
     , ("canDeny", toJSON (shareCanDenyFlows share))
     ]
 instance ToJSON State where
-  toJSON (State shares speakers accepted active now _ _) = object
+  toJSON (State shares speakers accepted active now _) = object
     [ ("shares", toJSON (Tree.expose shares))
     , ("speakers", toJSON speakers)
     , ("accepted", toJSON accepted)
