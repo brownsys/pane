@@ -12,11 +12,11 @@ module FlowController
   , isAdmControl
   , reqDepth
   , stateNow
+  , shareTree
   , listShareRefsByFlowGroup
   , listShareRefsByUser
   , Share (..)
   , getSchedule
-  , eventsNow
   , rootShareRef
   , rootSpeaker
   , getShareTree
@@ -57,10 +57,7 @@ type ShareTree = Tree ShareRef Share
 data State = State {
   shareTree :: ShareTree,
   stateSpeakers :: Set String,
-  acceptedReqs :: PQ Req,
-  activeReqs :: PQ Req,
-  stateNow :: Integer,
-  eventsNow :: [Req]
+  stateNow :: Integer
 } deriving Show
 
 -----------------------------
@@ -81,10 +78,7 @@ emptyStateWithTime t =
            (Share rootShareRef Flows.all (Set.singleton rootSpeaker)
                   emptyShareReq True True TG.unconstrained))
         (Set.singleton rootSpeaker)
-        (PQ.empty reqStartOrder)
-        (PQ.empty reqEndOrder)
         t
-        []
 
 emptyState = emptyStateWithTime 0
         
@@ -222,7 +216,7 @@ recursiveRequest :: Req
                  -> State
                  -> Maybe State
 recursiveRequest req@(Req shareRef _ start end rData _)
-                 st@(State {shareTree = sT, acceptedReqs = accepted }) =
+                 st@(State {shareTree = sT }) =
   let chain = Tree.chain shareRef sT
       f Nothing _ = Nothing
       f (Just sT) (thisShareName, thisShare@(Share {shareReq=reqs,
@@ -238,23 +232,21 @@ recursiveRequest req@(Req shareRef _ start end rData _)
     in case foldl f (Just sT) chain of
          Nothing -> Nothing
          Just sT' -> 
-           Just (tick 0 (st { shareTree = sT',
-                              acceptedReqs = PQ.enqueue req accepted }))
+           Just (st { shareTree = sT' })
 
 -- For resources which only need to be checked in their share (not up the tree)
 localRequest :: Req
              -> State
              -> Maybe State
 localRequest req@(Req shareRef _ _ _ _ _)
-             st@(State {shareTree = sT, acceptedReqs = accepted }) =
+             st@(State {shareTree = sT }) =
   let share = Tree.lookup shareRef sT in
     if (isAllow req && shareCanAllowFlows share) ||
        (isDeny req && shareCanDenyFlows share)
       then
         let share' = share { shareReq = PQ.enqueue req (shareReq share) }
             sT' = Tree.update shareRef share' sT
-          in Just (tick 0 (st { shareTree = sT',
-                                acceptedReqs = PQ.enqueue req accepted }))
+          in Just (st { shareTree = sT' })
       else
         Nothing
 
@@ -284,8 +276,7 @@ request :: Speaker
         -> State
         -> Maybe State
 request spk req@(Req shareRef flow start end rD strict)
-        st@(State {shareTree = sT,
-                   acceptedReqs = accepted }) =
+        st@(State {shareTree = sT }) =
   if Tree.member shareRef sT then
     let share = Tree.lookup shareRef sT
       in case Set.member spk (shareHolders share) && 
@@ -322,42 +313,6 @@ getSchedule speaker shareName (State { shareTree=shares, stateNow=now }) = do
   when (not (Set.member speaker (shareHolders share)))
     (fail "does not hold share")
   return (TG.graph (shareResv share))
-
-
-tick :: Integer -> State -> State
-tick 0 st = tickInternal 0 st 
-tick 1 st = tickInternal 1 st
-tick t st = tick (t - nextEvent) (tickInternal nextEvent st) where
-  byStart   = acceptedReqs st
-  byEnd     = activeReqs st
-  nextEvent = case min (maybe NoLimit (fromInteger.reqStart) (PQ.peek byStart))
-                       (maybe NoLimit reqEnd (PQ.peek byEnd)) of
-                DiscreteLimit n -> min (n - stateNow st) t
-                NoLimit -> t
-
--- |Note that 't' may be negative
-tickInternal :: Integer -> State -> State
-tickInternal t st@(State { shareTree    = shares,
-                   acceptedReqs = byStart,
-                   activeReqs   = byEnd, 
-                   stateNow     = now }) =
-  st { acceptedReqs = byStart',
-       activeReqs   = byEnd'',
-       stateNow     = now',
-       eventsNow = startingNow,
-       shareTree = fmap removeEndingNow (shareTree st)
-     } 
-  where now' = now + t
-        (startingNow, byStart') =  PQ.dequeueWhile (\r -> reqStart r <= now')
-                                       byStart
-        (endingNow, byEnd') = PQ.dequeueWhile (\r -> reqEnd r
-                                       <= (fromInteger now'))
-                                       byEnd
-        removeEndingNow sh = sh { shareReq = req }
-          where (_, req) = PQ.dequeueWhile (\r -> reqEnd r <= fromInteger now')
-                                           (shareReq sh)
--- TODO: After we can delete reservations, make it possible to delete shares
-        byEnd'' = foldr PQ.enqueue byEnd' startingNow
 
 -----------------------------
 -- Query Functions
@@ -415,9 +370,8 @@ instance ToJSON Share where
     , ("canDeny", toJSON (shareCanDenyFlows share))
     ]
 instance ToJSON State where
-  toJSON (State shares speakers accepted active now _) = object
+  toJSON (State shares speakers now _) = object
     [ ("shares", toJSON (Tree.expose shares))
     , ("speakers", toJSON speakers)
-    , ("accepted", toJSON accepted)
     , ("now", toJSON now)
     ]

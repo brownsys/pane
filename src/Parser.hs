@@ -13,6 +13,7 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans
 import Control.Monad
 import Test.HUnit
+import qualified PriorityQueue as PQ
 import qualified TokenGraph as TG
 import Nettle.IPv4.IPAddress hiding (ipAddressParser)
 import qualified Nettle.OpenFlow as OF
@@ -460,7 +461,12 @@ paneMan reqChan timeChan = do
       buildTbl = do
         now <- readChan timeChan
         st <- readIORef stRef
-        writeIORef stRef (st { stateNow = now })
+        let removeEndingNow sh = sh { shareReq = req }
+              where (_, req) = PQ.dequeueWhile 
+                                 (\r -> reqEnd r <= fromInteger now)
+                                 (shareReq sh)
+        writeIORef stRef (st { shareTree = fmap removeEndingNow (shareTree st),
+                               stateNow = now })
         writeChan tblChan (compileShareTree now (getShareTree st))
   forkIO (forever handleReq)
   forkIO (forever buildTbl)
