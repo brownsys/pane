@@ -96,7 +96,7 @@ configureSwitch netSnapshot switchHandle oldSw@(NIB.Switch oldPorts oldTbl) = do
       (TOD now _) <- getClockTime
       let (deleteQueueTimers, msgs') = mkPortMods now oldPorts ports 
                                          (OFS.sendToSwitch switchHandle)
-      let msgs = mkFlowMods now tbl oldTbl ++ msgs'
+      let msgs = msgs' ++ mkFlowMods now tbl oldTbl
       unless (null msgs) $ do
          putStrLn $ "OpenFlow controller modifying tables on " ++ show switchID
          putStrLn $ "sending " ++ show (length msgs) ++ " messages; oldTbl size = " ++ show (Set.size oldTbl) ++ " tbl size = " ++ show (Set.size tbl)
@@ -149,6 +149,7 @@ mkPortMods now portsNow portsNext sendCmd = (delTimers, addMsgs)
         delQueueAction ((pid, qid), NIB.Queue _ (DiscreteLimit end)) = do
           forkIO $ do
             threadDelay (10^6 * (fromIntegral $ end - now))
+            putStrLn $ "Deleting queue " ++ show qid ++ " on port " ++ show pid
             sendCmd (85, OF.ExtQueueDelete pid [OF.QueueConfig qid []]) 
           return ()
         newQueues = Map.toList $

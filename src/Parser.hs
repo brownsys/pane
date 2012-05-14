@@ -84,13 +84,19 @@ expSrcHost = do
   reserved "srcHost"
   reservedOp "="
   host <- ipAddressParser
-  return $ Flows.fromMatch $ OF.matchAny { OF.srcIPAddress = (host, 32) }
+  return $ Flows.fromMatch $ OF.matchAny { 
+    OF.srcIPAddress = (host, 32), 
+    OF.ethFrameType = Just OF.ethTypeIP
+  }
 
 expDstHost = do
   reserved "dstHost"
   reservedOp "="
   host <- ipAddressParser
-  return $ Flows.fromMatch $ OF.matchAny { OF.dstIPAddress = (host, 32) }
+  return $ Flows.fromMatch $ OF.matchAny {
+    OF.dstIPAddress = (host, 32),
+    OF.ethFrameType = Just OF.ethTypeIP
+  }
 
 expNet = do
   reserved "net"

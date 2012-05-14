@@ -1,6 +1,6 @@
 import socket
 from subprocess import Popen
-from mininet.node import RemoteController
+from mininet.node import RemoteController, UserSwitch
 from mininet.net import Mininet
 import mininet.topolib
 import mininet.topo
@@ -45,7 +45,7 @@ class Test(object):
     self.controller = Popen(['./dnp', '-n', '4242'])
     sleep(1)
     self.client = Client("root")
-    self.net = Mininet(topo=topo,controller=RemoteController)
+    self.net = Mininet(topo=topo,controller=RemoteController,switch=UserSwitch)
     self.net.start()
 
   def __del__(self):
