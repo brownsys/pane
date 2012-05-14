@@ -216,6 +216,10 @@ newShare spk parentName newShare@(Share { shareName = shareName })
     Nothing
 
 -- For resources which need to be checked up the tree
+-- TODO(arjun): A single reservation in a share, is inserted in all shares on
+-- the chain to the root. We then repurpose the share-tree as an HFT, so it
+-- looks like we have several reservations to the compiler. But, this
+-- accidentally works because of the particular +P function we use.
 recursiveRequest :: Req
                  -> State
                  -> Maybe State
