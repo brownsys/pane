@@ -370,7 +370,7 @@ instance ToJSON Share where
     , ("canDeny", toJSON (shareCanDenyFlows share))
     ]
 instance ToJSON State where
-  toJSON (State shares speakers now _) = object
+  toJSON (State shares speakers now) = object
     [ ("shares", toJSON (Tree.expose shares))
     , ("speakers", toJSON speakers)
     , ("now", toJSON now)
