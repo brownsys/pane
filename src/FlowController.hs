@@ -40,6 +40,7 @@ import Base
 import qualified TokenGraph as TG
 import TokenGraph (TokenGraph)
 import qualified Flows as Flows
+import qualified Data.List as List
 
 data Share = Share {
   shareName :: ShareRef,       -- ^must match name in the 'ShareTree'
@@ -390,20 +391,27 @@ listShareRefsByUser user (State {shareTree=sT}) =
           False -> next -- we want recursive descent when checking for users
           True -> shareRef:next
 
+filterRequests pred (Data.Tree.Node share children) =
+  filter pred (PQ.toList (shareReq share)) ++
+    List.concatMap (filterRequests pred) children
+
 listReqByFlowGroup :: FlowGroup -> State -> [Req]
-listReqByFlowGroup fg (State {acceptedReqs=accepted,activeReqs=active}) =
-  PQ.toList (PQ.filter (\x -> fg `Flows.isSubFlow` (reqFlows x)) active) ++
-    PQ.toList (PQ.filter (\x -> fg `Flows.isSubFlow` (reqFlows x)) accepted)
+listReqByFlowGroup fg (State {stateNow=now, shareTree=tree}) =
+  filterRequests f (Tree.expose tree)
+    where f req = fg `Flows.isSubFlow` reqFlows req &&
+                  fromInteger now <= reqEnd req -- active and accepted
 
 listReqWithSubFlow :: FlowGroup -> State -> [Req]
-listReqWithSubFlow fg (State {acceptedReqs=accepted,activeReqs=active}) =
-  PQ.toList (PQ.filter (\x -> (reqFlows x) `Flows.isSubFlow` fg) active) ++
-    PQ.toList (PQ.filter (\x -> (reqFlows x) `Flows.isSubFlow` fg) accepted)
+listReqWithSubFlow fg (State {stateNow=now, shareTree=tree}) =
+  filterRequests f (Tree.expose tree)
+    where f req = reqFlows req `Flows.isSubFlow` fg  &&
+                  fromInteger now <= reqEnd req
 
 listReqByIntersectingFG :: FlowGroup -> State -> [Req]
-listReqByIntersectingFG fg (State {acceptedReqs=accepted,activeReqs=active}) =
-  PQ.toList (PQ.filter (\x -> fg `Flows.isOverlapped` (reqFlows x)) active) ++
-    PQ.toList (PQ.filter (\x -> fg `Flows.isOverlapped` (reqFlows x)) accepted)
+listReqByIntersectingFG fg (State {stateNow=now, shareTree=tree}) =
+  filterRequests f (Tree.expose tree)
+    where f req = reqFlows req `Flows.isOverlapped` fg  &&
+                  fromInteger now <= reqEnd req
 
 instance ToJSON Share where
   toJSON share = object
