@@ -18,7 +18,6 @@ import qualified Control.Monad.State as StateM
 import FlowController
 import Set (Set)
 import qualified Data.ByteString.Lazy as BS
-import qualified Data.Aeson as Aeson
 import Control.Monad.Trans
 import ShareSemantics
 

@@ -24,7 +24,6 @@ module FlowController
 
 import Control.Monad
 import Debug.Trace
-import Data.Aeson
 import Set (Set)
 import qualified Set
 import Data.Map (Map)
@@ -359,19 +358,3 @@ listReqByIntersectingFG fg (State {stateNow=now, shareTree=tree}) =
   filterRequests f (Tree.expose tree)
     where f req = reqFlows req `Flows.isOverlapped` fg  &&
                   fromInteger now <= reqEnd req
-
-instance ToJSON Share where
-  toJSON share = object
-    [ ("name", toJSON (shareName share))
-    , ("flows", toJSON (shareFlows share))
-    , ("holders", toJSON (shareHolders share))
-    , ("req", toJSON (shareReq share))
-    , ("canAllow", toJSON (shareCanAllowFlows share))
-    , ("canDeny", toJSON (shareCanDenyFlows share))
-    ]
-instance ToJSON State where
-  toJSON (State shares speakers now) = object
-    [ ("shares", toJSON (Tree.expose shares))
-    , ("speakers", toJSON speakers)
-    , ("now", toJSON now)
-    ]
