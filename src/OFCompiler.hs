@@ -86,21 +86,14 @@ compile nib (MatchTable tbl) = do
           Just (_, match) -> return (Map.adjust upd switchID switches)
             where upd (ports, flows) = (ports, flows ++ [rule])
                   rule = (match, [OF.SendOutPort pseudoPort], end)
-      loop switches (fl, Just (ReqDeny, end)) = 
-        --TODO(arjun):error?
-        withEth fl (return switches) $ \fl srcEth dstEth -> do
-          path <- NIB.getPath srcEth dstEth nib
-          case path of
-            [] -> do
-              putStrLn "compile could not find path for deny"
-              return switches -- TODO(arjun): error?
-            ((inp, sid,  _):_) -> case Flows.toMatch fl of
-              Just m -> return (Map.adjust upd sid switches)
-                          where upd (ports, flows) =  (ports, flows ++ [rule])
-                                rule = (m, [],  end)
-              Nothing -> do
-                putStrLn $ "compile deny cannot realize " ++ show fl
-                return switches
+      loop switches (flow, Just (ReqDeny, end)) = case Flows.toMatch flow of
+        Just match -> 
+          return (Map.map upd switches)
+            where upd (ports, flows) = (ports, flows ++ [rule])
+                  rule = (match, [], end)
+        Nothing -> do
+          putStrLn $ "compile deny cannot realize " ++ show flow
+          return switches -- TODO(arjun): error?
       loop switches (fl, Just (ReqAllow, end)) = 
         -- TODO(arjun): error?
         withEth fl (return switches) $ \fl srcEth dstEth -> do
