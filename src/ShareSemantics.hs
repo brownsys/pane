@@ -25,7 +25,8 @@ activeAt now req = reqStart req <= now && fromInteger now <= reqEnd req
 
 -- Strictness is a static restriction on share trees. They are not part of
 -- HFTs. The Req datatype was designed to be a share-tree element, but we're
--- overloading it here to be an HFT. 
+-- overloading it here to be an HFT. (Same reasoning applies to speakers/
+-- principals, but we didn't make that part of the request.)
 reqToAction (Req _ _ _ end req strict) = Just (req, end)
 
 combineMaybe :: (a -> a -> a) 

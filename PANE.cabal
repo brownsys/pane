@@ -6,8 +6,8 @@ License:        BSD3
 License-file:   LICENSE
 Author:         Andrew Ferguson, Arjun Guha
 Maintainer:     Andrew Ferguson <adf@cs.brown.edu>
-Homepage:       http://www.cs.brown.edu/~adf/
-Stability:      provisional
+Homepage:       http://pane.cs.brown.edu
+Stability:      experimental
 Category:       Language
 Build-Type:     Simple
 Synopsis:       PANE: an implementation of Participatory Networking
@@ -26,7 +26,7 @@ Test-Suite unittest
   ghc-options:
     -fwarn-incomplete-patterns
 
-Executable dnp
+Executable pane
   Main-Is: Main.hs
   Hs-Source-Dirs:
     src

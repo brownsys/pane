@@ -24,26 +24,17 @@ import CombinedPaneMac
 import PaneInteractionServer (interactions)
 
 data Argument
-  = Trace String
-  | Test String
-  | Interactive String
+  = Test String
   | NewServer Word16
 
 argSpec =
-  [ Option ['t'] ["trace"] (ReqArg Trace "FILE") "trace file"
-  , Option ['f'] ["test"] (ReqArg Test "FILE") "run test case"
-  , Option ['n'] [] (ReqArg (NewServer . read) "PORT") "new server"
+  [ Option ['f'] ["test"] (ReqArg Test "FILE") "run test case"
+  , Option ['p'] [] (ReqArg (NewServer . read) "PORT") "port number"
   ]
 
 runTestFile f = do
   runTests <- parseFromTestFile f
   runTests
-
-doTrace (Trace path:rest) = do
-  handle <- openFile path WriteMode
-  writeIORef traceFile (Just handle)
-  return rest
-doTrace lst = return lst
 
 timeService = do
   time <- newChan
@@ -79,13 +70,9 @@ mainBody = do
   rawArgs <- getArgs
   let (args, options, errors) = getOpt RequireOrder argSpec rawArgs
   unless (null errors) $ do { mapM_ putStrLn errors; fail "bad args" }
-  args <- doTrace args
   action args
 
 shutdown = do
-  maybeHandle <- readIORef traceFile
-  case maybeHandle of
-    Nothing -> return ()
-    Just h -> hClose h
+  return ()
 
 main = mainBody `finally` shutdown

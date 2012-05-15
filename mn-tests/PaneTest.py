@@ -42,7 +42,7 @@ class Test(object):
 
   def __init__(self, topo):
     os.system('mn -c')
-    self.controller = Popen(['./dnp', '-n', '4242'])
+    self.controller = Popen(['./pane', '-p', '4242'])
     sleep(1)
     self.client = Client("root")
     self.net = Mininet(topo=topo,controller=RemoteController,switch=UserSwitch)

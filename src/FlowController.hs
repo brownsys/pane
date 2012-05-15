@@ -42,7 +42,7 @@ data Share = Share {
   shareName :: ShareRef,       -- ^must match name in the 'ShareTree'
   shareFlows :: FlowGroup,     -- set of flows in this share
   shareHolders :: Set Speaker, -- users who can speak about this share
-  shareReq :: [Req],          -- queue of accepted requests, sort by end
+  shareReq :: [Req],          -- list of accepted requests 
   -- Restrictions on what this share can be used for
   shareCanAllowFlows :: Bool,
   shareCanDenyFlows :: Bool,

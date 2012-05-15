@@ -362,11 +362,11 @@ parseStmt spk = do
   dot
   return stmt
 
-dnpResult = 
+result = 
   (do { b <- boolean; return (BoolResult b) })
  
 parseTestStmt = do
-  res <- dnpResult
+  res <- result
   p <- getPosition
   reserved "<-"
   spk <- identifier
@@ -381,7 +381,7 @@ parseTestStmts = do
   let f (exp, pos, result) = do
           assertEqual (show pos) exp result
   let assertions = do
-        results <- evalDNP (sequence ss)
+        results <- evalPANE (sequence ss)
         mapM_ f (zip3 expected positions results)
   return assertions
 
@@ -390,7 +390,7 @@ parseCompleteString spk = do
   eof
   return s
 
-parseStmtFromStdin :: String -> IO (DNP DNPResult)
+parseStmtFromStdin :: String -> IO (PANE Result)
 parseStmtFromStdin spk = do
   str <- getLine
   case parse (parseCompleteString spk) "<stdin>" str of
@@ -407,7 +407,7 @@ parseFromTestFile filename = do
     Left err -> fail (show err)
     Right stmts -> return stmts
 
-parseStmtFromString :: String -> String -> IO (DNP DNPResult)
+parseStmtFromString :: String -> String -> IO (PANE Result)
 parseStmtFromString spk str = do
   case parse (parseCompleteString spk) "<string>" str of
     Left err -> do
@@ -418,7 +418,7 @@ parseStmtFromString spk str = do
 
 parseInteractive' :: String  -- ^speaker
                  -> String  -- ^input stream
-                 -> (DNP DNPResult -> a -> IO a)
+                 -> (PANE Result -> a -> IO a)
                  -> a
                  -> IO a
 parseInteractive' spk inBuf action acc = do
@@ -448,9 +448,9 @@ paneMan reqChan timeChan = do
   stRef <- newIORef emptyState
   let handleReq = do
         (spk, req) <- readChan reqChan
-        dnpM <- parseStmtFromString spk req
+        paneM <- parseStmtFromString spk req
         st <- readIORef stRef
-        (resp, st') <- runStateT dnpM st
+        (resp, st') <- runStateT paneM st
         case resp of
           BoolResult True -> do
             writeIORef stRef st'

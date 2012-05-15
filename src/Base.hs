@@ -5,9 +5,8 @@ module Base
   , Host
   , Port
   , Word16
-  , traceFile
   , Shared (..)
-  , DNPResult (..)
+  , Result (..)
   , Limit (..) 
   , Time (..)
   , timeToLimit
@@ -44,9 +43,6 @@ import Nettle.OpenFlow hiding (Port)
 import Flows
 import qualified Nettle.OpenFlow as OF
 import Control.Exception (catch, SomeException)
-
-traceFile :: IORef (Maybe Handle)
-traceFile = unsafePerformIO (newIORef Nothing)
 
 liftChanIO3 :: (a -> b -> c -> IO d) 
              -> (a, Chan a)
@@ -107,7 +103,7 @@ mergeChan chan1 chan2 = do
 -- |Data shared between the OpenFlow Controller and the PANE Server.
 type Shared = ([CSMessage], [(Match, Word16, Limit)])
 
-data DNPResult
+data Result
   = BoolResult Bool
   | ScheduleResult [(Limit, Limit, Limit)]
   | ShareRefsResult [ShareRef]
@@ -124,7 +120,7 @@ renderResult (ShareRefsResult lst) =
 
 renderLimit lim = text (show lim)
 
-instance Show DNPResult where
+instance Show Result where
   show r = render (renderResult r)
 
 data Limit 
