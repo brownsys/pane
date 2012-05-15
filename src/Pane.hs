@@ -1,5 +1,5 @@
 module Pane
-  ( paneMan
+  ( paneMgr
   ) where
 
 import Parser
@@ -10,10 +10,10 @@ import Control.Monad
 import ShareSemantics
 import Control.Monad.State
 
-paneMan :: Chan (Speaker, String) -- ^commands from speaker
+paneMgr :: Chan (Speaker, String) -- ^commands from speaker
         -> Chan Integer           -- ^current time
         -> IO (Chan MatchTable, Chan (Speaker, String))
-paneMan reqChan timeChan = do
+paneMgr reqChan timeChan = do
   tblChan <- newChan
   respChan <- newChan
   stRef <- newIORef emptyState

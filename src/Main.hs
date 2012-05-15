@@ -10,7 +10,6 @@ import System.Environment
 import System.IO
 import Data.Word
 import Parser
-import Pane
 import FlowControllerLang
 import FlowController (emptyStateWithTime, State)
 import Test.HUnit hiding (State)
@@ -27,10 +26,12 @@ import PaneInteractionServer (interactions)
 data Argument
   = Test String
   | NewServer Word16
+  | Help
 
 argSpec =
-  [ Option ['f'] ["test"] (ReqArg Test "FILE") "run test case"
-  , Option ['p'] [] (ReqArg (NewServer . read) "PORT") "port number"
+  [ Option ['t'] ["test"] (ReqArg Test "FILE") "run test case"
+  , Option ['p'] ["port"] (ReqArg (NewServer . read) "PORT") "port number"
+  , Option ['h'] ["help"] (NoArg Help) "print this help message"
   ]
 
 runTestFile f = do
@@ -51,21 +52,33 @@ action [NewServer port] = do
   putStrLn "Starting PANE  ..."
   (initTime, time) <- timeService
   nibMsg <- newChan
+
   putStrLn "Creating empty NIB..."
   nib <- NIB.newEmptyNIB nibMsg
   packetIn <- newChan
   switches <- newChan
   paneReq <- newChan
+
   putStrLn "Creating PANE + MAC Learning system..."
   (tbl, paneResp, pktOut) <- combinedPaneMac switches packetIn paneReq time
+
   putStrLn $ "Starting PANE console on port " ++ show port ++ " ..."
   interactions port paneResp paneReq
   nibUpdates <- newChan -- TODO(arjun): write into this
+
   putStrLn "Starting compiler ..."
   netSnapshot <- compilerService (nib, nibUpdates) tbl
+
   putStrLn "Starting OpenFlow controller ..."
   controller netSnapshot nibMsg packetIn switches pktOut 6633
-action _ = fail "too many args"
+action [Help] = do
+  putStrLn $ usageInfo "WELCOME TO PANE" argSpec
+action [] = do
+  putStrLn $ usageInfo "WELCOME TO PANE" argSpec
+  fail "too few args"
+action _ = do
+  putStrLn $ usageInfo "WELCOME TO PANE" argSpec
+  fail "too many args"
 
 mainBody = do
   rawArgs <- getArgs

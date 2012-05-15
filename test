@@ -5,7 +5,7 @@ cd tests
 for file in *.pane
 do
   echo -en "\rTest $file ... "
-  ../pane -f $file
+  ../pane -t $file
   tput el1
 done
 
