@@ -1,7 +1,7 @@
-Name:           DNP
+Name:           PANE
 Version:        1.0
 Cabal-Version:	>= 1.2.3
-Copyright:      Copyright (c) 2011 Brown University
+Copyright:      Copyright (c) 2011--2012 Brown University
 License:        BSD3
 License-file:   LICENSE
 Author:         Andrew Ferguson, Arjun Guha
@@ -10,10 +10,8 @@ Homepage:       http://www.cs.brown.edu/~adf/
 Stability:      provisional
 Category:       Language
 Build-Type:     Simple
-Synopsis:       Dynamic Network-wide Policies
-Description:
-
-	Dynamic Network-wide Policies	
+Synopsis:       PANE: an implementation of Participatory Networking
+Description:    PANE: an implementation of Participatory Networking
 
 Test-Suite unittest
   Hs-Source-Dirs: src
