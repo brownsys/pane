@@ -11,7 +11,6 @@ module ShareSemantics
 
 import Data.Tree (Tree (..))
 import FlowController (Share (..))
-import qualified PriorityQueue as PQ
 import Base
 import Data.List (groupBy, find)
 import qualified Flows as Flows
@@ -113,7 +112,7 @@ shareToTable :: Integer
              -> MatchTable
 shareToTable now share = 
   foldl (unionTable combineSiblingActions) emptyTable (map reqToTbl reqs)
-    where reqs = filter (activeAt now) (PQ.toList (shareReq share))
+    where reqs = filter (activeAt now) (shareReq share)
           reqToTbl req = MatchTable [(reqFlows req, reqToAction req)]
 
 shareTreeToTable :: Integer    -- ^current time

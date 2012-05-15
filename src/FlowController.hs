@@ -31,8 +31,6 @@ import qualified Data.Map as Map
 import qualified Tree
 import Tree (Tree)
 import qualified Data.Tree
-import qualified PriorityQueue as PQ
-import PriorityQueue (PQ)
 import Data.Maybe (maybe, mapMaybe, fromMaybe, catMaybes)
 import Base
 import qualified TokenGraph as TG
@@ -44,7 +42,7 @@ data Share = Share {
   shareName :: ShareRef,       -- ^must match name in the 'ShareTree'
   shareFlows :: FlowGroup,     -- set of flows in this share
   shareHolders :: Set Speaker, -- users who can speak about this share
-  shareReq :: PQ Req,          -- queue of accepted requests, sort by end
+  shareReq :: [Req],          -- queue of accepted requests, sort by end
   -- Restrictions on what this share can be used for
   shareCanAllowFlows :: Bool,
   shareCanDenyFlows :: Bool,
@@ -69,7 +67,7 @@ rootSpeaker = "root"
 rootShareRef :: ShareRef
 rootShareRef = "rootShare"
 
-emptyShareReq = PQ.empty reqEndOrder
+emptyShareReq = []
 
 emptyStateWithTime t = 
   State (Tree.root 
@@ -223,7 +221,7 @@ recursiveRequest req@(Req shareRef _ start end rData _)
         case rData of
            (ReqResv drain) -> do tg <- TG.drain start end drain tg
                                  let thisShare' = thisShare {
-                                            shareReq = PQ.enqueue req reqs,
+                                            shareReq = req:reqs,
                                             shareResv = tg }
                                  return (Tree.update thisShareName thisShare' sT)
            ReqAllow -> Nothing
@@ -243,7 +241,7 @@ localRequest req@(Req shareRef _ _ _ _ _)
     if (isAllow req && shareCanAllowFlows share) ||
        (isDeny req && shareCanDenyFlows share)
       then
-        let share' = share { shareReq = PQ.enqueue req (shareReq share) }
+        let share' = share { shareReq = req:(shareReq share) }
             sT' = Tree.update shareRef share' sT
           in Just (st { shareTree = sT' })
       else
@@ -338,8 +336,7 @@ listShareRefsByUser user (State {shareTree=sT}) =
           True -> shareRef:next
 
 filterRequests pred (Data.Tree.Node share children) =
-  filter pred (PQ.toList (shareReq share)) ++
-    List.concatMap (filterRequests pred) children
+  filter pred (shareReq share) ++ List.concatMap (filterRequests pred) children
 
 listReqByFlowGroup :: FlowGroup -> State -> [Req]
 listReqByFlowGroup fg (State {stateNow=now, shareTree=tree}) =
