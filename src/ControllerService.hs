@@ -58,6 +58,7 @@ handleSwitch :: Chan PacketIn
              -> IO ()
 handleSwitch packets toNIB switches switch = do
   let swID = OFS.handle2SwitchID switch
+  OFS.sendToSwitch switch (0, OF.FlowMod $ OF.DeleteFlows OF.matchAny Nothing)
   OFS.untilNothing 
     (retryOnExns (OFS.receiveFromSwitch switch))
     (\msg -> ignoreExns (messageHandler packets toNIB switch msg))
