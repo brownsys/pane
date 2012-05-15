@@ -29,12 +29,6 @@ rule now sw eth port =
      Just (portID, t) -> Just (ReqOutPort (Just sw) (OF.PhysicalPort portID), 
                                fromInteger $ t + 60))
 
-broadcastRule switchID srcMac srcPort t =
-  (Flows.fromSwitchMatch switchID
-     (OF.matchAny { OF.srcEthAddress = Just srcMac,
-                    OF.dstEthAddress = Just OF.broadcastAddress }),
-      Just (ReqOutPort (Just switchID) OF.Flood, fromInteger $ t + 60))
-
 type PacketOutChan = Chan (OF.SwitchID, OF.TransactionID, OF.PacketOut)
 
 macLearning :: Chan (OF.SwitchID, Bool)          -- ^switches (created/deleted)
@@ -78,10 +72,7 @@ macLearning switchChan packetChan = do
               
               let learnedRule = rule now switchID srcMac (Just (srcPort, now'))
               let singleTbl = MatchTable 
-                    [ -- learnedRule
-                     -- , broadcastRule switchID srcMac srcPort now',
-                     rule now switchID dstMac maybeDstPortTime 
-                    ]
+                    [ rule now switchID dstMac maybeDstPortTime ]
               case OF.bufferID packet of
                 Nothing -> return ()
                 Just bufID -> do
