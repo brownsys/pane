@@ -15,7 +15,7 @@ import Base
 import Data.List (groupBy, find)
 import qualified Flows as Flows
 
-type Action = Maybe (ReqData, Limit)
+type Action = Maybe (ReqData, Limit) -- ^ (Request, timeout in absolute time)
 
 data MatchTable = MatchTable [(Flows.FlowGroup, Action)] deriving (Show, Eq)
 
@@ -128,15 +128,18 @@ shareTreeToTable now (Node share children) = tbl
 
 -- Scans MatchTable left to right and drops any rules whose flow is shadowed
 -- by a flow to the left in the table.
-condense :: MatchTable -> MatchTable
-condense (MatchTable tbl) = MatchTable (loop [] tbl)
+condense :: Integer -> MatchTable -> MatchTable
+condense now (MatchTable tbl) = MatchTable (loop [] tbl')
   where loop _           [] = []
         loop lhs ((f, action):rest) = 
           case any (\leftF -> f `Flows.isSubFlow` leftF) lhs of
             True  -> loop lhs rest
             False -> (f,action):(loop (f:lhs) rest)
+        tbl' = filter isNotExpired tbl
+        isNotExpired (_, Just (_, expiry)) = expiry >= (fromInteger now)
+        isNotExpired (_, Nothing) = False
 
 compileShareTree :: Integer    -- ^current time
                  -> Tree Share -- ^share tree
                  -> MatchTable
-compileShareTree now tree = condense (shareTreeToTable now tree)
+compileShareTree now tree = condense now (shareTreeToTable now tree)
