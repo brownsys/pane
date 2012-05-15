@@ -1,4 +1,7 @@
-module Parser where
+module Parser
+  ( parseFromString
+  , parseFromTestFile
+  ) where
 
 import Base
 import Prelude hiding (lex)
@@ -9,8 +12,6 @@ import qualified Set as Set
 import Data.Maybe (catMaybes)
 import FlowControllerLang
 import FlowController hiding (newShare, getSchedule)
-import Control.Monad.IO.Class
-import Control.Monad.Trans
 import Control.Monad
 import Test.HUnit
 import qualified TokenGraph as TG
@@ -18,25 +19,27 @@ import Nettle.IPv4.IPAddress hiding (ipAddressParser)
 import qualified Nettle.OpenFlow as OF
 import Data.Word
 import qualified Flows as Flows
-import ShareSemantics
 import Control.Monad.State
 import qualified Data.List as List
 
-type Node = String
-
-type ShareName = String
-
 nat = T.natural lex
 
-ipAddressParser :: Monad m => ParsecT String u m IPAddress
-ipAddressParser = do a <- many1 digit
-                     char '.'
-                     b <- many1 digit
-                     char '.'
-                     c <- many1 digit
-                     char '.'
-                     d <- many1 digit
-                     return $ ipAddress (read a) (read b) (read c) (read d)
+quad = do
+  q <- many1 digit
+  let n = read q
+  when (n >= 256 || n < 0)
+    (fail "Expected 0..255")
+  return n
+
+ipAddressParser = do
+  a <- quad
+  char '.'
+  b <- quad
+  char '.'
+  c <- quad
+  char '.'
+  d <- quad
+  return $ ipAddress a b c d
 
 -- |'NoLimit' means different things in different contexts; supply a word for
 -- 'NoLimit'
@@ -60,6 +63,7 @@ hexByte = do
 -- Flow Group handling
 -----------------------------
 
+-- TODO(adf): Someone should make expUser actually work...
 expUser = do
   reserved "user"
   reservedOp "="
@@ -98,12 +102,6 @@ expDstHost = do
     OF.ethFrameType = Just OF.ethTypeIP
   }
 
-expNet = do
-  reserved "net"
-  reservedOp "="
-  name <- identifier
-  return (Flows.fromMatch OF.matchAny)
-
 ethAddr = do
   b0 <- hexByte
   colon
@@ -130,11 +128,9 @@ dstEth = do
   e <- ethAddr
   return $ Flows.fromMatch $ OF.matchAny { OF.dstEthAddress = Just e }
 
-prin = 
-  expUser <|> expSrcPort <|> expDstPort <|> expSrcHost <|> expDstHost <|> expNet
-  <|> srcEth <|> dstEth
-
 flowGroupSet = do
+  let prin = expUser <|> expSrcPort <|> expDstPort <|> expSrcHost <|> expDstHost
+             <|> srcEth <|> dstEth
   prins <- parens (sepBy prin comma)
   let flow = foldl Flows.intersection Flows.all prins
   case Flows.null flow of
@@ -157,11 +153,9 @@ resvUB = (do
   size <- T.integer lex
   return size) <|> (return 0)
 
--- TODO: Obviously, this is redundant and perhaps doesn't make sense, but I
--- want to leave open the question of whether this should be ternary (as in,
--- yes/no/inherit-from-parent) or if not, which case should be the default when
--- unspecified (perhaps 'allow=True' should be required, and 'allow=False' should
--- be the default since it means user must grant this authority explicitly)
+-- TODO(adf): Here is where we decide that allow and deny actions are
+-- permissible by default on shares. What should be the correct default, and
+-- do we wish to support "inherit from parent" or something similar?
 allowPerm = (do
   reserved "allow"
   reservedOp "="
@@ -194,7 +188,6 @@ resvFill rub = (do
 
 permList = do
 -- TODO: Convert to be able to specify in any order; need defaults when missing
---  newPerm <- sepBy perm comma
   rub <- resvUB
   ca <- allowPerm
   cd <- denyPerm
@@ -211,6 +204,7 @@ sharePerms = do
 -- System Management Functions
 -----------------------------
 
+-- TODO(adf): Drop this after tests/ are converted
 tick "root" = do
   reserved "Tick"
   t <- T.integer lex
@@ -390,16 +384,6 @@ parseCompleteString spk = do
   eof
   return s
 
-parseStmtFromStdin :: String -> IO (PANE Result)
-parseStmtFromStdin spk = do
-  str <- getLine
-  case parse (parseCompleteString spk) "<stdin>" str of
-    Left err -> do
-      putStrLn ("Parse failed: " ++ show err)
-      return (return (BoolResult False))
-    Right cmd -> do
-      return cmd
-
 parseFromTestFile :: String -> IO (IO ())
 parseFromTestFile filename = do
   str <- readFile filename
@@ -407,67 +391,11 @@ parseFromTestFile filename = do
     Left err -> fail (show err)
     Right stmts -> return stmts
 
-parseStmtFromString :: String -> String -> IO (PANE Result)
-parseStmtFromString spk str = do
+parseFromString :: String -> String -> IO (PANE Result)
+parseFromString spk str = do
   case parse (parseCompleteString spk) "<string>" str of
     Left err -> do
       putStrLn ("Parse failed: " ++ show err)
       return (return (BoolResult False))
     Right cmd -> do
       return cmd
-
-parseInteractive' :: String  -- ^speaker
-                 -> String  -- ^input stream
-                 -> (PANE Result -> a -> IO a)
-                 -> a
-                 -> IO a
-parseInteractive' spk inBuf action acc = do
-  let p acc = do
-        T.whiteSpace lex
-        s <- parseStmt spk
-        lift (action s acc)
-  let pars acc = 
-                 try(do { eof; return acc }) <|>
-                 try(do { T.whiteSpace lex; eof; return acc }) <|>
-                 (do { acc' <- p acc; pars acc' })
-  a <- runParserT (pars acc) () "network-in" inBuf 
-  case a of
-    Left err -> do
-      putStrLn $ "parse error:\n" ++ show err
-      return acc
-    Right a -> return a
-
-
--- |
-paneMan :: Chan (Speaker, String) -- ^commands from speaker
-        -> Chan Integer           -- ^current time
-        -> IO (Chan MatchTable, Chan (Speaker, String))
-paneMan reqChan timeChan = do
-  tblChan <- newChan
-  respChan <- newChan
-  stRef <- newIORef emptyState
-  let handleReq = do
-        (spk, req) <- readChan reqChan
-        paneM <- parseStmtFromString spk req
-        st <- readIORef stRef
-        (resp, st') <- runStateT paneM st
-        case resp of
-          BoolResult True -> do
-            writeIORef stRef st'
-            writeChan respChan (spk, show resp)
-          otherwise -> do
-            writeChan respChan (spk, show resp)
-      buildTbl = do
-        now <- readChan timeChan
-        st <- readIORef stRef
-        let removeEndingNow sh = sh { shareReq = req }
-              where req = filter
-                            (\r -> reqEnd r > fromInteger now)
-                            (shareReq sh)
-        writeIORef stRef (st { shareTree = fmap removeEndingNow (shareTree st),
-                               stateNow = now })
-        writeChan tblChan (compileShareTree now (getShareTree st))
-  forkIO (forever handleReq)
-  forkIO (forever buildTbl)
-  return (tblChan, respChan)
-

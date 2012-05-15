@@ -4,7 +4,7 @@ import Base
 import ShareSemantics
 import qualified Nettle.OpenFlow as OF
 import MacLearning
-import Parser (paneMan)
+import Pane
 import qualified Flows
 
 combinedPaneMac :: Chan (OF.SwitchID, Bool)

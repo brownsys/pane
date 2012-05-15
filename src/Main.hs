@@ -10,6 +10,7 @@ import System.Environment
 import System.IO
 import Data.Word
 import Parser
+import Pane
 import FlowControllerLang
 import FlowController (emptyStateWithTime, State)
 import Test.HUnit hiding (State)

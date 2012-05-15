@@ -6,7 +6,7 @@ import Control.Monad (unless)
 import Network
 import Data.List (span)
 import System.IO
-import Parser hiding (tick)
+import Parser
 import Base
 import Nettle.OpenFlow
 import System.Time
