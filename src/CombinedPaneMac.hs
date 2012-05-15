@@ -1,7 +1,7 @@
 module CombinedPaneMac where
 
 import Base
-import ShareSemantics
+import HFT
 import qualified Nettle.OpenFlow as OF
 import MacLearning
 import Pane

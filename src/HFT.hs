@@ -1,6 +1,6 @@
 -- |Implementation of the gaurantee semantics and forwarding semantics of 
--- 'ShareTree's.
-module ShareSemantics 
+-- PolicyTrees
+module HFT
   ( Action
   , MatchTable (..)
   , compileShareTree
@@ -52,42 +52,8 @@ combineParentChildActions act1 act2 = combineMaybe f act1 act2
         f (ReqResv m) ReqAllow    = ReqResv m  -- give guarantee, doesn't hurt
         f _           ch          = ch
 
-{-
-evalShare :: Integer -- ^current time
-          -> Share
-          -> Flow
-          -> Action
-evalShare now share flowIn = foldl combineSiblingActions emptyAction actions
-  where matchedReqs = filter (\r -> flowIn `flowInGroup` reqFlows r) $
-                        filter (activeAt now) (PQ.toList (shareReq share))
-        actions = map reqToAction matchedReqs
-
-evalShareTree :: Integer    -- ^current time
-              -> Tree Share -- ^share tree
-              -> Flow       -- ^input packet's flow
-              -> Action     -- ^output action
-evalShareTree now (Node share children) inFlow = action
-  where thisAction     = evalShare now share inFlow
-        childActions   = map (\tree -> evalShareTree now tree inFlow) children 
-        cmbChildAction = foldl combineSiblingActions emptyAction childActions
-        action         = combineParentChildActions thisAction cmbChildAction
--}
-
--- 
---
---
-
 emptyTable :: MatchTable
 emptyTable = MatchTable []
-
-{-
-evalTable :: MatchTable -> Flow -> Action
-evalTable (MatchTable lst) flow = 
-  -- relies on 'find' scanning left to right
-  case find (\(fg, _) -> Flows.flowInGroup flow fg) lst of
-    Nothing -> emptyAction
-    Just (_, action) -> action
--}
 
 intersectTable :: (Action -> Action -> Action) 
                -> MatchTable 

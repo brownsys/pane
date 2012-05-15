@@ -7,7 +7,7 @@ module MacLearning
 import Base
 import qualified Flows
 import qualified Nettle.OpenFlow as OF
-import ShareSemantics
+import HFT
 import qualified Data.HashTable as Ht
 import qualified Data.HList as HList
 

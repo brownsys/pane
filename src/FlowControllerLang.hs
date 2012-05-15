@@ -19,7 +19,7 @@ import FlowController
 import Set (Set)
 import qualified Data.ByteString.Lazy as BS
 import Control.Monad.Trans
-import ShareSemantics
+import HFT
 
 type PANE a = StateM.StateT State IO a
 

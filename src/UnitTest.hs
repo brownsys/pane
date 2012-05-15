@@ -9,7 +9,7 @@ import System.Exit
 import System.IO (stderr, hPutStrLn)
 import Base
 import qualified FlowController as FC
-import ShareSemantics
+import HFT
 import qualified Flows
 import Nettle.IPv4.IPAddress
 import Nettle.Ethernet.EthernetAddress (ethernetAddress64)

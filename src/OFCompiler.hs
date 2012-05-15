@@ -3,7 +3,7 @@ module OFCompiler
   , compilerService
   ) where
 
-import ShareSemantics (MatchTable (..), emptyTable)
+import HFT (MatchTable (..), emptyTable)
 import Base
 import qualified Nettle.OpenFlow as OF
 import qualified Nettle.OpenFlow.Match as OFMatch

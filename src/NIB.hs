@@ -26,7 +26,7 @@ import Debug.Trace
 import qualified Nettle.OpenFlow as OF
 import qualified Nettle.Ethernet.AddressResolutionProtocol as OFARP
 import qualified Nettle.Servers.Server as OFS
-import ShareSemantics (MatchTable (..))
+import HFT (MatchTable (..))
 import Base
 import qualified Nettle.OpenFlow as OF
 import qualified Nettle.OpenFlow.StrictPut as OFBS

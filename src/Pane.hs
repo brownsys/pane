@@ -7,7 +7,7 @@ import Base
 import FlowControllerLang
 import FlowController
 import Control.Monad
-import ShareSemantics
+import HFT
 import Control.Monad.State
 
 paneMgr :: Chan (Speaker, String) -- ^commands from speaker
