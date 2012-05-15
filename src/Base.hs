@@ -5,7 +5,6 @@ module Base
   , Host
   , Port
   , Word16
-  , Shared (..)
   , Result (..)
   , Limit (..) 
   , Time (..)
@@ -99,9 +98,6 @@ mergeChan chan1 chan2 = do
     v <- readChan chan2
     writeChan mergedChan (Right v)
   return mergedChan
-
--- |Data shared between the OpenFlow Controller and the PANE Server.
-type Shared = ([CSMessage], [(Match, Word16, Limit)])
 
 data Result
   = BoolResult Bool
