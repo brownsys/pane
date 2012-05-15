@@ -124,9 +124,9 @@ updateDrain start end drain hist = ins 0 hist
           | otherwise           = evt:hd:tl
               where evt = Event end undefined prevDrain
 
--- |'extrapolate fill cap prevEvt tm' calculates the number of tokens at time 'tm',
--- given that 'prevEvt' represents the last point in the history where the
--- drain rate changes.
+-- |'extrapolate fill cap prevEvt tm' calculates the number of tokens at time
+-- 'tm', given that 'prevEvt' represents the last point in the history where
+-- the drain rate changes.
 extrapolate fillRate cap (Event prevTm prevToks prevDrain) tm =
   min cap 
       (prevToks

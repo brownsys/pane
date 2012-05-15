@@ -21,18 +21,20 @@ interactions port toClient fromClient = do
     (h, _, _) <- accept sock
     hSetBuffering h LineBuffering
     toClient <- dupChan toClient
-    forkIO (authUser h fromClient toClient)
+    forkIO (handleUser h fromClient toClient)
   return ()
     
-authUser conn fromClient toClient = do
+handleUser conn fromClient toClient = do
   msg <- hGetLine conn
   let (spk, _)  = span (/='.') msg
   writeChan toClient (spk, "logged in")
+  -- monitor the toClient bus for messages to this client
   forkIO $ forever $ do
     (spk', msg) <- readChan toClient
     when (spk == spk') $ do
       hPutStrLn conn msg
       return ()
+  -- read commands from user and place on fromClient bus
   forever $ do
     msg <- hGetLine conn
     putStrLn $ spk ++ ": " ++ show msg

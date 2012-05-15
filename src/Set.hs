@@ -43,7 +43,8 @@ isSubsetOf _ All = True
 isSubsetOf All (FiniteSet _) = False
 
 intersection :: Ord a => Set a -> Set a -> Set a
-intersection (FiniteSet s1) (FiniteSet s2)=FiniteSet (Data.Set.intersection s1 s2)
+intersection (FiniteSet s1) (FiniteSet s2) = 
+  FiniteSet (Data.Set.intersection s1 s2)
 intersection (FiniteSet s1) All = (FiniteSet s1)
 intersection All (FiniteSet s2) = (FiniteSet s2)
 intersection All All = All

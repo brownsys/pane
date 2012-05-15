@@ -14,7 +14,6 @@ module Base
   , ShareRef
   , Req (..)
   , ReqData (..)
-  , parseIPAddress
   , module Data.IORef
   , module Control.Monad
   , module Control.Concurrent
@@ -37,7 +36,6 @@ import System.IO (Handle)
 import qualified Data.Tree as Tree
 import Text.PrettyPrint.HughesPJ
 import Data.Word
-import Nettle.IPv4.IPAddress
 import Nettle.OpenFlow hiding (Port)
 import Flows
 import qualified Nettle.OpenFlow as OF
