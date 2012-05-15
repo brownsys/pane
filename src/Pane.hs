@@ -4,8 +4,8 @@ module Pane
 
 import Parser
 import Base
-import FlowControllerLang
-import FlowController
+import ShareTreeLang
+import ShareTree
 import Control.Monad
 import HFT
 import Control.Monad.State

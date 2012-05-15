@@ -1,4 +1,4 @@
-module FlowControllerLang 
+module ShareTreeLang 
   ( PANE 
   , createSpeakerM
   , giveReferenceM
@@ -10,23 +10,17 @@ module FlowControllerLang
   , listShareRefsByUserM
   , getScheduleM
   , evalPANE
-  , runPANE
   ) where
 
 import Base
 import qualified Control.Monad.State as StateM
-import FlowController
-import Set (Set)
-import qualified Data.ByteString.Lazy as BS
-import Control.Monad.Trans
+import ShareTree
 import HFT
 
 type PANE a = StateM.StateT State IO a
 
 evalPANE :: PANE a -> IO a
 evalPANE m = StateM.evalStateT m emptyState
-
-runPANE = StateM.runStateT
 
 boolWrapper exp = do
   s <- StateM.get
@@ -35,7 +29,6 @@ boolWrapper exp = do
     Just s' -> do
       StateM.put s'
       return (BoolResult True)
-
 
 createSpeakerM :: Speaker -> PANE Result
 createSpeakerM spk = boolWrapper (createSpeaker spk)
@@ -61,7 +54,7 @@ getScheduleM speaker shareName = do
     Nothing -> return (BoolResult False)
     Just sched -> return (ScheduleResult sched)
 
-getTimeM :: PANE(Integer)
+getTimeM :: PANE Integer
 getTimeM = do
   s <- StateM.get
   return (stateNow s)

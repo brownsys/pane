@@ -10,8 +10,8 @@ import System.Environment
 import System.IO
 import Data.Word
 import Parser
-import FlowControllerLang
-import FlowController (emptyStateWithTime, State)
+import ShareTreeLang
+import ShareTree (emptyStateWithTime, State)
 import Test.HUnit hiding (State)
 import Base
 import Control.Concurrent.MVar
@@ -67,10 +67,10 @@ action [NewServer port] = do
   nibUpdates <- newChan -- TODO(arjun): write into this
 
   putStrLn "Starting compiler ..."
-  netSnapshot <- compilerService (nib, nibUpdates) tbl
+  nibSnapshot <- compilerService (nib, nibUpdates) tbl
 
   putStrLn "Starting OpenFlow controller ..."
-  controller netSnapshot nibMsg packetIn switches pktOut 6633
+  controller nibSnapshot nibMsg packetIn switches pktOut 6633
 action [Help] = do
   putStrLn $ usageInfo "WELCOME TO PANE" argSpec
 action [] = do

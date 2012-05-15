@@ -1,6 +1,6 @@
 module Main where
 
-import Parser (paneMan)
+import Pane
 import Prelude hiding (putStrLn)
 import Test.HUnit
 import qualified TokenGraph as TG
@@ -8,7 +8,7 @@ import TokenGraph (TokenGraph)
 import System.Exit
 import System.IO (stderr, hPutStrLn)
 import Base
-import qualified FlowController as FC
+import qualified ShareTree as FC
 import HFT
 import qualified Flows
 import Nettle.IPv4.IPAddress
@@ -358,7 +358,7 @@ macLearningTests = TestLabel "MAC Learning tests" $ TestList
 mkPaneMan = do
   req <- newChan
   time <- newChan
-  (tbl, resp) <- paneMan req time
+  (tbl, resp) <- paneMgr req time
   return (tbl, resp, req, time)
 
 assertReadChanEqual msg val chan = do
@@ -459,7 +459,7 @@ testPaneMac0 = TestLabel "test PANE overriding MAC learning" $ TestCase $ do
     tbl 
   writeChan req ("root", "deny(dstEth=00:00:00:00:00:bb) on rootShare.")
   assertReadChanEqual "root should be able to deny" ("root", "True") resp
-  writeChan time 0 -- TODO(arjun): paneMan only writes on ticks. problem?
+  writeChan time 0 -- TODO(arjun): paneMgr only writes on ticks. problem?
   assertReadChanEqual "deny should override MAC learning"
     (MatchTable [
       (Flows.fromSwitchMatch 34 (OF.matchAny { OF.dstEthAddress = Just ethbb }),

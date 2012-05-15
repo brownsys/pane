@@ -10,7 +10,7 @@ module HFT
   ) where
 
 import Data.Tree (Tree (..))
-import FlowController (Share (..))
+import ShareTree (Share (..))
 import Base
 import Data.List (groupBy, find)
 import qualified Flows as Flows

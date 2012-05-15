@@ -10,8 +10,8 @@ import Text.Parsec
 import qualified Text.Parsec.Token as T
 import qualified Set as Set
 import Data.Maybe (catMaybes)
-import FlowControllerLang
-import FlowController hiding (newShare, getSchedule)
+import ShareTreeLang
+import ShareTree hiding (newShare, getSchedule)
 import Control.Monad
 import Test.HUnit
 import qualified TokenGraph as TG

@@ -1,4 +1,4 @@
-module FlowController
+module ShareTree
   ( State
   , ShareTree
   , emptyState
@@ -219,11 +219,10 @@ recursiveRequest req@(Req shareRef _ start end rData _)
       f (Just sT) (thisShareName, thisShare@(Share {shareReq=reqs,
                                                     shareResv=tg})) =
         case rData of
-           (ReqResv drain) -> do tg <- TG.drain start end drain tg
-                                 let thisShare' = thisShare {
-                                            shareReq = req:reqs,
-                                            shareResv = tg }
-                                 return (Tree.update thisShareName thisShare' sT)
+           (ReqResv drain) -> do
+             tg <- TG.drain start end drain tg
+             let thisShare' = thisShare { shareReq = req:reqs, shareResv = tg }
+             return (Tree.update thisShareName thisShare' sT)
            ReqAllow -> Nothing
            ReqDeny -> Nothing  
     in case foldl f (Just sT) chain of
@@ -283,7 +282,7 @@ request spk req@(Req shareRef flow start end rD strict)
         False -> Nothing
         True -> case strict of
                   True -> case rD of
-                             -- TODO: need to send reason why if request rejected
+                             -- TODO: need to send reason why request rejected
                              (ReqResv _) -> recursiveRequest req st
                              ReqAllow -> strictAdmControl req st
                              ReqDeny -> strictAdmControl req st
@@ -295,8 +294,8 @@ request spk req@(Req shareRef flow start end rD strict)
   else
     Nothing
 
--- |'getSchedule speaker share state' returns the reservation schedule on 'share'
--- to 'speaker'. The reservation schedule is a list of 3-tuples,
+-- |'getSchedule speaker share state' returns the reservation schedule on 
+-- 'share' to 'speaker'. The reservation schedule is a list of 3-tuples,
 -- '(timestamp, bandwidth-available, tokens-available)'. The list is ordered by
 -- 'timestamp'.
 --
