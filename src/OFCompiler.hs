@@ -17,15 +17,15 @@ import Flows (toMatch)
 import Control.Monad
 import qualified Flows
 
-
+-- | Calls compile when either NIB or network flow table changes
 compilerService :: (NIB.NIB, Chan NIB.NIB)
-                -> Chan MatchTable
+                -> Chan MatchTable    -- ^ Network Flow Table
                 -> IO (Chan NIB.Snapshot)
 compilerService (initNIB, nib) tbl =
   liftChan compile (initNIB, nib) (emptyTable, tbl)
 
-
-
+-- | Converts a switch's flow table to an OpenFlow table by groupping
+-- consecutive, non-overlapping rules into the same OpenFlow priority level
 toFlowTbl :: [(OF.Match, [OF.Action], Limit)]
           -> NIB.FlowTbl
 toFlowTbl lst = Set.fromList prioritizedRules
@@ -46,9 +46,12 @@ toFlowTbl lst = Set.fromList prioritizedRules
         prioritizedRules = 
           List.concatMap (\(p, rules) -> map (ruleWithPriority p) rules)
                          prioritizedGroups
-          
 
-compile :: NIB.NIB -> MatchTable -> IO (Map OF.SwitchID NIB.Switch)
+-- | Scan through the Network Flow Table and separate out the rules which
+-- apply to each switch.
+compile :: NIB.NIB          -- ^ actual NIB
+        -> MatchTable       -- ^ Network Flow Table
+        -> IO NIB.Snapshot  -- ^ NIB snapshot produced by compilation
 compile nib (MatchTable tbl) = do
   let -- TODO(arjun): foldr loop and rule:flows instead of flows ++ [rule]
       withEth flow default_ k = case toMatch flow of
@@ -117,11 +120,14 @@ compile nib (MatchTable tbl) = do
                       rule = (m, [OF.Enqueue outp queueID], end)
           return (foldl queue switches path)
   snap <- NIB.snapshot nib
+  -- Recompile switches' flow tables from scratch, but remember port cfgs
   let cfgs = Map.map (\(NIB.Switch p _) -> (p, [])) snap
   cfgs' <- foldM loop cfgs tbl
-  let f (ports, flows) = NIB.Switch ports (toFlowTbl flows)
   -- putStrLn "Policy:"
   -- mapM_ (\x -> putStrLn $ "    " ++ (show x)) tbl
   -- putStrLn "Compiled to :"
   -- mapM_ (\(_, (_, v)) -> putStrLn $ "  " ++ show v) (Map.toList cfgs')
+  --
+  -- Produce output snapshot
+  let f (ports, flows) = NIB.Switch ports (toFlowTbl flows)
   return (Map.map f cfgs')

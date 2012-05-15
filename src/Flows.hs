@@ -1,7 +1,6 @@
 module Flows
   ( Flow (..)
   , FlowGroup
-  -- , flowInGroup
   , User
   , Host
   , Port
@@ -10,7 +9,6 @@ module Flows
   , all
   , isSubFlow
   , isOverlapped
-  , expand
   , make
   , simple
   , toMatch
@@ -61,6 +59,7 @@ toMatch :: FlowGroup -> Maybe Match
 toMatch (FlowMatch _ m) = Just m
 toMatch _               = Nothing
 
+-- | Helper function for unit testing
 toMatch' :: FlowGroup -> Match
 toMatch' f = case toMatch f of
   Just m -> m
@@ -76,6 +75,7 @@ fromSwitchMatch sid m = FlowMatch (Just sid) m
 fromMatch :: OF.Match -> FlowGroup
 fromMatch m = FlowMatch Nothing m
 
+-- TODO(adf): UNUSED -- For future, generalized version of flow groups
 isSubFlow' :: Flow -> Flow -> Bool
 isSubFlow' (Flow su du sp dp sh dh) (Flow su' du' sp' dp' sh' dh') =
   let (⊆) s1 s2 = case (s1, s2) of
@@ -86,6 +86,7 @@ isSubFlow' (Flow su du sp dp sh dh) (Flow su' du' sp' dp' sh' dh') =
 
 all = FlowMatch Nothing matchAny
 
+-- | Helper function for easy unit testing
 simple :: Maybe Host -> Maybe Port -> Maybe Host -> Maybe Port -> FlowGroup
 simple sh sp dh dp = 
   let mHost h = case h of
@@ -96,7 +97,8 @@ simple sh sp dh dp =
                                      srcTransportPort = sp, 
                                      dstTransportPort = dp })
 
-
+-- TODO(adf): UNUSED -- For future, generalized version which we don't know
+-- how to actually use/create yet....
 make :: Set User -> Set User -> Set Port -> Set Port -> Set Host -> Set Host
      -> FlowGroup
 make su du sp dp sh dh = 
@@ -119,21 +121,6 @@ make su du sp dp sh dh =
     in case makeMatch su du sp dp sh dh of
          Just m -> FlowMatch Nothing m
          Nothing -> error "flow group unsupported"
-
--- TODO(arjun): flowInGroup as defined below is nonsensical when FlowGroups
--- are enriched to include switchIDs. Flows need to specify switches too.
-flowInGroup :: Flow -> FlowGroup -> Bool
-flowInGroup _                      Empty         = False
-flowInGroup (Flow _ _ sp dp sh dh) (FlowMatch _ m) =
-  -- TODO(adf): what about users?
-  sp `portIn` srcTransportPort m && dp `portIn` dstTransportPort m &&
-  sh `ipIn` srcIPAddress m && dh `ipIn` dstIPAddress m
-    where portIn _        Nothing   = True
-          portIn Nothing  (Just _)  = False
-          portIn (Just p) (Just p') = p == p'
-          ipIn _          (_, 0)   = True
-          ipIn Nothing    (_, len) = len == 0 
-          ipIn (Just ip)  pfx    = (ip, maxPrefixLen) `IPAddress.isSubset` pfx
 
 intersection :: FlowGroup -> FlowGroup -> FlowGroup
 intersection _              Empty          = Empty
@@ -161,18 +148,7 @@ isSubFlow Empty          _              = True
 isSubFlow _              Empty          = False
 isSubFlow (FlowMatch sw1 m1) (FlowMatch sw2 m2) = 
   let swContained = case (sw1, sw2) of
-        (_, Nothing) -> True
+        (_, Nothing) -> True -- Remember: Nothing is the wildcard here
         (Just s, Just s') -> s == s'
         (Nothing, Just _) -> False
     in swContained && Match.subset m1 m2
-
--- TODO(arjun): expand is a nonsensical function used only in EmitFML
-expand :: FlowGroup -> [Flow]
-expand Empty = []
-expand (FlowMatch _ (Match {srcIPAddress=sh,dstIPAddress=dh,
-                            srcTransportPort=sp,dstTransportPort=dp})) =
-  [Flow Nothing Nothing sp dp (ip sh) (ip dh)]
-    where ip (addr, 0) = Nothing
-          ip (addr, len)
-            | len == maxPrefixLen = Just addr
-            | otherwise           = error "prefixes unsupported"
