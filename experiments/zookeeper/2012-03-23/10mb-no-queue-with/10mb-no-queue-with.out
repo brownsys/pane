@@ -1,9 +1,0 @@
-200  6000 2000 10000 false
-log4j:WARN No appenders could be found for logger (com.netflix.curator.framework.imps.CuratorFrameworkImpl).
-log4j:WARN Please initialize the log4j system properly.
-log4j:WARN No appenders could be found for logger (com.netflix.curator.framework.imps.CuratorFrameworkImpl).
-log4j:WARN Please initialize the log4j system properly.
-3-i'm done, reqs:7889
-4-i'm done, reqs:7171
-1-i'm done, reqs:8048
-2-i'm done, reqs:8560
