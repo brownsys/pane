@@ -58,6 +58,14 @@ data NIB = NIB {
   nibEndpointsByIP :: HashTable OF.IPAddress EndpointData
 }
 
+-- TODO(adf): There is no guarantee that nibEndpoints and nibEndpointsByIP be
+-- consistent. It might be better to have a single nibEndpoints HashTable, and
+-- then a separate HashTable which does IP -> EthernetAddress. In the "Real
+-- World" we can expect to see multiple EthernetAddresses attached to the same
+-- switch port, and multiple IP addresses assocated with the same EthernetAddress.
+-- Multiple ethernet address for a single IP is also possible (load-balancing),
+-- but those will ultimately have separate endpoints.
+
 data EndpointData = EndpointData {
   endpointEthAddr     :: OF.EthernetAddress,
   endpointIP          :: OF.IPAddress,
@@ -75,8 +83,8 @@ data SwitchData = SwitchData {
 data PortData = PortData {
   portPortID              :: OF.PortID,
   portQueues              :: HashTable OF.QueueID Queue,
-  portAttachedTo          :: Element,
-  portConnectedTo         :: IORef Element,
+  portDevice              :: Element, -- ^ local device (always a switch)
+  portConnectedTo         :: IORef Element, -- ^ other end of the wire
   portQueueUpdateListener :: IORef ([(OF.QueueID, Queue)] -> IO ())
 }
 
@@ -91,7 +99,7 @@ instance Show Element where
   show (ToSwitch sw _) = show (switchSwitchID sw)
 
 instance Show PortData where
-  show p = show (portAttachedTo p) ++ ":" ++ show (portPortID p)
+  show p = show (portDevice p) ++ ":" ++ show (portPortID p)
 
 data Msg
   = NewSwitch OFS.SwitchHandle OF.SwitchFeatures
@@ -267,8 +275,8 @@ linkPorts port1 port2 = do
   conn2 <- readIORef (portConnectedTo port2)
   case (conn1, conn2) of
     (ToNone, ToNone) -> do
-      writeIORef (portConnectedTo port1) (portAttachedTo port2)
-      writeIORef (portConnectedTo port2) (portAttachedTo port1)
+      writeIORef (portConnectedTo port1) (portDevice port2)
+      writeIORef (portConnectedTo port2) (portDevice port1)
       return True
     otherwise -> return False
 
