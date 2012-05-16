@@ -1,6 +1,8 @@
 Require Import Coq.Init.Datatypes.
 Require Import Coq.Lists.List.
 Require Import Coq.Arith.MinMax.
+Require Import Omega.
+Require Import CpdtTactics.
 
 Parameter M : Type.
 
@@ -27,8 +29,6 @@ Axiom overlap_inter_1 : forall (m0 m1 m2 : M),
   is_overlapped m1 m2 = false ->
   is_overlapped (intersect m1 m0) m2 = false.
 
-  
-
 Inductive A : Type :=
  | None : A
  | Allow : A
@@ -46,109 +46,93 @@ Definition S : Type := list (M * A).
 Inductive T : Type :=
   | Tree : S -> list T -> T.
 
-
 Inductive wf_tree : nat -> T -> Prop :=
   | wf_tree_lst : forall (s : S) (lst : list T) (n : nat),
     (forall (t' : T), In t' lst -> wf_tree n t') ->
     wf_tree (Datatypes.S n) (Tree s lst).
 
+Hint Constructors wf_tree.
+
+Section WellFormedness.
+
 Fixpoint height (tree : T) : nat := match tree with
   | Tree _ children => 1 + fold_right max 0 (map height children)
 end.
 
-
-Require Import Omega.
+Hint Immediate le_or_lt : arith.
 
 Lemma max_le : forall (l m n : nat),
   max l m <= n ->
   l <= n /\ m <= n.
-Proof with auto.
-
+Proof with (auto with arith).
 intros.
-assert (l <= m \/ m < l). apply le_or_lt.
+assert (l <= m \/ m < l)...
 destruct H0.
-assert (max l m = m). apply max_r...
+assert (max l m = m)...
 rewrite -> H1 in H.
 omega.
 assert (max l m = l). apply max_l. omega.
 omega.
 Qed.
 
+Hint Immediate max_le : arith v62.
+
 Lemma split_height: forall (s : S) (a : T) (L : list T) (n : nat),
   height (Tree s (a :: L)) <= n ->
   height (Tree s L) <= n.
-Proof with auto.
+Proof with auto with arith.
 intros.
 generalize dependent a.
-induction L; intros.
-simpl in *.
-omega.
-(* inductive *)
-simpl.
-simpl in H.
+induction L; intros; crush.
 rewrite -> succ_max_distr in H.
 apply max_le in H.
-destruct H.
-exact H0.
+crush.
 Qed.
 
 Lemma height_list : forall (lst : list T) (n : nat) (t : T),
   fold_right max 0 (map height lst) <= n ->
   In t lst ->
   height t <= n.
-Proof with auto.
+Proof with crush.
 intros.
-induction lst.
-inversion H0.
-simpl in H.
-apply max_le in H.
-destruct H.
-simpl in H0.
-destruct H0.
-subst...
+induction lst...
+apply max_le in H...
 apply IHlst in H1...
+apply max_le in H...
 Qed.
 
 Lemma decreasing_height: forall (s : S) (lst : list T) (t : T) (n : nat),
   height (Tree s lst) <= n ->
   In t lst ->
   height t < n.
-Proof with auto.
+Proof with eauto using height_list with arith.
 intros.
 generalize dependent lst.
-induction n; intros.
-
-apply le_n_0_eq in H.
-simpl in H. inversion H.
-
-simpl in H.
-apply le_S_n in H.
-assert (height t <= n). apply height_list with (lst := lst)...
-omega.
+induction n; intros...
 Qed.
+
+Hint Immediate decreasing_height.
 
 Lemma wf_exists_aux : forall (tree : T) (n : nat),
   height tree <= n -> wf_tree n tree.
-Proof with simpl; auto.
+Proof with simpl; (eauto with arith).
 intros.
 generalize dependent tree.
 induction n; intros; destruct tree.
-simpl in H. inversion H.
+crush.
 (* Inductive *)
 apply wf_tree_lst.
 intros. apply IHn.
-assert (height t' < Datatypes.S n).
- apply decreasing_height with (s := s) (lst := l)...
-apply lt_n_Sm_le in H1...
+assert (height t' < Datatypes.S n)...
 Qed.
 
 Lemma wf_exists : forall (tree : T),
   wf_tree (height tree) tree.
 Proof.
-intros.
-apply wf_exists_aux. auto.
+intros. apply wf_exists_aux. auto.
 Qed.
 
+End WellFormedness.
 
 Definition plus_P (a1 : A) (a2 : A) : A := match (a1, a2) with
   | (_, None) => a1
@@ -218,15 +202,19 @@ Inductive scan_rel : M -> N -> A -> Prop :=
       scan_rel pkt tl a' ->
       scan_rel pkt ((m,a)::tl) a'.
 
+Hint Constructors scan_rel.
+
 Lemma scan_alg : forall (pkt : M) (a : A) (n : N),
   scan pkt n = a <-> scan_rel pkt n a.
-Proof with auto.
+Proof with subst; eauto.
 split; intros.
-induction n. 
-  simpl in H. rewrite <- H. apply scan_empty.
-  destruct a0. simpl in H.
-  remember (is_overlapped m pkt).
-  destruct b. rewrite -> H in *. apply scan_head... apply scan_tail...
+induction n.
+crush.
+
+destruct a0. simpl in H.
+remember (is_overlapped m pkt) as B.
+destruct B...
+
 induction n.
   inversion H. simpl...
   destruct a0; inversion H; subst.
@@ -280,16 +268,7 @@ Qed.
 Lemma elim_mismatch : forall (n1 n2 : N) (p m : M) (a : A),
   is_overlapped m p = false ->
   scan p (n1 ++ (m,a)::n2) = scan p (n1 ++ n2).
-Proof with auto.
-  intros. 
-  induction n1.
-  simpl. unfold scan.
-
- rewrite -> H...
-  destruct a0.
-  simpl.
-  destruct (is_overlapped m0 p)...
-Qed.
+Proof. intros. induction n1; crush. Qed.
 
 Section NetworkFlowTables.
 
@@ -307,26 +286,29 @@ Definition inter (n1 : N) (n2 : N) :=
 
 Definition union (n1 : N) (n2 : N) : N := inter n1 n2 ++ n1 ++ n2.
 
-Hint Resolve union inter inter_helper inter_entry.
+Hint Unfold union inter inter_helper inter_entry.
 
 Lemma eval_elim_left : forall (N1 N2 : N) (pkt : M),
   (forall (m : M) (a : A), In (m,a) N1 -> is_overlapped m pkt = false) ->
   scan pkt (N1 ++ N2) = scan pkt N2.
-Proof with auto.
+Proof with eauto with arith.
 intros.
 induction N1. simpl...
 destruct a.
 assert (forall (m : M) (a : A), In (m,a) N1 -> is_overlapped m pkt = false).
- intros. apply H with (a0 := a0). apply in_cons. exact H0.
+ intros. apply H with (a0 := a0). apply in_cons...
 apply IHN1 in H0.
 simpl.
 remember (is_overlapped m pkt).
 destruct b.
 assert (is_overlapped m pkt = false).
-  apply H with (a0 := a). simpl. left. reflexivity.
+  apply H with (a0 := a). simpl...
 rewrite H1 in Heqb. inversion Heqb.
 exact H0.
 Qed.
+
+Hint Resolve overlap_intersect.
+Hint Rewrite intersect_comm.
 
 Lemma eval_inter_step : forall (N1 N2 : N) (m pkt : M) (a : A),
   is_overlapped m pkt = false ->
@@ -334,12 +316,12 @@ Lemma eval_inter_step : forall (N1 N2 : N) (m pkt : M) (a : A),
 Proof with auto.
 intros.
 induction N1.
-unfold inter_helper. simpl...
+auto.
 unfold inter_helper in *.
 destruct a0. simpl.
 remember (is_overlapped (intersect m0 m) pkt).
 destruct b...
-assert (is_overlapped (intersect m m0) pkt = false). apply overlap_intersect...
+assert (is_overlapped (intersect m m0) pkt = false)...
 rewrite intersect_comm in H0.
 rewrite -> H0 in Heqb.
 inversion Heqb.
@@ -347,32 +329,25 @@ Qed.
 
 Lemma inter_nil_l : forall (n : N),
   inter nil n = nil.
-Proof.
+Proof with simpl; auto.
 intros.
-induction n.
-auto.
-simpl.
-destruct a.  auto.
+induction n...
 Qed.
 
 Lemma inter_nil_r : forall (n : N), inter n nil = nil.
-Proof.
-intros.
-unfold inter. unfold inter_helper. simpl. 
-induction n; simpl; auto.
+Proof with simpl; auto.
+intros. induction n...
 Qed.
+
+Hint Resolve inter_nil_l inter_nil_r.
 
 Lemma union_nil_l : forall (n : N),
   union nil n = n.
-Proof.
-intros.
-unfold union.
-rewrite -> inter_nil_l.
-auto.
-Qed.
+Proof. auto. Qed.
+
 
 Lemma union_nil_r : forall (n : N), union n nil = n.
-Proof.
+Proof. 
 intros.
 unfold union.
 rewrite -> inter_nil_r.
@@ -381,7 +356,7 @@ rewrite -> app_nil_r.
 reflexivity.
 Qed.
 
-Hint Rewrite inter_nil_l union_nil_l.
+Hint Rewrite union_nil_l union_nil_r.
 
 End NetworkFlowTables.
 
@@ -399,11 +374,12 @@ Lemma elim_scan_head : forall (N1 N2 : N) (pkt : M),
   scan pkt (N1 ++ N2) = scan pkt N2.
 Proof with simpl; auto.
 intros.
-induction N1. simpl. auto.
+induction N1...
 destruct a.
 assert (forall (m : M) (a : A), In (m,a) N1 -> is_overlapped m pkt = false).
 intros. assert (In (m0,a0) ((m,a)::N1)). apply in_cons. exact H0.
 apply H in H1. exact H1.
+
 apply IHN1 in H0.
 simpl.
 remember (is_overlapped m pkt).
@@ -416,34 +392,14 @@ Qed.
 Lemma elim_scan_mid : forall (N1 N2 : N) (pkt m : M) (a : A),
   is_overlapped m pkt = false ->
   scan pkt (N1 ++ (m,a) :: N2) = scan pkt (N1 ++ N2).
-Proof.
-  intros.
-  induction N1.
-  simpl.
-  rewrite -> H.  
-  reflexivity.
-  destruct a0.
-  simpl.
-  destruct (is_overlapped m0 pkt).
-  reflexivity.
-  exact IHN1.
-Qed.
+Proof. intros. induction N1; crush. Qed.
+
+Hint Resolve elim_scan_head elim_scan_mid.
 
 Lemma elim_scan_middle : forall (N1 N2 N3 : N) (pkt : M),
   (forall (m : M) (a : A), In (m,a) N2 -> is_overlapped m pkt = false) ->
   scan pkt (N1 ++ N2 ++ N3) = scan pkt (N1 ++ N3).
-Proof.
-  intros.
-  generalize dependent N2.
-  induction N1.
-  intros.
-  simpl. apply elim_scan_head. exact H.
-  intros.
-  destruct a.
-  simpl.
-  destruct (is_overlapped m pkt). reflexivity.
-  apply IHN1 in H. exact H.
-Qed.
+Proof. intros. generalize dependent N2. induction N1; crush. Qed.
 
 Lemma elim_inter_head : forall (N1 N2 : N) (pkt m : M) (f : A -> A -> A) 
                                (a : A),
@@ -452,16 +408,17 @@ Lemma elim_inter_head : forall (N1 N2 : N) (pkt m : M) (f : A -> A -> A)
 Proof.
 intros.
 induction N1.
-simpl. reflexivity.
+crush.
 destruct a0.
 simpl.
 assert (is_overlapped (intersect m0 m) pkt = false).
   rewrite -> intersect_comm.
   apply overlap_intersect.
   exact H.
-rewrite -> H0.
-exact IHN1.
+crush.
 Qed.
+
+Hint Resolve elim_inter_head.
 
 Lemma inter_empty_aux : forall (N1 : N) (m m0 pkt : M) (a a0 : A) (f : A -> A -> A),
   is_packet pkt = true ->
@@ -503,15 +460,14 @@ intros Hlap.
 intros.
 generalize dependent N2.
 induction N1.
-intros.
-simpl in H. inversion H.
+crush.
 (* Inductive *)
+destruct a0.
 intros.
 simpl in H.
 unfold inter_helper in H.
 rewrite -> in_app_iff in H.
 destruct H.
-destruct a0.
 apply inter_empty_aux with (N1 := N2) (m0 := m0) (f := f) (a := a) (a0 := a0).
 auto. auto. auto.
 (* really inductive *)
@@ -519,11 +475,14 @@ apply IHN1 in Hlap...
 Qed.
 
 
+Hint Resolve inter_empty scan_off.
+Hint Rewrite in_app_iff.
+
 Lemma union_comm : forall (n1 n2 : N) (pkt : M) (f : A -> A -> A),
   is_packet pkt = true ->
   well_behaved f ->
   scan pkt (union f n1 n2) = f (scan pkt n1) (scan pkt n2).
-Proof with simpl; auto.
+Proof with simpl; eauto .
  intros n1 n2 pkt f Hpacket.
  intros.
 remember H as Hwb.
@@ -538,7 +497,7 @@ destruct a.
 unfold union.
 remember (is_overlapped m pkt).
 assert (scan_inv pkt (inter f ((m, a) :: n1) n2 ++ ((m, a) :: n1) ++ n2)).
-   apply scan_off. unfold scan_inv in H1.
+  crush.
 destruct H1 as [ [H1 H2] | H1].
   (* Case: scan falls off the table. *)
   remember (inter f ((m, a) :: n1) n2) as l1.
@@ -546,16 +505,15 @@ destruct H1 as [ [H1 H2] | H1].
   rewrite -> H2.
   remember (l1 ++ (((m,a)::n1) ++ n2)) as L.
   assert (scan pkt n2 = None) as HscanLeft.
-    assert (scan_inv pkt n2). apply scan_off. unfold scan_inv in H3.
+    assert (scan_inv pkt n2)...
     destruct H3 as [[ H3 H4] | [N2 [N3 [m' [a' [H3 [H4 [H5 H6]]]]]]]].
     trivial.
-    assert (In (m',a') n2). rewrite -> H3. rewrite -> in_app_iff. right. 
-                            apply in_eq.
+    assert (In (m',a') n2). crush.
     assert (In (m',a') L).
       rewrite -> HeqL. rewrite -> app_assoc. rewrite -> in_app_iff. right...
     apply H1 in H8. rewrite -> H8 in H4. inversion H4.
   assert (scan pkt ((m,a)::n1) = None) as HscanRight.
-    assert (scan_inv pkt ((m,a)::n1)). apply scan_off. unfold scan_inv in H3.
+    assert (scan_inv pkt ((m,a)::n1))...
     destruct H3 as [[ H3 H4] | [N2 [N3 [m' [a' [H3 [H4 [H5 H6]]]]]]]].
     trivial.
     assert (In (m',a') ((m,a)::n1)). rewrite -> H3. rewrite -> in_app_iff...
@@ -679,8 +637,6 @@ destruct H1 as [ [H1 H2] | H1].
   auto.
 Qed. 
 
-
-
 Lemma inter_elim : forall (f : A -> A -> A)
   (m pkt : M) (a : A) (L1 L2 : N),
   is_overlapped m pkt = false ->
@@ -689,11 +645,11 @@ Lemma inter_elim : forall (f : A -> A -> A)
 Proof with auto.
   intros.
   induction L1.
-  simpl...
-  destruct a0.
+  crush.
+  destruct a0. 
   assert (is_overlapped (intersect m0 m) pkt = false).
     rewrite <- intersect_comm. apply overlap_intersect...
-  simpl. rewrite -> H0...
+  crush.
 Qed.
 
 Lemma flatten_eval_S : forall (share : S) (pkt : M),
@@ -743,7 +699,7 @@ Proof with simpl; auto.
   destruct tree.
  subst.
  simpl.
-rewrite -> union_comm.
+rewrite -> union_comm...
 assert (eval_S pkt s = scan pkt (lin_S s)).
   apply flatten_eval_S.
 exact Hpacket.
@@ -751,15 +707,15 @@ rewrite -> H0.
 clear H0.
 assert (fold_right plus_C None (map (eval_T pkt) l) =
         scan pkt (fold_right (union plus_C) nil (map lin_T l))).
-  induction l...
+  induction l... crush.
   rewrite -> union_comm.
   assert (eval_T pkt a = scan pkt (lin_T a)).
-  apply IHn. inversion H. subst.  apply H2. apply in_eq.
+    apply IHn. inversion H. crush.
   rewrite -> H0.
   assert (fold_right plus_C None (map (eval_T pkt) l) = 
           scan pkt (fold_right (union plus_C) nil (map lin_T l))).
   apply IHl. intros. apply wf_tree_lst. 
-   inversion H; subst. intros. apply H3. apply in_cons...
+   inversion H; subst. crush.
   rewrite -> H1.
   reflexivity.
 auto.
