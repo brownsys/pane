@@ -338,16 +338,15 @@ testMacLearn1 = TestLabel "should learn route " $ TestCase $ do
   writeChan swChan (34, True)
   b <- isEmptyChan tblChan
   assertEqual "switches should not trigger table updates" True b
-  writeChan pktChan (99 {- txID -}, 0, 34, packet 100 200 1)
+  writeChan pktChan (99 {- txID -}, 0, 34, packet 0x44 0x99 1)
   tbl <- readChan tblChan
-  assertEqual "should learn a flood and 1 route"
-    (MatchTable [ML.rule 0 34 (ethernetAddress64 100) (Just (1, 60)), 
-                 ML.rule 0 34 (ethernetAddress64 200) Nothing]) tbl 
-  writeChan pktChan (98 {- txID -}, 0, 34, packet 200 100 2)
+  assertEqual "should learn a flood"
+    (MatchTable [ML.rule 0 34 (ethernetAddress64 0x99) Nothing]) tbl 
+  writeChan pktChan (98 {- txID -}, 0, 34, packet 0x99 0x44 2)
   tbl <- readChan tblChan
   assertEqual "should learn two routes"
-    (MatchTable [ML.rule 0 34 (ethernetAddress64 100) (Just (1, 60)), 
-                 ML.rule 0 34 (ethernetAddress64 200) (Just (2, 60))]) tbl 
+    (MatchTable [ML.rule 0 34 (ethernetAddress64 0x44) (Just (1, 60)), 
+                 ML.rule 0 34 (ethernetAddress64 0x99) (Just (2, 60))]) tbl 
 
 
 

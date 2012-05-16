@@ -5,7 +5,6 @@ module ControllerService
 
 import Prelude hiding (catch)
 import Base
-import System.Time
 import Data.Map (Map)
 import MacLearning (PacketOutChan)
 import qualified NIB
@@ -42,6 +41,7 @@ controller nibSnapshot toNIB packets switches pktOut port = do
   forkIO $ forever $ do
     (swID, xid, pktOut) <- readChan pktOut
     -- putStrLn $ "SEND packet-out" ++ show (OF.bufferIDData pktOut)
+    -- TODO(adf): exception handler?
     OFS.sendToSwitchWithID server swID (xid, OF.PacketOut pktOut)
   -- process new switches
   forever $ do
@@ -81,7 +81,7 @@ messageHandler :: Chan PacketIn -- ^output channel (headed to MAC Learning)
                -> IO ()
 messageHandler packets toNIB switch (xid, msg) = case msg of
   OF.PacketIn pkt -> do
-    (TOD now _) <- getClockTime
+    now <- readIORef sysTime
     writeChan packets (xid, now, OFS.handle2SwitchID switch, pkt)
     writeChan toNIB (NIB.PacketIn (OFS.handle2SwitchID switch) pkt)
   otherwise -> do
@@ -108,7 +108,7 @@ configureSwitch nibSnapshot switchHandle oldSw@(NIB.Switch oldPorts oldTbl) = do
                  " in the NIB snapshot."
       configureSwitch nibSnapshot switchHandle oldSw
     Just sw@(NIB.Switch newPorts newTbl) -> do
-      (TOD now _) <- getClockTime
+      now <- readIORef sysTime
       let (deleteQueueTimers, msgs') = mkPortMods now oldPorts newPorts 
                                          (OFS.sendToSwitch switchHandle)
       let msgs = msgs' ++ mkFlowMods now newTbl oldTbl
@@ -118,6 +118,7 @@ configureSwitch nibSnapshot switchHandle oldSw@(NIB.Switch oldPorts oldTbl) = do
          mapM_ (\x -> putStrLn $ "   " ++ show x) msgs
          putStrLn "-------------------------------------------------"
          return ()
+      -- TODO(adf): exception handler?
       mapM_ (OFS.sendToSwitch switchHandle) (zip [0 ..] msgs)
       deleteQueueTimers
       configureSwitch nibSnapshot switchHandle sw
@@ -165,6 +166,7 @@ mkPortMods now portsNow portsNext sendCmd = (delTimers, addMsgs)
           forkIO $ do
             threadDelay (10^6 * (fromIntegral $ end - now))
             putStrLn $ "Deleting queue " ++ show qid ++ " on port " ++ show pid
+            -- TODO(adf): exception handler?
             sendCmd (0, OF.ExtQueueDelete pid [OF.QueueConfig qid []]) 
           return ()
         newQueues = Map.toList $

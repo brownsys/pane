@@ -44,7 +44,9 @@ timeService = do
     threadDelay (10^6) -- 1 second
     (TOD now _) <- getClockTime
     writeChan time now
+    writeIORef sysTime now
   (TOD initNow _) <- getClockTime
+  writeIORef sysTime initNow
   return (initNow, time)
 
 action [Test file] = runTestFile file

@@ -23,6 +23,7 @@ module Base
   , module Control.Exception
   , catMaybes
   , mapMaybe
+  , sysTime
   ) where
 
 import Data.Maybe
@@ -40,6 +41,9 @@ import Nettle.OpenFlow hiding (Port)
 import Flows
 import qualified Nettle.OpenFlow as OF
 import Control.Exception (catch, SomeException)
+
+sysTime :: IORef Integer -- ^ system time, updated by timeService
+sysTime = unsafePerformIO (newIORef 0)
 
 liftChanIO3 :: (a -> b -> c -> IO d) 
              -> (a, Chan a)
