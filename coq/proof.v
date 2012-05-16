@@ -3,60 +3,13 @@ Require Import Coq.Lists.List.
 Require Import Coq.Arith.MinMax.
 Require Import Omega.
 Require Import CpdtTactics.
+Require Import Packet.
+Require Import HFT_Defns.
 
-Module Type Packet.
+Module HFT (Import P : Packet).
 
-  Parameter M : Type.
-
-  Parameter is_packet : M -> bool.
-  Parameter is_overlapped : M -> M -> bool.
-  Parameter intersect : M -> M -> M.
-
-  Axiom intersect_comm : forall (m1 m2 : M),
-    intersect m1 m2 = intersect m2 m1.
-  Axiom overlap_intersect : forall (m1 m2 m3 : M),
-    is_overlapped m1 m2 = false -> is_overlapped (intersect m1 m3) m2 = false.
-  Axiom overlap_intersect_both : forall (m1 m2 m3 : M),
-    is_overlapped m1 m3 = true -> 
-    is_overlapped m2 m3 = true ->
-    is_overlapped (intersect m1 m2) m3 = true.
-
-  Axiom m_eq_dec : forall (m1 m2 : M), { m1 = m2 } + { m1 <> m2 }.
-  Axiom packet_split : forall (pkt m1 m2 : M),
-    is_packet pkt = true ->
-    is_overlapped m1 m2 = false ->
-    is_overlapped m1 pkt = true  ->
-    is_overlapped m2 pkt = false.
-  Axiom overlap_inter_1 : forall (m0 m1 m2 : M),
-    is_overlapped m1 m2 = false ->
-    is_overlapped (intersect m1 m0) m2 = false.
-
- Hint Resolve intersect_comm : packet.
- Hint Rewrite overlap_intersect overlap_intersect_both
-              m_eq_dec packet_split overlap_inter_1 : packet.
-End Packet.
-
-Module HFT (P : Packet).
-
-  Include P.
-
-  Inductive A : Type :=
-    | None : A
-    | Allow : A
-    | Deny : A
-    | GMB : nat -> A.
-
-  Definition S : Type := list (M * A).
-
-  Inductive T : Type :=
-    | Tree : S -> list T -> T.
-
-  (* We can label a tree with its height at the root, and descending naturals
-     down to the leaves. *)
-  Inductive wf_tree : nat -> T -> Prop :=
-    | wf_tree_lst : forall (s : S) (lst : list T) (n : nat),
-      (forall (t' : T), In t' lst -> wf_tree n t') ->
-      wf_tree (Datatypes.S n) (Tree s lst).
+  Module Defns := HFT_Defns.Make P.
+  Include Defns.
 
   Lemma A_eq_dec : forall (a1 a2 : A), { a1 = a2 } + { a1 <> a2 }.
   Proof.
@@ -144,28 +97,6 @@ Module HFT (P : Packet).
 
 End WellFormedness.
 
-Definition plus_P (a1 : A) (a2 : A) : A := match (a1, a2) with
-  | (_, None) => a1
-  | (None, _) => a2
-  | (Deny, Allow) => Allow
-  | (Allow, Allow) => Allow
-  | (_, Deny) => Deny
-  | (Deny, GMB n) => GMB n
-  | (GMB m, GMB n) => GMB (max m n)
-  | (Allow, GMB n) => GMB n
-  | (GMB m, Allow) => GMB m
-  end.
-
-Definition plus_C (a1 : A) (a2 : A) : A := match (a1, a2) with
-  | (_, None) => a1
-  | (None, _) => a2
-  | (Deny, _) => Deny
-  | (_, Deny) => Deny
-  | (GMB m, GMB n) => GMB (max m n)
-  | (Allow, GMB n) => GMB n
-  | (GMB m, Allow) => GMB m
-  | (Allow, Allow) => Allow
-  end.
 
 Definition well_behaved (f : A -> A -> A) : Prop :=
   (forall (a : A), f a None = a) /\
@@ -179,29 +110,6 @@ Proof. prove_well_behaved. Qed.
 Lemma well_behaved_plus_C : well_behaved plus_C.
 Proof. prove_well_behaved. Qed.
 
-Fixpoint eval_S (pkt : M) (share : S) := match share with
-  | nil => None
-  | (m, a) :: tl => match is_overlapped m pkt with
-    | true => plus_C a (eval_S pkt tl)
-    | false => eval_S pkt tl
-    end
-  end.
-
-Fixpoint eval_T (pkt : M) (t : T) := match t with
-  | Tree share subtrees => 
-      plus_P (eval_S pkt share)
-             (fold_right plus_C None (map (eval_T pkt) subtrees))
-end.
-
-Definition N := list (M * A).
-
-Fixpoint scan (pkt : M) (n : N) := match n with
-  | nil => None
-  | (m,a) :: tl => match is_overlapped m pkt with
-    | true => a
-    | false => scan pkt tl
-  end
-end.
 
 Inductive scan_rel : M -> N -> A -> Prop :=
   | scan_empty : forall (pkt : M), scan_rel pkt nil None
@@ -215,6 +123,23 @@ Inductive scan_rel : M -> N -> A -> Prop :=
 
 Hint Constructors scan_rel.
 
+Ltac destruct_M_A := match goal with
+  | [ H : (M * A)%type |- _ ] => destruct H; simpl in *
+  | _ => idtac "no hypotheses of the form M * A"
+end.
+
+Ltac destruct_is_overlapped B := match goal with
+  | [ H : context[is_overlapped ?m ?pkt] |- _ ] => 
+      idtac "destructing"  m pkt; remember (is_overlapped m pkt) as B; destruct B
+  | [ |- context[is_overlapped ?m ?pkt] ] => 
+     idtac "destructing"  m pkt;  remember (is_overlapped m pkt) as B; destruct B
+end.
+
+Ltac solve_is_overlapped := 
+  let x := fresh "B" in
+    destruct_M_A; destruct_is_overlapped x.
+
+
 Lemma scan_alg : forall (pkt : M) (a : A) (n : N),
   scan pkt n = a <-> scan_rel pkt n a.
 Proof with subst; eauto.
@@ -223,9 +148,7 @@ induction n.
 (* Case 1 *)
 crush.
 (* Case 2 *)
-destruct a0; simpl in H.
-remember (is_overlapped m pkt) as B.
-destruct B...
+solve_is_overlapped...
 (* Case 3 *)
 induction n.
 inversion H; crush.
@@ -253,16 +176,15 @@ induction N1.
 crush.
 (* Inductive case *)
 destruct IHN1.
-destruct a.
-remember (is_overlapped m pkt) as b. destruct b.
+solve_is_overlapped.
 (* Case 1 *)
-right. exists nil. exists N1. exists m. exists a. crush. rewrite <- Heqb...
+right. exists nil. exists N1. exists m. exists a. crush.
 (* Case 2 *)
-left. crush. apply H0 in H2. crush. rewrite <- Heqb...
+left. crush. apply H0 in H2. crush.
 (* Case 3 *)
 destruct H as [N2 [N3 [m [a' [Neq  [Hov [Ha'eq H]]]]]]].
 destruct a.
-remember (is_overlapped m0 pkt) as b. destruct b.
+ remember (is_overlapped m0 pkt) as b. destruct b. 
 right. exists nil. exists N1. exists m0. exists a. crush. rewrite <- Heqb...
 right. exists ((m0,a) :: N2). exists N3. exists m. exists a'.
    crush. rewrite <- Heqb... apply H in H1. crush.
@@ -277,18 +199,6 @@ Section NetworkFlowTables.
 
 Variable f : A -> A -> A.
 
-Definition inter_entry (e1 : M * A) (e2 : M * A) := match (e1, e2) with
-  | ((m,a), (m',a')) => (intersect m' m, f a a')
-  end.
-
-Definition inter_helper (n : N) (ma : M * A) (r : N) :=
-  (map (inter_entry ma) n) ++ r.
-
-Definition inter (n1 : N) (n2 : N) :=
-  fold_right (inter_helper n2) nil n1.
-
-Definition union (n1 : N) (n2 : N) : N := inter n1 n2 ++ n1 ++ n2.
-
 Hint Unfold union inter inter_helper inter_entry.
 
 Lemma eval_elim_left : forall (N1 N2 : N) (pkt : M),
@@ -302,10 +212,9 @@ assert (forall (m : M) (a : A), In (m,a) N1 -> is_overlapped m pkt = false).
  intros. apply H with (a0 := a0). crush. 
 apply IHN1 in H0.
 simpl.
-remember (is_overlapped m pkt).
-destruct b.
-assert (is_overlapped m pkt = false).
-  apply H with (a0 := a). simpl...
+solve_is_overlapped.
+idtac.
+assert (is_overlapped m pkt = false). eapply H...
 crush.
 crush.
 Qed.
@@ -315,7 +224,7 @@ Hint Rewrite intersect_comm.
 
 Lemma eval_inter_step : forall (N1 N2 : N) (m pkt : M) (a : A),
   is_overlapped m pkt = false ->
-  scan pkt (inter_helper N1 (m, a) N2) = scan pkt N2.
+  scan pkt (inter_helper f N1 (m, a) N2) = scan pkt N2.
 Proof with auto with packet.
 intros.
 induction N1.
@@ -331,26 +240,15 @@ crush.
 Qed.
 
 Lemma inter_nil_l : forall (n : N),
-  inter nil n = nil.
+  inter f nil n = nil.
 Proof. intros. induction n; crush. Qed.
 
-Lemma inter_nil_r : forall (n : N), inter n nil = nil.
+Lemma inter_nil_r : forall (n : N), inter f n nil = nil.
 Proof. intros. induction n; crush. Qed.
 
 Hint Resolve inter_nil_l inter_nil_r.
 
 End NetworkFlowTables.
-
-Fixpoint lin_S (share : S) := match share with
-  | nil => nil
-  | (m,a)::tl => union plus_C (cons (m,a) nil) (lin_S tl)
-end.
-
-Fixpoint lin_T (tree : T) := match tree with
-  | Tree share subtrees => 
-      union plus_P (lin_S share) 
-            (fold_right (union plus_C) nil (map lin_T subtrees))
-end.
 
 Lemma elim_scan_head : forall (N1 N2 : N) (pkt : M),
   (forall (m : M) (a : A), In (m,a) N1 -> is_overlapped m pkt = false) ->
@@ -362,8 +260,8 @@ destruct a.
 assert (forall (m : M) (a : A), In (m,a) N1 -> is_overlapped m pkt = false).
   intros. assert (In (m0,a0) ((m,a)::N1))... apply H in H1...
 apply IHN1 in H0.
-simpl.
-remember (is_overlapped m pkt) as b. destruct b...
+solve_is_overlapped...
+idtac.
 assert (is_overlapped m pkt = false).
   assert (In (m,a) ((m,a)::N1))... 
   apply H in H1...
@@ -388,14 +286,11 @@ Lemma elim_inter_head : forall (N1 N2 : N) (pkt m : M) (f : A -> A -> A)
   scan pkt (map (inter_entry f (m, a)) N1 ++ N2) = scan pkt N2.
 Proof with auto with packet.
 intros.
-induction N1.
-crush.
-destruct a0.
-simpl.
-assert (is_overlapped (intersect m0 m) pkt = false).
-  rewrite -> intersect_comm.
-  autorewrite with packet using auto...
-crush.
+induction N1; crush.
+solve_is_overlapped; crush.
+idtac. 
+rewrite -> intersect_comm.
+autorewrite with packet using auto...
 Qed.
 
 Hint Resolve elim_inter_head.
@@ -466,8 +361,8 @@ induction n1.
 (* Base case *)
 crush.
 (* Inductive case *)
-destruct a.
 unfold union.
+destruct a.
 remember (is_overlapped m pkt).
 assert (scan_inv pkt (inter f ((m, a) :: n1) n2 ++ ((m, a) :: n1) ++ n2)).
   crush.
@@ -609,14 +504,14 @@ Lemma inter_elim : forall (f : A -> A -> A)
   scan pkt (inter f ((m, a) :: nil) L1 ++ L2) =
   scan pkt L2.
 Proof with auto.
-  intros.
-  induction L1.
-  crush.
-  destruct a0. 
-  assert (is_overlapped (intersect m0 m) pkt = false).
-    rewrite <- intersect_comm.
-    autorewrite with packet using auto...
-  crush.
+intros.
+induction L1.
+crush.
+destruct a0. 
+assert (is_overlapped (intersect m0 m) pkt = false).
+  rewrite <- intersect_comm.
+  autorewrite with packet using auto...
+crush.
 Qed.
 
 Hint Resolve well_behaved_plus_C well_behaved_plus_P.
