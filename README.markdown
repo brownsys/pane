@@ -1,5 +1,12 @@
-PANE - a prototype Participatory Network
-================================
+     _______  ____     ____   ___ _______
+    /  __  / / __ \    |   \  | | | _____|
+   /  /_/ / / /__\ \   | |\ \ | | | |___
+  / _____/ / ______ \  | | \ \| | |  __|
+ / /      / /      \ \ | |  \ \ | | |____
+/_/      /_/        \_\|_|   \__| |______|
+
+    A PROTOTYPE PARTICIPATORY NETWORK
+
 
 PANE is a prototype OpenFlow controller which implements Participatory Networking, an API for end-users, hosts and applications to take part in network management. PANE allows these principals to directly contact the network control-plane to  place requests for resources, provide hints about future traffic, or query the state of the network. PANE divides and delegates authority for network management using a hierarchy of "shares," which are also managed by interacting with the PANE server.
 
