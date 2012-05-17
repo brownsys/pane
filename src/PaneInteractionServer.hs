@@ -26,8 +26,12 @@ interactions port toClient fromClient = do
     
 handleUser conn fromClient toClient = do
   logo (hPutStrLn conn)
+  hPutStr conn "Login: "
+  hFlush conn
   msg <- hGetLine conn
-  let (spk, _)  = span (/='.') msg
+  let (tmp1, _) = span (/='.') msg
+  let (tmp2, _) = span (/='\r') tmp1
+  let (spk, _) = span (/='\n') tmp2
   writeChan toClient (spk, "logged in")
   -- monitor the toClient bus for messages to this client
   forkIO $ forever $ do
