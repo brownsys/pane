@@ -25,7 +25,7 @@ Building PANE
 PANE requires:
  * Haskell compiler (tested with GHC 7.0.4)
  * Brown's fork of nettle-openflow: https://github.com/brownsys/nettle-openflow
- * additional build dependencies from http://hackage.haskell.org
+ * additional build dependencies from http://hackage.haskell.org as required by cabal
 
 It can be built using the following commands:
 
