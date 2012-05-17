@@ -24,6 +24,7 @@ module Base
   , catMaybes
   , mapMaybe
   , sysTime
+  , logo
   ) where
 
 import Data.Maybe
@@ -202,3 +203,15 @@ data ReqData
   | ReqDeny
   | ReqOutPort (Maybe OF.SwitchID) OF.PseudoPort
   deriving (Eq, Ord, Show)
+
+logo putter = do
+  putter ""
+  putter "     _______  ____     ____   ___ _______"
+  putter "    /  __  / / __ \\    |   \\  | | | _____|"
+  putter "   /  /_/ / / /__\\ \\   | |\\ \\ | | | |___"
+  putter "  / _____/ / ______ \\  | | \\ \\| | |  __|"
+  putter " / /      / /      \\ \\ | |  \\ \\ | | |____"
+  putter "/_/      /_/        \\_\\|_|   \\__| |______|"
+  putter ""
+  putter "    A PROTOTYPE PARTICIPATORY NETWORK"
+  putter ""

@@ -1,6 +1,6 @@
 module PaneInteractionServer
   ( interactions
-  )  where
+  ) where
 
 import Control.Monad (unless)
 import Network
@@ -25,6 +25,7 @@ interactions port toClient fromClient = do
   return ()
     
 handleUser conn fromClient toClient = do
+  logo (hPutStrLn conn)
   msg <- hGetLine conn
   let (spk, _)  = span (/='.') msg
   writeChan toClient (spk, "logged in")
@@ -33,6 +34,8 @@ handleUser conn fromClient toClient = do
     (spk', msg) <- readChan toClient
     when (spk == spk') $ do
       hPutStrLn conn msg
+      hPutStr conn (spk ++ "> ")
+      hFlush conn
       return ()
   -- read commands from user and place on fromClient bus
   forever $ do

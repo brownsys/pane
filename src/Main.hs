@@ -51,6 +51,7 @@ timeService = do
 
 action [Test file] = runTestFile file
 action [NewServer port] = do
+  logo putStrLn
   putStrLn "Starting PANE  ..."
   (initTime, time) <- timeService
   nibMsg <- newChan
@@ -74,12 +75,15 @@ action [NewServer port] = do
   putStrLn "Starting OpenFlow controller ..."
   controller nibSnapshot nibMsg packetIn switches pktOut 6633
 action [Help] = do
-  putStrLn $ usageInfo "WELCOME TO PANE" argSpec
+  logo putStrLn
+  putStrLn $ usageInfo "Usage Info" argSpec
 action [] = do
-  putStrLn $ usageInfo "WELCOME TO PANE" argSpec
+  logo putStrLn
+  putStrLn $ usageInfo "Usage Info" argSpec
   fail "too few args"
 action _ = do
-  putStrLn $ usageInfo "WELCOME TO PANE" argSpec
+  logo putStrLn
+  putStrLn $ usageInfo "Usage Info" argSpec
   fail "too many args"
 
 mainBody = do
