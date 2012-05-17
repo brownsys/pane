@@ -30,7 +30,7 @@ data Argument
 
 argSpec =
   [ Option ['t'] ["test"] (ReqArg Test "FILE") "run test case"
-  , Option ['p'] ["port"] (ReqArg (NewServer . read) "PORT") "port number"
+  , Option ['p'] ["port"] (ReqArg (NewServer . read) "PORT") "port number for interaction server"
   , Option ['h'] ["help"] (NoArg Help) "print this help message"
   ]
 
