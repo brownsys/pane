@@ -85,6 +85,13 @@ macLearning switchChan packetInChan = do
                   let action = case maybeDstPortTime of
                         Nothing -> OF.flood
                         Just (port, _) -> OF.sendOnPort port
+-- TODO(adf): aw, crap. the packet we send out, thinking that we're doing
+-- the right thing, could be a packet which would be dropped by a Deny rule,
+-- which would only be detected once the paneTbl and macLearnedTbl were unioned
+-- this is probably very rare, but could happen if a host moved in the network,
+-- and the NIB has not been updated with the moved location, and therefore
+-- the compiler has not moved the deny rule to the switch where the host is
+-- now attached.
                   writeChan packetOut
                     (switchID, xid, 
                      OF.PacketOutRecord (Left bufID) (Just srcPort) action)

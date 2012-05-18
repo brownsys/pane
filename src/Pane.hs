@@ -11,9 +11,9 @@ import HFT
 import Control.Monad.State
 
 paneMgr :: Chan (Speaker, String) -- ^commands from speaker
-        -> Chan Integer           -- ^current time
+        -> Chan Integer           -- ^current time (ticks from timeService)
         -> IO (Chan MatchTable, Chan (Speaker, String))
-paneMgr reqChan timeChan = do
+paneMgr reqChan tickChan = do
   tblChan <- newChan
   respChan <- newChan
   stRef <- newIORef emptyState
@@ -21,6 +21,7 @@ paneMgr reqChan timeChan = do
         (spk, req) <- readChan reqChan
         paneM <- parseFromString spk req
         st <- readIORef stRef
+-- TODO(adf): WTF? for correctness, we should compile again. (equiv of "tick 0")
         (resp, st') <- runStateT paneM st
         case resp of
           BoolResult True -> do
@@ -29,7 +30,7 @@ paneMgr reqChan timeChan = do
           otherwise -> do
             writeChan respChan (spk, show resp)
       buildTbl = do
-        now <- readChan timeChan
+        now <- readChan tickChan
         st <- readIORef stRef
         let removeEndingNow sh = sh { shareReq = req }
               where req = filter

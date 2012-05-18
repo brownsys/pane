@@ -48,8 +48,8 @@ controller nibSnapshot toNIB packets switches pktOut port = do
     (switch, switchFeatures) <- OFS.acceptSwitch server
     putStrLn $ "OpenFlow controller connected to new switch."
     writeChan toNIB (NIB.NewSwitch switch switchFeatures)
-    nibSnapshot <- dupChan nibSnapshot
     writeChan switches (OFS.handle2SwitchID switch, True)
+    nibSnapshot <- dupChan nibSnapshot
     forkIO (handleSwitch packets toNIB switches switch)
     forkIO (configureSwitch nibSnapshot switch NIB.emptySwitch)
   OFS.closeServer server
@@ -72,6 +72,7 @@ handleSwitch packets toNIB switches switch = do
     (\msg -> ignoreExns (messageHandler packets toNIB switch msg))
   OFS.closeSwitchHandle switch
   writeChan switches (swID, False)
+  -- TODO(adf): also inform NIB that switch is gone? could be transient...
   putStrLn $ "Connection to switch " ++ show swID ++ " closed."
 
 messageHandler :: Chan PacketIn -- ^output channel (headed to MAC Learning)

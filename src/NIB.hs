@@ -212,6 +212,7 @@ sendDP handle portID = do
 
 addSwitch :: OF.SwitchID -> NIB -> IO (Maybe SwitchData)
 addSwitch newSwitchID nib = do
+  -- TODO(adf): why don't we do anything with maybe?
   maybe <- Ht.lookup (nibSwitches nib) newSwitchID
   flowTbl <- newIORef Set.empty
   ports <- Ht.new (==) ((Ht.hashInt).fromIntegral)

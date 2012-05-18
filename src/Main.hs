@@ -39,37 +39,37 @@ runTestFile f = do
   runTests
 
 timeService = do
-  time <- newChan
+  tickChan <- newChan
   forkIO $ forever $ do
     threadDelay (10^6) -- 1 second
     (TOD now _) <- getClockTime
-    writeChan time now
+    writeChan tickChan now
     writeIORef sysTime now
   (TOD initNow _) <- getClockTime
   writeIORef sysTime initNow
-  return (initNow, time)
+  return (initNow, tickChan)
 
 action [Test file] = runTestFile file
 action [NewServer port] = do
   logo putStrLn
   putStrLn "Starting PANE  ..."
-  (initTime, time) <- timeService
-  nibMsg <- newChan
+  (initTime, tickChan) <- timeService
 
   putStrLn "Creating empty NIB..."
+  nibMsg <- newChan
   nib <- NIB.newEmptyNIB nibMsg
+
+  putStrLn "Creating PANE + MAC Learning system..."
   packetIn <- newChan
   switches <- newChan
   paneReq <- newChan
-
-  putStrLn "Creating PANE + MAC Learning system..."
-  (tbl, paneResp, pktOut) <- combinedPaneMac switches packetIn paneReq time
+  (tbl, paneResp, pktOut) <- combinedPaneMac switches packetIn paneReq tickChan
 
   putStrLn $ "Starting PANE console on port " ++ show port ++ " ..."
   interactions port paneResp paneReq
-  nibUpdates <- newChan -- TODO(arjun): write into this
 
   putStrLn "Starting compiler ..."
+  nibUpdates <- newChan -- TODO(arjun): write into this
   nibSnapshot <- compilerService (nib, nibUpdates) tbl
 
   putStrLn "Starting OpenFlow controller ..."

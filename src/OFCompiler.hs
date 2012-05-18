@@ -18,6 +18,8 @@ import Control.Monad
 import qualified Flows
 
 -- | Calls compile when either NIB or network flow table changes
+-- TODO(adf): actually, the NIB changes do not casue a re-compile as the
+-- NIB variable just silently changes and nothing written to NIB channel, right?
 compilerService :: (NIB.NIB, Chan NIB.NIB)
                 -> Chan MatchTable    -- ^ Network Flow Table
                 -> IO (Chan NIB.Snapshot)
