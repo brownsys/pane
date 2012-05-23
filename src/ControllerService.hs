@@ -16,16 +16,18 @@ import qualified Data.List as List
 
 type PacketIn = (OF.TransactionID, Integer, OF.SwitchID, OF.PacketInfo)
 
-retryOnExns :: IO a -> IO a
-retryOnExns action = action `catch` handle
+retryOnExns :: String -> IO a -> IO a
+retryOnExns msg action = action `catch` handle
   where handle (e :: SomeException) = do
           putStrLn $ "Exception (retrying): " ++ show e
-          retryOnExns action
+          putStrLn $ "Exception log message: " ++ msg
+          retryOnExns msg action
 
-ignoreExns :: IO () -> IO ()
-ignoreExns action = action `catch` handle
+ignoreExns :: String -> IO () -> IO ()
+ignoreExns msg action = action `catch` handle
   where handle (e :: SomeException) = do
           putStrLn $ "Exception (ignoring): " ++ show e
+          putStrLn $ "Exception log message: " ++ msg
 
 controller :: Chan NIB.Snapshot  -- ^input channel (from Compiler)
            -> Chan NIB.Msg       -- ^output channel (headed to NIB module)
@@ -41,11 +43,12 @@ controller nibSnapshot toNIB packets switches pktOut port = do
   forkIO $ forever $ do
     (swID, xid, pktOut) <- readChan pktOut
     -- putStrLn $ "SEND packet-out" ++ show (OF.bufferIDData pktOut)
-    -- TODO(adf): exception handler?
-    OFS.sendToSwitchWithID server swID (xid, OF.PacketOut pktOut)
+    ignoreExns "send pkt from controller"
+               (OFS.sendToSwitchWithID server swID (xid, OF.PacketOut pktOut))
   -- process new switches
   forever $ do
-    (switch, switchFeatures) <- OFS.acceptSwitch server
+    (switch, switchFeatures) <- retryOnExns "accept switch"
+                                            (OFS.acceptSwitch server)
     putStrLn $ "OpenFlow controller connected to new switch."
     writeChan toNIB (NIB.NewSwitch switch switchFeatures)
     writeChan switches (OFS.handle2SwitchID switch, True)
@@ -66,11 +69,15 @@ handleSwitch :: Chan PacketIn  -- ^output channel (headed to MAC Learning)
              -> IO ()
 handleSwitch packets toNIB switches switch = do
   let swID = OFS.handle2SwitchID switch
-  OFS.sendToSwitch switch (0, OF.FlowMod $ OF.DeleteFlows OF.matchAny Nothing)
+  ignoreExns ("clear flowtable on switch with ID: " ++ show swID)
+             (OFS.sendToSwitch switch
+                  (0, OF.FlowMod $ OF.DeleteFlows OF.matchAny Nothing))
   OFS.untilNothing 
-    (retryOnExns (OFS.receiveFromSwitch switch))
-    (\msg -> ignoreExns (messageHandler packets toNIB switch msg))
-  OFS.closeSwitchHandle switch
+    (retryOnExns ("receive from switch with ID: " ++ show swID)
+                 (OFS.receiveFromSwitch switch))
+    (\msg -> ignoreExns "msgHandler" (messageHandler packets toNIB switch msg))
+  ignoreExns ("close handle for switch with ID: " ++ show swID)
+             (OFS.closeSwitchHandle switch)
   writeChan switches (swID, False)
   -- TODO(adf): also inform NIB that switch is gone? could be transient...
   putStrLn $ "Connection to switch " ++ show swID ++ " closed."
@@ -119,8 +126,8 @@ configureSwitch nibSnapshot switchHandle oldSw@(NIB.Switch oldPorts oldTbl) = do
          mapM_ (\x -> putStrLn $ "   " ++ show x) msgs
          putStrLn "-------------------------------------------------"
          return ()
-      -- TODO(adf): exception handler?
-      mapM_ (OFS.sendToSwitch switchHandle) (zip [0 ..] msgs)
+         ignoreExns ("configuring switch with ID: " ++ show switchID)
+                    (mapM_ (OFS.sendToSwitch switchHandle) (zip [0 ..] msgs))
       deleteQueueTimers
       configureSwitch nibSnapshot switchHandle sw
 
@@ -167,8 +174,8 @@ mkPortMods now portsNow portsNext sendCmd = (delTimers, addMsgs)
           forkIO $ do
             threadDelay (10^6 * (fromIntegral $ end - now))
             putStrLn $ "Deleting queue " ++ show qid ++ " on port " ++ show pid
-            -- TODO(adf): exception handler?
-            sendCmd (0, OF.ExtQueueDelete pid [OF.QueueConfig qid []]) 
+            ignoreExns ("deleting queue " ++ show qid)
+                    (sendCmd (0, OF.ExtQueueDelete pid [OF.QueueConfig qid []]))
           return ()
         newQueues = Map.toList $
           flatten portsNext `Map.difference` flatten portsNow
