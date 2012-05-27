@@ -9,6 +9,7 @@ import Data.Map (Map)
 import MacLearning (PacketOutChan)
 import qualified NIB
 import qualified Nettle.OpenFlow as OF
+import Nettle.OpenFlow.Switch (showSwID)
 import qualified Nettle.Servers.Server as OFS
 import qualified Data.Map as Map
 import qualified Data.Set as Set
@@ -69,18 +70,18 @@ handleSwitch :: Chan PacketIn  -- ^output channel (headed to MAC Learning)
              -> IO ()
 handleSwitch packets toNIB switches switch = do
   let swID = OFS.handle2SwitchID switch
-  ignoreExns ("clear flowtable on switch with ID: " ++ show swID)
+  ignoreExns ("clear flowtable on switch with ID: " ++ showSwID swID)
              (OFS.sendToSwitch switch
                   (0, OF.FlowMod $ OF.DeleteFlows OF.matchAny Nothing))
   OFS.untilNothing 
-    (retryOnExns ("receive from switch with ID: " ++ show swID)
+    (retryOnExns ("receive from switch with ID: " ++ showSwID swID)
                  (OFS.receiveFromSwitch switch))
     (\msg -> ignoreExns "msgHandler" (messageHandler packets toNIB switch msg))
-  ignoreExns ("close handle for switch with ID: " ++ show swID)
+  ignoreExns ("close handle for switch with ID: " ++ showSwID swID)
              (OFS.closeSwitchHandle switch)
   writeChan switches (swID, False)
   -- TODO(adf): also inform NIB that switch is gone? could be transient...
-  putStrLn $ "Connection to switch " ++ show swID ++ " closed."
+  putStrLn $ "Connection to switch " ++ showSwID swID ++ " closed."
 
 messageHandler :: Chan PacketIn -- ^output channel (headed to MAC Learning)
                -> Chan NIB.Msg  -- ^output channel (headed to NIB module)
@@ -94,7 +95,7 @@ messageHandler packets toNIB switch (xid, msg) = case msg of
     writeChan toNIB (NIB.PacketIn (OFS.handle2SwitchID switch) pkt)
   otherwise -> do
     putStrLn $ "unhandled message from switch " ++ 
-                (show $ OFS.handle2SwitchID switch) ++ "\n" ++ show msg
+                (showSwID $ OFS.handle2SwitchID switch) ++ "\n" ++ show msg
     return ()
 
 --
@@ -112,7 +113,7 @@ configureSwitch nibSnapshot switchHandle oldSw@(NIB.Switch oldPorts oldTbl) = do
   snapshot <- readChan nibSnapshot
   case Map.lookup switchID snapshot of
     Nothing -> do
-      putStrLn $ "configureSwitch did not find " ++ show switchID ++ 
+      putStrLn $ "configureSwitch did not find " ++ showSwID switchID ++
                  " in the NIB snapshot."
       configureSwitch nibSnapshot switchHandle oldSw
     Just sw@(NIB.Switch newPorts newTbl) -> do
@@ -121,12 +122,12 @@ configureSwitch nibSnapshot switchHandle oldSw@(NIB.Switch oldPorts oldTbl) = do
                                          (OFS.sendToSwitch switchHandle)
       let msgs = msgs' ++ mkFlowMods now newTbl oldTbl
       unless (null msgs) $ do
-         putStrLn $ "OpenFlow controller modifying tables on " ++ show switchID
+         putStrLn $ "Controller modifying tables on " ++ showSwID switchID
          putStrLn $ "sending " ++ show (length msgs) ++ " messages; oldTbl size = " ++ show (Set.size oldTbl) ++ " newTbl size = " ++ show (Set.size newTbl)
          mapM_ (\x -> putStrLn $ "   " ++ show x) msgs
          putStrLn "-------------------------------------------------"
          return ()
-         ignoreExns ("configuring switch with ID: " ++ show switchID)
+         ignoreExns ("configuring switch with ID: " ++ showSwID switchID)
                     (mapM_ (OFS.sendToSwitch switchHandle) (zip [0 ..] msgs))
       deleteQueueTimers
       configureSwitch nibSnapshot switchHandle sw
