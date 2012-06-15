@@ -1,16 +1,34 @@
 Require Import Packet.
 Require Import Coq.Lists.List.
 Require Import Coq.Arith.MinMax.
+Require Import Action.
 
 Module Make (P : Packet).
 
-Include P.
+  Include P.
 
-Inductive A : Type :=
-  | None : A
-  | Allow : A
-  | Deny : A
-  | GMB : nat -> A.
+  Inductive A : Type :=
+    | None : A
+    | Allow : A
+    | Deny : A
+    | GMB : nat -> A.
+
+  Lemma A_eq_dec : forall (a1 a2 : A), { a1 = a2 } + { a1 <> a2 }.
+  Proof. repeat decide equality. Qed.
+
+  Definition well_behaved (f : A -> A -> A) : Prop :=
+    (forall (a : A), f a None = a) /\
+    (forall (a : A), f None a = a).
+
+
+  Module A_as_Action <: ACTION.
+    Definition A := A.
+    Definition None := None.
+    Definition A_eq_dec := A_eq_dec.
+    Definition well_behaved := well_behaved.
+  End A_as_Action.
+
+
 
 Definition S : Type := list (M * A).
 
@@ -24,7 +42,7 @@ Inductive wf_tree : nat -> T -> Prop :=
     (forall (t' : T), In t' lst -> wf_tree n t') ->
     wf_tree (Datatypes.S n) (Tree s lst).
 
-Definition plus_P (a1 : A) (a2 : A) : A := match (a1, a2) with
+Definition plus_P (a1 : A_as_Action.A) (a2 : A_as_Action.A) : A_as_Action.A := match (a1, a2) with
   | (_, None) => a1
   | (None, _) => a2
   | (Deny, Allow) => Allow
@@ -36,7 +54,7 @@ Definition plus_P (a1 : A) (a2 : A) : A := match (a1, a2) with
   | (GMB m, Allow) => GMB m
   end.
 
-Definition plus_C (a1 : A) (a2 : A) : A := match (a1, a2) with
+Definition plus_C (a1 : A_as_Action.A) (a2 : A_as_Action.A) : A_as_Action.A := match (a1, a2) with
   | (_, None) => a1
   | (None, _) => a2
   | (Deny, _) => Deny
@@ -46,6 +64,16 @@ Definition plus_C (a1 : A) (a2 : A) : A := match (a1, a2) with
   | (GMB m, Allow) => GMB m
   | (Allow, Allow) => Allow
   end.
+
+Lemma well_behaved_plus_P : well_behaved plus_P.
+Proof. split; intros a; destruct a; auto. Qed.
+
+Lemma well_behaved_plus_C : well_behaved plus_C.
+Proof. split; intros a; destruct a; auto. Qed.
+
+Require Classifier.
+Module  Cl := Classifier.MakeClassifier (P) (A_as_Action).
+Include Cl.
 
 Fixpoint eval_S (pkt : M) (share : S) := match share with
   | nil => None
@@ -59,34 +87,6 @@ Fixpoint eval_T (pkt : M) (t : T) := match t with
   | Tree share subtrees => 
       plus_P (eval_S pkt share)
              (fold_right plus_C None (map (eval_T pkt) subtrees))
-end.
-
-Definition N := list (M * A).
-
-Section NetworkFlowTables.
-
-Variable f : A -> A -> A.
-
-Definition inter_entry (e1 : M * A) (e2 : M * A) := match (e1, e2) with
-  | ((m,a), (m',a')) => (intersect m' m, f a a')
-  end.
-
-Definition inter_helper (n : N) (ma : M * A) (r : N) :=
-  (map (inter_entry ma) n) ++ r.
-
-Definition inter (n1 : N) (n2 : N) :=
-  fold_right (inter_helper n2) nil n1.
-
-Definition union (n1 : N) (n2 : N) : N := inter n1 n2 ++ n1 ++ n2.
-
-End NetworkFlowTables.
-
-Fixpoint scan (pkt : M) (n : N) := match n with
-  | nil => None
-  | (m,a) :: tl => match is_overlapped m pkt with
-    | true => a
-    | false => scan pkt tl
-  end
 end.
 
 
