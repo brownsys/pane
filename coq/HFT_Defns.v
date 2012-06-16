@@ -54,7 +54,7 @@ Definition plus_P (a1 : A_as_Action.A) (a2 : A_as_Action.A) : A_as_Action.A := m
   | (GMB m, Allow) => GMB m
   end.
 
-Definition plus_C (a1 : A_as_Action.A) (a2 : A_as_Action.A) : A_as_Action.A := match (a1, a2) with
+Definition plus_S (a1 : A_as_Action.A) (a2 : A_as_Action.A) : A_as_Action.A := match (a1, a2) with
   | (_, None) => a1
   | (None, _) => a2
   | (Deny, _) => Deny
@@ -68,7 +68,7 @@ Definition plus_C (a1 : A_as_Action.A) (a2 : A_as_Action.A) : A_as_Action.A := m
 Lemma well_behaved_plus_P : well_behaved plus_P.
 Proof. split; intros a; destruct a; auto. Qed.
 
-Lemma well_behaved_plus_C : well_behaved plus_C.
+Lemma well_behaved_plus_S : well_behaved plus_S.
 Proof. split; intros a; destruct a; auto. Qed.
 
 Require Classifier.
@@ -78,7 +78,7 @@ Include Cl.
 Fixpoint eval_S (pkt : M) (share : S) := match share with
   | nil => None
   | (m, a) :: tl => match is_overlapped m pkt with
-    | true => plus_C a (eval_S pkt tl)
+    | true => plus_S a (eval_S pkt tl)
     | false => eval_S pkt tl
     end
   end.
@@ -86,19 +86,19 @@ Fixpoint eval_S (pkt : M) (share : S) := match share with
 Fixpoint eval_T (pkt : M) (t : T) := match t with
   | Tree share subtrees => 
       plus_P (eval_S pkt share)
-             (fold_right plus_C None (map (eval_T pkt) subtrees))
+             (fold_right plus_S None (map (eval_T pkt) subtrees))
 end.
 
 
 Fixpoint lin_S (share : S) := match share with
   | nil => nil
-  | (m,a)::tl => union plus_C (cons (m,a) nil) (lin_S tl)
+  | (m,a)::tl => union plus_S (cons (m,a) nil) (lin_S tl)
 end.
 
 Fixpoint lin_T (tree : T) := match tree with
   | Tree share subtrees => 
       union plus_P (lin_S share) 
-            (fold_right (union plus_C) nil (map lin_T subtrees))
+            (fold_right (union plus_S) nil (map lin_T subtrees))
 end.
 
 End Make.

@@ -108,9 +108,9 @@ Proof with auto.
   remember (is_overlapped m pkt).
   destruct b.
   (* Case: matches at head *)
-  assert (scan pkt (union plus_C ((m,a)::nil) (lin_S share)) =
-          plus_C (scan pkt ((m,a)::nil)) (scan pkt (lin_S share))).
-    apply union_comm... apply well_behaved_plus_C.
+  assert (scan pkt (union plus_S ((m,a)::nil) (lin_S share)) =
+          plus_S (scan pkt ((m,a)::nil)) (scan pkt (lin_S share))).
+    apply union_comm... apply well_behaved_plus_S.
   rewrite -> H.
   simpl.
   rewrite <- Heqb.
@@ -121,7 +121,7 @@ Qed.
 
 
 Notation "x +P y" := (plus_P x y) (at level 50, left associativity).
-Notation "x +C y" := (plus_C x y) (at level 50, left associativity).
+Notation "x +C y" := (plus_S x y) (at level 50, left associativity).
 
 Lemma flatten_eval_T : forall (n : nat) (tree : T) (pkt : M),
   is_packet pkt = true ->
@@ -140,17 +140,17 @@ simpl.
 rewrite -> union_comm...
 assert (eval_S pkt s = scan pkt (lin_S s)). apply flatten_eval_S...
 rewrite -> H0. clear H0.
-assert (fold_right plus_C None (map (eval_T pkt) l) =
-        scan pkt (fold_right (union plus_C) nil (map lin_T l))).
+assert (fold_right plus_S None (map (eval_T pkt) l) =
+        scan pkt (fold_right (union plus_S) nil (map lin_T l))).
   induction l... 
   rewrite -> union_comm...
   assert (eval_T pkt a = scan pkt (lin_T a)).
     apply IHn. inversion H. crush.
-  assert (fold_right plus_C None (map (eval_T pkt) l) = 
-          scan pkt (fold_right (union plus_C) nil (map lin_T l))).
+  assert (fold_right plus_S None (map (eval_T pkt) l) = 
+          scan pkt (fold_right (union plus_S) nil (map lin_T l))).
     apply IHl. intros. apply wf_tree_lst. inversion H; subst. crush.
   crush.
-apply well_behaved_plus_C.
+apply well_behaved_plus_S.
 crush.
 apply well_behaved_plus_P.
 Qed.
