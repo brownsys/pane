@@ -18,17 +18,12 @@ Module MakeClassifier (Import P : Packet) (Import Act : ACTION).
     end
   end.
 
-
-
   Definition inter_entry (f : A -> A -> A) (e1 : M * A) (e2 : M * A) := match (e1, e2) with
     | ((m,a), (m',a')) => (intersect m' m, f a a')
    end.
 
-  Definition inter_helper (f : A -> A -> A) (n : N) (ma : M * A) (r : N) :=
-    (map (inter_entry f ma) n) ++ r.
-
   Definition inter (f : A -> A -> A) (n1 : N) (n2 : N) :=
-    fold_right (inter_helper f n2) nil n1.
+    fold_right (fun ma acc => map (inter_entry f ma) n2 ++ acc) nil n1.
 
   Definition union (f : A -> A -> A) (n1 : N) (n2 : N) : N := inter f n1 n2 ++ n1 ++ n2.
 
@@ -120,45 +115,10 @@ Lemma elim_mismatch : forall (n1 n2 : N) (p m : M) (a : A),
   scan p (n1 ++ (m,a)::n2) = scan p (n1 ++ n2).
 Proof. intros. induction n1; crush. Qed.
 
-Hint Unfold union inter inter_helper inter_entry.
-
-Lemma eval_elim_left : forall (N1 N2 : N) (pkt : M),
-  (forall (m : M) (a : A), In (m,a) N1 -> is_overlapped m pkt = false) ->
-  scan pkt (N1 ++ N2) = scan pkt N2.
-Proof with eauto with arith datatypes.
-intros. 
-induction N1. simpl...
-destruct a.
-assert (forall (m : M) (a : A), In (m,a) N1 -> is_overlapped m pkt = false).
- intros. apply H with (a0 := a0). crush. 
-apply IHN1 in H0.
-simpl.
-solve_is_overlapped.
-idtac.
-assert (is_overlapped m pkt = false). eapply H...
-crush.
-crush.
-Qed.
-
+Hint Unfold union inter inter_entry.
 Hint Resolve overlap_intersect.
 Hint Rewrite intersect_comm.
 
-Lemma eval_inter_step : forall (N1 N2 : N) (m pkt : M) (a : A),
-  is_overlapped m pkt = false ->
-  scan pkt (inter_helper f N1 (m, a) N2) = scan pkt N2.
-Proof with auto with packet.
-intros.
-induction N1.
-auto.
-(* Inductive case *)
-unfold inter_helper in *.
-destruct a0. simpl.
-remember (is_overlapped (intersect m0 m) pkt).
-destruct b...
-assert (is_overlapped (intersect m m0) pkt = false)...
-rewrite intersect_comm in H0.
-crush.
-Qed.
 
 Lemma inter_nil_l : forall (n : N),
   inter f nil n = nil.
@@ -187,17 +147,18 @@ assert (is_overlapped m pkt = false).
 crush.
 Qed.
 
-Lemma elim_scan_mid : forall (N1 N2 : N) (pkt m : M) (a : A),
-  is_overlapped m pkt = false ->
-  scan pkt (N1 ++ (m,a) :: N2) = scan pkt (N1 ++ N2).
-Proof. intros. induction N1; crush. Qed.
-
-Hint Resolve elim_scan_head elim_scan_mid.
+Hint Resolve elim_scan_head.
 
 Lemma elim_scan_middle : forall (N1 N2 N3 : N) (pkt : M),
   (forall (m : M) (a : A), In (m,a) N2 -> is_overlapped m pkt = false) ->
   scan pkt (N1 ++ N2 ++ N3) = scan pkt (N1 ++ N3).
 Proof. intros. generalize dependent N2. induction N1; crush. Qed.
+
+Lemma elim_scan_mid : forall (N1 N2 : N) (pkt m : M) (a : A),
+  is_overlapped m pkt = false ->
+  scan pkt (N1 ++ (m,a) :: N2) = scan pkt (N1 ++ N2).
+Proof. intros. induction N1; crush. Qed.
+
 
 Lemma elim_inter_head : forall (N1 N2 : N) (pkt m : M)
                                (a : A),
@@ -256,7 +217,6 @@ crush.
 destruct a0.
 intros.
 simpl in H.
-unfold inter_helper in H.
 rewrite -> in_app_iff in H.
 destruct H.
 apply inter_empty_aux with (N1 := N2) (m0 := m0)  (a := a) (a0 := a0)...
@@ -346,7 +306,7 @@ destruct_scan' H1.
   clear n.
   assert (is_overlapped m pkt = false).
     apply packet_split with (m1 := m0)...
-  simpl. unfold inter_helper. rewrite <- app_assoc.  
+  simpl. rewrite <- app_assoc.  
 
   assert (scan pkt (map (inter_entry f (m, a)) n2 ++ inter f n1 n2 ++ (m, a) :: n1 ++ n2) = 
           scan pkt (inter f n1 n2 ++ (m, a) :: n1 ++ n2)).
@@ -368,11 +328,10 @@ destruct_scan' H1.
   Focus 2. (* Packet is not in m, like the case above *)
   simpl.
   rewrite <- Heqb.
-  assert (scan pkt (inter_helper f n2 (m, a) (inter f n1 n2) ++ (m, a) :: n1 ++ n2)
-          = scan pkt (inter_helper f n2 (m, a) (inter f n1 n2) ++ n1 ++ n2)).
+  assert (scan pkt ((map (inter_entry f (m, a)) n2 ++  (inter f n1 n2)) ++ (m, a) :: n1 ++ n2)
+          = scan pkt ((map (inter_entry f (m, a)) n2 ++ (inter f n1 n2)) ++ n1 ++ n2)).
     apply elim_scan_mid. symmetry. exact Heqb.
   rewrite -> H1.
-  unfold inter_helper.
   rewrite <- app_assoc.
   assert (scan pkt (map (inter_entry f (m, a)) n2 ++ inter f n1 n2 ++ n1 ++ n2) = 
           scan pkt (inter f n1 n2 ++ n1 ++ n2)).
@@ -413,7 +372,6 @@ destruct_scan' H1.
 
   simpl.
   rewrite <- Heqb.
-  unfold inter_helper.
   rewrite <- app_assoc.
   destruct H1 as [N2' [N3' [m' [a' [Heq' [Hlap' [Hscan' Hlap2']]]]]]].
   rewrite -> Hscan'.
@@ -426,7 +384,7 @@ destruct_scan' H1.
           In (m5,a5) (map (inter_entry f (m,a)) N2') ->
           is_overlapped m5 pkt = false).
     assert (map (inter_entry f (m,a)) N2' = inter f ((m,a) ::nil) N2').
-      simpl. unfold inter_helper. rewrite -> app_nil_r. reflexivity.
+      simpl. rewrite -> app_nil_r. reflexivity.
   
   rewrite -> H1.
     apply inter_empty. exact Hpacket. exact Hlap2'.
