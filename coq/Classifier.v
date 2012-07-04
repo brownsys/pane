@@ -1,6 +1,7 @@
 Require Import Coq.Init.Datatypes.
 Require Import Coq.Lists.List.
 Require Import Coq.Arith.MinMax.
+Require Import Coq.Classes.Equivalence.
 Require Import Omega.
 Require Import CpdtTactics.
 Require Import Packet.
@@ -248,17 +249,20 @@ Ltac destruct_scan pkt tbl := match goal with
     destruct_scan' H
 end.
 
+Open Local Scope equiv_scope.
+
 Lemma union_comm : forall (n1 n2 : N) pkt,
   well_behaved f ->
-  scan pkt (union f n1 n2) = f (scan pkt n1) (scan pkt n2).
+  scan pkt (union f n1 n2) === f (scan pkt n1) (scan pkt n2).
 Proof with simpl; eauto with datatypes.
 intros n1 n2 pkt H.
 intros.
 remember H as Hwb.
-destruct H as [H H0].
+destruct H as [H [H0 H0']].
 induction n1.
 (* Base case *)
-crush.
+rewrite -> H0... 
+apply reflexivity.
 (* Inductive case *)
 unfold union.
 destruct a.
@@ -363,7 +367,7 @@ destruct_scan' H1.
     apply elim_scan_middle. exact H1.
   rewrite -> H7.
   rewrite -> app_nil_r.
-  assert (f (scan pkt ((m,a)::n1)) None = scan pkt ((m,a)::n1)).
+  assert (f (scan pkt ((m,a)::n1)) None === scan pkt ((m,a)::n1)).
     apply H.
   rewrite -> H8.
   reflexivity.
@@ -396,6 +400,7 @@ destruct_scan' H1.
   assert (is_match pkt (intersect m' m) = true).
     apply pkt_match_intersect...
   rewrite -> H3...
+  apply reflexivity.
 Qed. 
 
 Lemma inter_elim : forall 

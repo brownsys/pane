@@ -1,7 +1,10 @@
 Require Import Packet.
 Require Import Coq.Lists.List.
 Require Import Coq.Arith.MinMax.
+Require Import Coq.Classes.Equivalence.
 Require Import Action.
+Require Import CpdtTactics.
+Require Import Omega.
 
 Module Make (P : Packet).
 
@@ -16,16 +19,45 @@ Module Make (P : Packet).
   Lemma A_eq_dec : forall (a1 a2 : A), { a1 = a2 } + { a1 <> a2 }.
   Proof. repeat decide equality. Qed.
 
-  Definition well_behaved (f : A -> A -> A) : Prop :=
-    (forall (a : A), f a None = a) /\
-    (forall (a : A), f None a = a).
+  Inductive A_equiv : A -> A -> Prop :=
+  | None_equiv : A_equiv None None
+  | Allow_equiv : A_equiv Allow Allow
+  | Deny_equiv : A_equiv Deny Deny
+  | GMB_equiv : forall n, A_equiv (GMB n) (GMB n).
 
+  Hint Constructors A_equiv.
+
+  Lemma A_equiv_is_equivalence : Equivalence A_equiv.
+  Proof with auto.
+    crush.
+    unfold Reflexive. intros. destruct x...
+    unfold Symmetric. intros.
+    destruct x; destruct y; try solve [ inversion H | auto ].
+    assert ({ n = n0 } + { ~ n = n0 }).
+    apply eq_nat_dec.
+    destruct H0. subst... inversion H. subst.  contradiction n1...
+    unfold Transitive.
+    intros. destruct y; inversion H; inversion H0; subst...
+  Qed.
+
+  Open Local Scope equiv_scope.
+
+  Definition well_behaved (f : A -> A -> A) : Prop :=
+    (forall (a : A), f a None === a) /\
+    (forall (a : A), f None a === a) /\
+    (forall a a' b b', f a b === f a' b').
 
   Module A_as_Action <: ACTION.
     Definition A := A.
     Definition None := None.
-    Definition A_eq_dec := A_eq_dec.
-    Definition well_behaved := well_behaved.
+    Definition equiv := A_equiv.
+    Instance A_Equivalence : Equivalence equiv.
+    exact A_equiv_is_equivalence.
+    Qed.
+  Definition well_behaved (f : A -> A -> A) : Prop :=
+    (forall (a : A), f a None === a) /\
+    (forall (a : A), f None a === a) /\
+    (forall (a a' b b' : A), a === a' -> b === b' -> f a b === f a' b').
   End A_as_Action.
 
 Definition S : Type := list (pat * A).
@@ -63,11 +95,21 @@ Definition plus_S (a1 : A_as_Action.A) (a2 : A_as_Action.A) : A_as_Action.A := m
   | (Allow, Allow) => Allow
   end.
 
-Lemma well_behaved_plus_P : well_behaved plus_P.
-Proof. split; intros a; destruct a; auto. Qed.
+Lemma well_behaved_plus_P : A_as_Action.well_behaved plus_P.
+Proof.
+  split. intros a; destruct a; apply reflexivity.
+  split. intros a; destruct a; apply reflexivity.
+  intros. destruct a ; destruct b; destruct a'; destruct b';
+  inversion H0; inversion H; reflexivity.
+Qed.
 
-Lemma well_behaved_plus_S : well_behaved plus_S.
-Proof. split; intros a; destruct a; auto. Qed.
+Lemma well_behaved_plus_S : A_as_Action.well_behaved plus_S.
+Proof.
+  split. intros a; destruct a; apply reflexivity.
+  split. intros a; destruct a; apply reflexivity.
+  intros. destruct a ; destruct b; destruct a'; destruct b';
+  inversion H0; inversion H; reflexivity.
+Qed.
 
 Require Classifier.
 Module  Cl := Classifier.MakeClassifier (P) (A_as_Action).

@@ -6,6 +6,7 @@ Require Import CpdtTactics.
 Require Import Packet.
 Require Import HFT_Defns.
 Require Import Action.
+Require Import Coq.Classes.Equivalence.
 
 Module HFT (Import P : Packet).
 
@@ -93,27 +94,29 @@ End WellFormedness.
 
 Hint Resolve inter_elim union_comm.
 
+Open Local Scope equiv_scope.
+
 Lemma flatten_eval_S : forall (share : S) (pkt : pkt),
-  eval_S pkt share = scan pkt (lin_S share).
+  eval_S pkt share === scan pkt (lin_S share).
 Proof with auto.
   intros share pkt.
   intros.
   induction share.
   (* Base case: empty share *)
-  crush.
+  crush. apply reflexivity.
   (* Inductive case *)
   simpl.
   destruct a.
   remember (is_match pkt p).
   destruct b.
   (* Case: matches at head *)
-  assert (scan pkt (union plus_S ((p,a)::nil) (lin_S share)) =
+  assert (scan pkt (union plus_S ((p,a)::nil) (lin_S share)) ===
           plus_S (scan pkt ((p,a)::nil)) (scan pkt (lin_S share))).
     apply union_comm... apply well_behaved_plus_S.
   rewrite -> H.
   simpl.
   rewrite <- Heqb.
-  rewrite -> IHshare...
+  apply well_behaved_plus_S... apply reflexivity.
   (* Case: does not match at head *)
   unfold union. rewrite inter_elim... simpl. rewrite <- Heqb...
 Qed.
@@ -123,7 +126,7 @@ Notation "x +C y" := (plus_S x y) (at level 50, left associativity).
 
 Lemma flatten_eval_T : forall (n : nat) (tree : T) (pkt : pkt),
   wf_tree n tree ->
-  eval_T pkt tree = scan pkt (lin_T tree).
+  eval_T pkt tree === scan pkt (lin_T tree).
 Proof with simpl; auto.
   intros n tree pkt H.
   generalize dependent tree.
@@ -134,25 +137,26 @@ intros.
 destruct tree.
 simpl.  
 rewrite -> union_comm...
-assert (eval_S pkt s = scan pkt (lin_S s)). apply flatten_eval_S...
-rewrite -> H0. clear H0.
-assert (fold_right plus_S None (map (eval_T pkt) l) =
-        scan pkt (fold_right (union plus_S) nil (map lin_T l))).
+assert (eval_S pkt s === scan pkt (lin_S s)).
+  apply flatten_eval_S...
+  apply well_behaved_plus_P...
+  clear H0.
   induction l... 
+  apply reflexivity.
   rewrite -> union_comm...
-  assert (eval_T pkt a = scan pkt (lin_T a)).
+  assert (eval_T pkt a === scan pkt (lin_T a)).
     apply IHn. inversion H. crush.
-  assert (fold_right plus_S None (map (eval_T pkt) l) = 
+  assert (fold_right plus_S None (map (eval_T pkt) l) ===
           scan pkt (fold_right (union plus_S) nil (map lin_T l))).
     apply IHl. intros. apply wf_tree_lst. inversion H; subst. crush.
   crush.
+  apply well_behaved_plus_S...
 apply well_behaved_plus_S.
-crush.
 apply well_behaved_plus_P.
 Qed.
 
 Lemma eval_scan_eq : forall (n : nat) (tree : T) (pkt : pkt),
-  eval_T pkt tree = scan pkt (lin_T tree).
+  eval_T pkt tree === scan pkt (lin_T tree).
 Proof with auto.
 intros.
 assert (wf_tree (height tree) tree). apply wf_exists.
