@@ -146,7 +146,7 @@ assert (eval_S pkt s === scan pkt (lin_S s)).
   rewrite -> union_comm...
   assert (eval_T pkt a === scan pkt (lin_T a)).
     apply IHn. inversion H. crush.
-  assert (fold_right plus_S None (map (eval_T pkt) l) ===
+  assert (fold_right plus_S ActionUnit (map (eval_T pkt) l) ===
           scan pkt (fold_right (union plus_S) nil (map lin_T l))).
     apply IHl. intros. apply wf_tree_lst. inversion H; subst. crush.
   crush.

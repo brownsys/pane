@@ -11,7 +11,7 @@ Module Make (P : Packet).
   Include P.
 
   Inductive A : Type :=
-    | None : A
+    | ActionUnit : A
     | Allow : A
     | Deny : A
     | GMB : nat -> A.
@@ -20,7 +20,7 @@ Module Make (P : Packet).
   Proof. repeat decide equality. Qed.
 
   Inductive A_equiv : A -> A -> Prop :=
-  | None_equiv : A_equiv None None
+  | ActionUnit_equiv : A_equiv ActionUnit ActionUnit
   | Allow_equiv : A_equiv Allow Allow
   | Deny_equiv : A_equiv Deny Deny
   | GMB_equiv : forall n, A_equiv (GMB n) (GMB n).
@@ -43,20 +43,20 @@ Module Make (P : Packet).
   Open Local Scope equiv_scope.
 
   Definition well_behaved (f : A -> A -> A) : Prop :=
-    (forall (a : A), f a None === a) /\
-    (forall (a : A), f None a === a) /\
+    (forall (a : A), f a ActionUnit === a) /\
+    (forall (a : A), f ActionUnit a === a) /\
     (forall a a' b b', f a b === f a' b').
 
   Module A_as_Action <: ACTION.
     Definition A := A.
-    Definition None := None.
+    Definition ActionUnit := ActionUnit.
     Definition equiv := A_equiv.
     Instance A_Equivalence : Equivalence equiv.
     exact A_equiv_is_equivalence.
     Qed.
   Definition well_behaved (f : A -> A -> A) : Prop :=
-    (forall (a : A), f a None === a) /\
-    (forall (a : A), f None a === a) /\
+    (forall (a : A), f a ActionUnit === a) /\
+    (forall (a : A), f ActionUnit a === a) /\
     (forall (a a' b b' : A), a === a' -> b === b' -> f a b === f a' b').
   End A_as_Action.
 
@@ -73,8 +73,8 @@ Inductive wf_tree : nat -> T -> Prop :=
     wf_tree (Datatypes.S n) (Tree s lst).
 
 Definition plus_P (a1 : A_as_Action.A) (a2 : A_as_Action.A) : A_as_Action.A := match (a1, a2) with
-  | (_, None) => a1
-  | (None, _) => a2
+  | (_, ActionUnit) => a1
+  | (ActionUnit, _) => a2
   | (Deny, Allow) => Allow
   | (Allow, Allow) => Allow
   | (_, Deny) => Deny
@@ -85,8 +85,8 @@ Definition plus_P (a1 : A_as_Action.A) (a2 : A_as_Action.A) : A_as_Action.A := m
   end.
 
 Definition plus_S (a1 : A_as_Action.A) (a2 : A_as_Action.A) : A_as_Action.A := match (a1, a2) with
-  | (_, None) => a1
-  | (None, _) => a2
+  | (_, ActionUnit) => a1
+  | (ActionUnit, _) => a2
   | (Deny, _) => Deny
   | (_, Deny) => Deny
   | (GMB m, GMB n) => GMB (max m n)
@@ -116,7 +116,7 @@ Module  Cl := Classifier.MakeClassifier (P) (A_as_Action).
 Include Cl.
 
 Fixpoint eval_S (pkt : pkt) (share : S) := match share with
-  | nil => None
+  | nil => ActionUnit
   | (m, a) :: tl => match is_match pkt m with
     | true => plus_S a (eval_S pkt tl)
     | false => eval_S pkt tl
@@ -126,7 +126,7 @@ Fixpoint eval_S (pkt : pkt) (share : S) := match share with
 Fixpoint eval_T (pkt : pkt) (t : T) := match t with
   | Tree share subtrees => 
       plus_P (eval_S pkt share)
-             (fold_right plus_S None (map (eval_T pkt) subtrees))
+             (fold_right plus_S ActionUnit (map (eval_T pkt) subtrees))
 end.
 
 Fixpoint lin_S (share : S) := match share with

@@ -12,7 +12,7 @@ Module MakeClassifier (Import P : Packet) (Import Act : ACTION).
   Definition N := list (pat * A).
 
   Fixpoint scan (pkt : pkt) (n : N) := match n with
-    | nil => None
+    | nil => ActionUnit
     | (m,a) :: tl => match is_match pkt m with
       | true => a
       | false => scan pkt tl
@@ -35,7 +35,7 @@ Module MakeClassifier (Import P : Packet) (Import Act : ACTION).
   Variable f : A -> A -> A.
 
   Inductive scan_rel : pkt -> N -> A -> Prop :=
-    | scan_empty : forall pkt, scan_rel pkt nil None
+    | scan_empty : forall pkt, scan_rel pkt nil ActionUnit
     | scan_head : forall pkt m  (a : A) (tl : N),
         is_match pkt m = true ->
         scan_rel pkt ((m,a)::tl) a
@@ -88,7 +88,7 @@ Module MakeClassifier (Import P : Packet) (Import Act : ACTION).
 Definition scan_inv (pkt : pkt) (N1 : N) :=
   ((forall (m : pat) (a : A), 
     In (m,a) N1 -> is_match pkt m = false) /\
-   scan pkt N1 = None) \/
+   scan pkt N1 = ActionUnit) \/
   (exists N2 : N, exists N3 : N, exists m : pat, exists a : A,
    N1 = N2 ++ (m,a)::N3 /\
    is_match pkt m  = true /\
@@ -274,14 +274,14 @@ destruct_scan' H1.
   remember (n1 ++ n2) as l2.
   rewrite -> HUnit.
   remember (l1 ++ (((m,a)::n1) ++ n2)) as L.
-  assert (scan pkt n2 = None) as HscanLeft.
+  assert (scan pkt n2 = ActionUnit) as HscanLeft.
     assert (scan_inv pkt n2)...
     destruct_scan' H3.
     trivial.
     assert (In (m0, a0) L). crush.
     apply HNotIn0 in H1.
     crush.
-  assert (scan pkt ((m,a)::n1) = None) as HscanRight.
+  assert (scan pkt ((m,a)::n1) = ActionUnit) as HscanRight.
     assert (scan_inv pkt ((m,a)::n1))... 
     destruct_scan' H3.
     trivial.
@@ -365,7 +365,7 @@ destruct_scan' H1.
     apply elim_scan_middle. exact H1.
   rewrite -> H7.
   rewrite -> app_nil_r.
-  assert (f (scan pkt ((m,a)::n1)) None === scan pkt ((m,a)::n1)).
+  assert (f (scan pkt ((m,a)::n1)) ActionUnit === scan pkt ((m,a)::n1)).
     apply H.
   rewrite -> H8.
   reflexivity.

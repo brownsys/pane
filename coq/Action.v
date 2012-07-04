@@ -11,15 +11,15 @@ Module Type ACTION.
 
   Parameter A : Type.
 
-  Parameter None : A.
+  Parameter ActionUnit : A.
 
   Parameter equiv : A -> A -> Prop.
 
   Declare Instance A_Equivalence : Equivalence equiv.
 
   Definition well_behaved (f : A -> A -> A) : Prop :=
-    (forall (a : A), f a None === a) /\
-    (forall (a : A), f None a === a) /\
+    (forall (a : A), f a ActionUnit === a) /\
+    (forall (a : A), f ActionUnit a === a) /\
     (forall a a' b b', a === a' -> b === b' -> f a b === f a' b').
 
 End ACTION.
