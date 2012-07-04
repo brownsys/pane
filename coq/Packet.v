@@ -1,6 +1,6 @@
 Module Type Packet.
 
-  Parameter M : Type.
+  Parameter M : Set.
 
   Parameter is_packet : M -> bool.
   Parameter is_overlapped : M -> M -> bool.
