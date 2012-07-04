@@ -124,8 +124,6 @@ Lemma elim_mismatch : forall (n1 n2 : N) p m  (a : A),
 Proof. intros. induction n1; crush. Qed.
 
 Hint Unfold union inter inter_entry.
-Hint Resolve overlap_intersect.
-Hint Rewrite intersect_comm.
 
 Lemma inter_nil_l : forall (n : N),
   inter f nil n = nil.
@@ -169,7 +167,7 @@ Lemma elim_inter_head : forall (N1 N2 : N) pkt m
                                (a : A),
   is_match pkt m = false ->
   scan pkt (map (inter_entry f (m, a)) N1 ++ N2) = scan pkt N2.
-Proof with auto with packet.
+Proof with auto.
 intros.
 induction N1. crush.
 solve_is_overlapped. idtac. inversion H.
