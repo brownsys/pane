@@ -93,11 +93,10 @@ End WellFormedness.
 
 Hint Resolve inter_elim union_comm.
 
-Lemma flatten_eval_S : forall (share : S) (pkt : M),
-  is_packet pkt = true ->
+Lemma flatten_eval_S : forall (share : S) (pkt : pkt),
   eval_S pkt share = scan pkt (lin_S share).
 Proof with auto.
-  intros share pkt Hpacket.
+  intros share pkt.
   intros.
   induction share.
   (* Base case: empty share *)
@@ -105,11 +104,11 @@ Proof with auto.
   (* Inductive case *)
   simpl.
   destruct a.
-  remember (is_overlapped m pkt).
+  remember (is_match pkt p).
   destruct b.
   (* Case: matches at head *)
-  assert (scan pkt (union plus_S ((m,a)::nil) (lin_S share)) =
-          plus_S (scan pkt ((m,a)::nil)) (scan pkt (lin_S share))).
+  assert (scan pkt (union plus_S ((p,a)::nil) (lin_S share)) =
+          plus_S (scan pkt ((p,a)::nil)) (scan pkt (lin_S share))).
     apply union_comm... apply well_behaved_plus_S.
   rewrite -> H.
   simpl.
@@ -119,17 +118,14 @@ Proof with auto.
   unfold union. rewrite inter_elim... simpl. rewrite <- Heqb...
 Qed.
 
-
 Notation "x +P y" := (plus_P x y) (at level 50, left associativity).
 Notation "x +C y" := (plus_S x y) (at level 50, left associativity).
 
-Lemma flatten_eval_T : forall (n : nat) (tree : T) (pkt : M),
-  is_packet pkt = true ->
+Lemma flatten_eval_T : forall (n : nat) (tree : T) (pkt : pkt),
   wf_tree n tree ->
   eval_T pkt tree = scan pkt (lin_T tree).
 Proof with simpl; auto.
-  intros n tree pkt Hpacket.
-  intros.
+  intros n tree pkt H.
   generalize dependent tree.
   induction n.
   intros; inversion H.
@@ -155,8 +151,7 @@ crush.
 apply well_behaved_plus_P.
 Qed.
 
-Lemma eval_scan_eq : forall (n : nat) (tree : T) (pkt : M),
-  is_packet pkt = true ->
+Lemma eval_scan_eq : forall (n : nat) (tree : T) (pkt : pkt),
   eval_T pkt tree = scan pkt (lin_T tree).
 Proof with auto.
 intros.
