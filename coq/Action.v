@@ -15,6 +15,4 @@ Module Type ACTION.
     (forall (a : A), f a None = a) /\
     (forall (a : A), f None a = a).
 
-  Parameter A_eq_dec : forall (a1 a2 : A), { a1 = a2 } + { a1 <> a2 }.
-
 End ACTION.
