@@ -4,10 +4,9 @@ Require Import Coq.Arith.MinMax.
 Require Import Coq.Classes.Equivalence.
 Require Import Omega.
 Require Import CpdtTactics.
-Require Import Packet.
-Require Import Action.
+Require Import Impl.
 
-Module MakeClassifier (Import P : Packet) (Import Act : ACTION).
+Module MakeClassifier (Import TheImpl : IMPL).
 
   Definition N := list (pat * A).
 
