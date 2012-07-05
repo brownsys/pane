@@ -28,9 +28,7 @@ Module Make (P : Packet).
     Definition well_behaved := well_behaved.
   End A_as_Action.
 
-
-
-Definition S : Type := list (M * A).
+Definition S : Type := list (pat * A).
 
 Inductive T : Type :=
   | Tree : S -> list T -> T.
@@ -75,20 +73,19 @@ Require Classifier.
 Module  Cl := Classifier.MakeClassifier (P) (A_as_Action).
 Include Cl.
 
-Fixpoint eval_S (pkt : M) (share : S) := match share with
+Fixpoint eval_S (pkt : pkt) (share : S) := match share with
   | nil => None
-  | (m, a) :: tl => match is_overlapped m pkt with
+  | (m, a) :: tl => match is_match pkt m with
     | true => plus_S a (eval_S pkt tl)
     | false => eval_S pkt tl
     end
   end.
 
-Fixpoint eval_T (pkt : M) (t : T) := match t with
+Fixpoint eval_T (pkt : pkt) (t : T) := match t with
   | Tree share subtrees => 
       plus_P (eval_S pkt share)
              (fold_right plus_S None (map (eval_T pkt) subtrees))
 end.
-
 
 Fixpoint lin_S (share : S) := match share with
   | nil => nil
