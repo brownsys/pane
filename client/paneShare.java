@@ -1,3 +1,5 @@
+import java.rmi.RemoteException;
+
 
 public interface paneShare {
 	
@@ -7,7 +9,7 @@ public interface paneShare {
 	 * @param userName
 	 *            name of the new user to be added.
 	 */
-	public boolean addUser(String userName);
+	public boolean addUser(String userName) throws RemoteException;
 	
 	/**
 	 * call 'grant' command.
@@ -17,7 +19,7 @@ public interface paneShare {
 	 * @param userName
 	 *            name of the user.          
 	 */
-	public boolean grant(String shareName, String userName);
+	public boolean grant(String shareName, String userName) throws RemoteException;
 	
 	/**
 	 * call 'newShare' command.
@@ -45,7 +47,7 @@ public interface paneShare {
 	 */
 	public boolean newShare(String sharename, String parentName, String userName, 
 			int maxresv, int minresv, boolean allow, boolean deny, 
-			int reserveTBCapacity, int reserveTBFill);
+			int reserveTBCapacity, int reserveTBFill) throws RemoteException;
 	
 	/**
 	 * call 'reserve' command.
@@ -67,7 +69,7 @@ public interface paneShare {
 	 * @return
 	 */
 	public boolean reserve(String shareName, int bandwidth,String usrName, 
-			int dstport, int srcport,int from, int to);
+			int dstport, int srcport,int from, int to) throws RemoteException;
 	
 	/**
 	 * call 'allow' command.
@@ -86,7 +88,7 @@ public interface paneShare {
 	 * @return
 	 */
 	public boolean allow(String shareName, String usrname, String srcHost, int srcPort,
-			String dstHost, int dstPort);
+			String dstHost, int dstPort) throws RemoteException;
 	
 	
 	/**
@@ -107,7 +109,7 @@ public interface paneShare {
 	 * @return
 	 */
 	public boolean deny(String shareName, String usrName, String srcHost, int srcPort,
-			String dstHost, int dstPort);
+			String dstHost, int dstPort) throws RemoteException;
 	
 	/**
 	 * call 'Tick' command
@@ -115,6 +117,7 @@ public interface paneShare {
 	 * @param time
 	 * @return
 	 */
-	public boolean tick(int time);
+	public boolean tick(int time) throws RemoteException;
 
 }
+
