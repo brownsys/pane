@@ -108,18 +108,18 @@ Qed.
 
 Module Import Cl := Classifier.MakeClassifier (HFT_Impl).
 
-Fixpoint eval_S (pkt : pkt) (share : S) := match share with
+Fixpoint eval_S (pkt : pkt) (pt : port) (share : S) := match share with
   | nil => NoAction
-  | (m, a) :: tl => match is_match pkt m with
-    | true => plus_S a (eval_S pkt tl)
-    | false => eval_S pkt tl
+  | (m, a) :: tl => match is_match pkt pt m with
+    | true => plus_S a (eval_S pkt pt tl)
+    | false => eval_S pkt pt tl
     end
   end.
 
-Fixpoint eval_T (pkt : pkt) (t : T) := match t with
+Fixpoint eval_T (pkt : pkt) (pt : port) (t : T) := match t with
   | Tree share subtrees => 
-      plus_P (eval_S pkt share)
-             (fold_right plus_S NoAction (map (eval_T pkt) subtrees))
+      plus_P (eval_S pkt pt share)
+             (fold_right plus_S NoAction (map (eval_T pkt pt) subtrees))
 end.
 
 Fixpoint lin_S (share : S) := match share with
@@ -218,10 +218,10 @@ Hint Resolve inter_elim union_comm.
 
 Open Local Scope equiv_scope.
 
-Lemma flatten_eval_S : forall (share : S) (pkt : pkt),
-  eval_S pkt share === scan pkt (lin_S share).
+Lemma flatten_eval_S : forall (share : S) (pkt : pkt) (pt : port),
+  eval_S pkt pt share === scan pkt pt (lin_S share).
 Proof with auto.
-  intros share pkt.
+  intros share pkt pt.
   intros.
   induction share.
   (* Base case: empty share *)
@@ -229,11 +229,11 @@ Proof with auto.
   (* Inductive case *)
   simpl.
   destruct a.
-  remember (is_match pkt p).
+  remember (is_match pkt pt p).
   destruct b.
   (* Case: matches at head *)
-  assert (scan pkt (union plus_S ((p,a)::nil) (lin_S share)) ===
-          plus_S (scan pkt ((p,a)::nil)) (scan pkt (lin_S share))).
+  assert (scan pkt pt (union plus_S ((p,a)::nil) (lin_S share)) ===
+          plus_S (scan pkt pt ((p,a)::nil)) (scan pkt pt (lin_S share))).
     apply union_comm...
     apply well_behaved_plus_S.
   rewrite -> H.
@@ -252,11 +252,11 @@ Qed.
 Notation "x +P y" := (plus_P x y) (at level 50, left associativity).
 Notation "x +C y" := (plus_S x y) (at level 50, left associativity).
 
-Lemma flatten_eval_T : forall (n : nat) (tree : T) (pkt : pkt),
+Lemma flatten_eval_T : forall (n : nat) (tree : T) (pkt : pkt) (pt : port),
   wf_tree n tree ->
-  eval_T pkt tree === scan pkt (lin_T tree).
+  eval_T pkt pt tree === scan pkt pt (lin_T tree).
 Proof with simpl; auto.
-  intros n tree pkt H.
+  intros n tree pkt pt H.
   generalize dependent tree.
   induction n.
   intros; inversion H.
@@ -265,17 +265,17 @@ intros.
 destruct tree.
 simpl.  
 rewrite -> union_comm...
-assert (eval_S pkt s === scan pkt (lin_S s)).
+assert (eval_S pkt pt s === scan pkt pt (lin_S s)).
   apply flatten_eval_S...
   apply well_behaved_plus_P...
   clear H0.
   induction l... 
   apply reflexivity.
   rewrite -> union_comm...
-  assert (eval_T pkt a === scan pkt (lin_T a)).
+  assert (eval_T pkt pt a === scan pkt pt (lin_T a)).
     apply IHn. inversion H. crush.
-  assert (fold_right plus_S NoAction (map (eval_T pkt) l) ===
-          scan pkt (fold_right (union plus_S) nil (map lin_T l))).
+  assert (fold_right plus_S NoAction (map (eval_T pkt pt) l) ===
+          scan pkt pt (fold_right (union plus_S) nil (map lin_T l))).
     apply IHl. intros. apply wf_tree_lst. inversion H; subst. crush.
   crush.
   apply well_behaved_plus_S...
@@ -283,8 +283,8 @@ apply well_behaved_plus_S.
 apply well_behaved_plus_P.
 Qed.
 
-Lemma eval_scan_eq : forall (n : nat) (tree : T) (pkt : pkt),
-  eval_T pkt tree === scan pkt (lin_T tree).
+Lemma eval_scan_eq : forall (n : nat) (tree : T) (pkt : pkt) (pt : port),
+  eval_T pkt pt tree === scan pkt pt (lin_T tree).
 Proof with auto.
 intros.
 assert (wf_tree (height tree) tree). apply wf_exists.

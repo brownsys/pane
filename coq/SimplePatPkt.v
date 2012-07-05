@@ -5,6 +5,7 @@ Require Import Coq.Classes.EquivDec.
 Require Import CpdtTactics.
 Require Import Omega.
 Require Import Coq.Bool.Bool.
+Require Import Impl.
 
 Record pkt : Set := mkPkt {
   pktSrcHost : nat;
@@ -72,27 +73,28 @@ Definition is_overlapped (p1 : pat) (p2 : pat) : bool :=
     | _ => true
   end.
 
-Definition exact_match (k : pkt)  :=
+(* TODO(arjun): match on port *)
+Definition exact_match (k : pkt) (n : port) :=
   cons (PatSrcHost (pktSrcHost k))
     (cons (PatDstHost (pktDstHost k))
       (cons (PatSrcPort (pktSrcPort k))
         (cons (PatDstPort (pktDstPort k)) nil))).
 
-Definition match_elt (k : pkt) (t : patElt) := match t with
+Definition match_elt (k : pkt) (n : port) (t : patElt) := match t with
   | (PatSrcHost n) => beq_nat (pktSrcHost k) n
   | (PatDstHost n) => beq_nat (pktDstHost k) n
   | (PatSrcPort n) => beq_nat (pktSrcPort k) n
   | (PatDstPort n) => beq_nat (pktDstPort k) n
  end.
 
-Fixpoint is_match (k : pkt) (t : pat) := match t with
+Fixpoint is_match (k : pkt) (n : port) (t : pat) := match t with
   | nil => true
-  | (hd :: tl) => andb (match_elt k hd) (is_match k tl)
+  | (hd :: tl) => andb (match_elt k n hd) (is_match k n tl)
 end.
 
-Lemma is_match_inv : forall k t,
-  is_match k t = false ->
-  (exists e : patElt, In e t /\ match_elt k e = false).
+Lemma is_match_inv : forall k n t,
+  is_match k n t = false ->
+  (exists e : patElt, In e t /\ match_elt k n e = false).
 Proof with (auto with datatypes).
   intros.
   induction t.
@@ -106,36 +108,44 @@ Proof with (auto with datatypes).
   exists e...
 Qed.
 
-Lemma no_match_subset_r : forall k t' t,
-  is_match k t = false ->
-  is_match k (intersect t' t) = false.
-Proof with (auto with datatypes).
-  intros.
-  apply is_match_inv in H.
-  destruct H as [e [H H']].
-(*  generalize dependent e. *)
-  induction t'; intros.
+Section Proofs.
+
+  Variable k : pkt.
+  Variable t t': pat.
+  Variable n : port.
+
+  Lemma no_match_subset_r :
+    is_match k n t = false ->
+    is_match k n (intersect t' t) = false.
+  Proof with (auto with datatypes).
+    intros.
+    apply is_match_inv in H.
+    destruct H as [e [H H']].
+  (*  generalize dependent e. *)
+    induction t'; intros.
+  Admitted.
+
+  Lemma no_match_subset_l :
+    is_match k n t = false ->
+    is_match k n (intersect t t') = false.
+  Proof.
+  Admitted.
+
+  Lemma pkt_match_intersect :
+    is_match k n t = true ->
+    is_match k n t' = true ->
+    is_match k n (intersect t t') = true.
+  Proof with auto.
+    intros.
+  Admitted.
+
+  Lemma packet_split : 
+    is_overlapped t t' = false ->
+    is_match k n t = true ->
+    is_match k n t' = false.
 Admitted.
 
-Lemma no_match_subset_l : forall k t t',
-  is_match k t = false ->
-  is_match k (intersect t t') = false.
-Proof.
-Admitted.
-
-Lemma pkt_match_intersect : forall k t t',
-  is_match k t = true ->
-  is_match k t' = true ->
-  is_match k (intersect t t') = true.
-Proof with auto.
-  intros.
-Admitted.
-
-Lemma packet_split : forall k t t',
-  is_overlapped t t' = false ->
-  is_match k t = true ->
-  is_match k t' = false.
-Admitted.
+End Proofs.
 
 Module ImplFragment.
 
