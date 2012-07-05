@@ -8,6 +8,8 @@ Require Import Impl.
 
 Module MakeClassifier (Import TheImpl : IMPL).
 
+  Module Import TheImplAux := ImplAux (TheImpl).
+
   Definition N := list (pat * A).
 
   Fixpoint scan (pkt : pkt) (n : N) := match n with
@@ -52,14 +54,12 @@ Module MakeClassifier (Import TheImpl : IMPL).
   end.
 
   Ltac destruct_is_overlapped B := match goal with
-    | [ H : context[is_overlapped ?m ?pkt] |- _ ] => 
-        idtac "destructing"  m pkt; remember (is_overlapped m pkt) as B; destruct B
-    | [ |- context[is_overlapped ?m ?pkt] ] => 
-       idtac "destructing"  m pkt;  remember (is_overlapped m pkt) as B; destruct B
+    | [ H : context[is_overlapped ?m ?pkt] |- _ ] => destruct B
+    | [ |- context[is_overlapped ?m ?pkt] ] =>  destruct B
     | [ H : context[is_match ?pkt ?m] |- _ ] => 
-        idtac "destructing"  m pkt; remember (is_match pkt m) as B; destruct B
+      remember (is_match pkt m) as B; destruct B
     | [ |- context[is_overlapped ?m ?pkt] ] => 
-       idtac "destructing"  m pkt;  remember (is_match pkt m) as B; destruct B
+      remember (is_match pkt m) as B; destruct B
 
   end.
 

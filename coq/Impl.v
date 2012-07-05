@@ -8,6 +8,8 @@ Require Import CpdtTactics.
 Set Implicit Arguments.
 Open Local Scope equiv_scope.
 
+Definition port := nat.
+
 Module Type IMPL.
 
   Parameter A : Type.
@@ -18,11 +20,6 @@ Module Type IMPL.
   Parameter equiv : A -> A -> Prop.
 
   Declare Instance A_Equivalence : Equivalence equiv.
-
-  Definition well_behaved (f : A -> A -> A) : Prop :=
-    (forall (a : A), f a ActionUnit === a) /\
-    (forall (a : A), f ActionUnit a === a) /\
-    (forall a a' b b', a === a' -> b === b' -> f a b === f a' b').
 
   Axiom pkt_eq_dec : forall (m1 m2 : pkt), { m1 = m2 } + { m1 <> m2 }.
   Axiom pat_eq_dec : forall (m1 m2 : pat), { m1 = m2 } + { m1 <> m2 }.
@@ -54,3 +51,12 @@ Module Type IMPL.
     no_match_subset_l no_match_subset_r : packet.
 
 End IMPL.
+
+Module ImplAux (Import TheImpl : IMPL).
+
+  Definition well_behaved (f : A -> A -> A) : Prop :=
+    (forall (a : A), f a ActionUnit === a) /\
+    (forall (a : A), f ActionUnit a === a) /\
+    (forall a a' b b', a === a' -> b === b' -> f a b === f a' b').
+
+End ImplAux.

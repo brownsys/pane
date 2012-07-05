@@ -2,7 +2,6 @@ Require Import Coq.Lists.List.
 Require Import Coq.Arith.MinMax.
 Require Import Coq.Classes.Equivalence.
 Require Import Coq.Classes.EquivDec.
-Require Import Impl.
 Require Import CpdtTactics.
 Require Import Omega.
 Require Import Coq.Bool.Bool.

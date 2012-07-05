@@ -15,7 +15,6 @@ Inductive A : Type :=
 | Deny : A
 | GMB : nat -> A.
 
-
 Inductive A_equiv : A -> A -> Prop :=
 | None_equiv : A_equiv NoAction NoAction
 | Allow_equiv : A_equiv Allow Allow
@@ -43,13 +42,6 @@ End Equiv.
 
 Open Local Scope equiv_scope.
 
-Definition well_behaved (f : A -> A -> A) : Prop :=
-  (forall (a : A), f a NoAction === a) /\
-  (forall (a : A), f NoAction a === a) /\
-  (forall a a' b b', a === a' -> b === b' -> f a b === f a' b').
-
-
-
 Module HFT_Impl <: IMPL.
 
   Definition A := A.
@@ -57,11 +49,9 @@ Module HFT_Impl <: IMPL.
   Definition ActionUnit := NoAction.
   Definition equiv := A_equiv.
   Program Instance A_Equivalence : Equivalence equiv := A_equiv_is_equivalence.
- Definition well_behaved (f : A -> A -> A) : Prop :=
-    (forall (a : A), f a ActionUnit === a) /\
-    (forall (a : A), f ActionUnit a === a) /\
-    (forall (a a' b b' : A), a === a' -> b === b' -> f a b === f a' b').
 End HFT_Impl.
+
+
 
 Definition S : Type := list (pat * A).
 
@@ -87,7 +77,9 @@ Definition plus_P (a1 : A) (a2 : A)  := match (a1, a2) with
   | (GMB m, Allow) => GMB m
   end.
 
-Lemma well_behaved_plus_P : HFT_Impl.well_behaved plus_P.
+Module TheImplAux := ImplAux (HFT_Impl).
+
+Lemma well_behaved_plus_P : TheImplAux.well_behaved plus_P.
 Proof.
   split. intros a; destruct a; apply reflexivity.
   split. intros a; destruct a; apply reflexivity.
@@ -106,7 +98,7 @@ Definition plus_S (a1 a2 : A) := match (a1, a2) with
   | (Allow, Allow) => Allow
   end.
 
-Lemma well_behaved_plus_S : HFT_Impl.well_behaved plus_S.
+Lemma well_behaved_plus_S : TheImplAux.well_behaved plus_S.
 Proof.
   split. intros a; destruct a; apply reflexivity.
   split. intros a; destruct a; apply reflexivity.
@@ -242,7 +234,8 @@ Proof with auto.
   (* Case: matches at head *)
   assert (scan pkt (union plus_S ((p,a)::nil) (lin_S share)) ===
           plus_S (scan pkt ((p,a)::nil)) (scan pkt (lin_S share))).
-    apply union_comm... apply well_behaved_plus_S.
+    apply union_comm...
+    apply well_behaved_plus_S.
   rewrite -> H.
   simpl. 
   assert (is_match = HFT_Impl.is_match)...
