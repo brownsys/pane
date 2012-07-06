@@ -92,27 +92,74 @@ Section Proofs.
     destruct t...
   Qed.
 
-  Lemma match_eq : forall t1 t2,
-    (forall k p, is_match k p t1 = is_match k p t2) ->
-    t1 = t2.
-  Admitted.
+  Lemma interAux_comm' : forall x y z,
+    Some z = interAux x y ->
+    Some z = interAux y x.
+  Proof with (auto with arith).
+    intros.
+    unfold interAux in *.
+    repeat match goal with
+    | [ H : option nat |- _ ] => destruct H
+    | [ H : context [if beq_nat ?x ?y then _ else _] |- _ ] =>
+      let Hx := fresh "Hx" in
+        remember (beq_nat x y) as Hx;
+        destruct Hx 
+    | [ H : true = beq_nat ?x ?y |- _ ] =>
+        symmetry in H; apply beq_nat_true in H
+    end; crush.
+    rewrite <- beq_nat_refl...
+  Qed.
+
+  
+  Lemma interAux_comm : forall x y m n,
+    interAux x y = Some m ->
+    interAux y x = Some n ->
+    m = n.
+  Proof with (auto with arith).
+    intros.
+    unfold interAux in *.
+    repeat match goal with
+    | [ H : option nat |- _ ] => destruct H
+    | [ H : context [if beq_nat ?x ?y then _ else _] |- _ ] =>
+      let Hx := fresh "Hx" in
+        remember (beq_nat x y) as Hx;
+        destruct Hx 
+    | [ H : true = beq_nat ?x ?y |- _ ] =>
+        symmetry in H; apply beq_nat_true in H
+    end; crush.
+  Qed.
+
 
   Lemma inter_comm : forall t t', intersect t t' = intersect t' t.
   Proof with auto.
     intros.
-    apply match_eq.
-    intros.
-    unfold is_match.
-    unfold is_overlapped.
-    unfold exact_match.
-    simpl.
-  Admitted.
+    destruct t. destruct t'.
+    unfold intersect.
+    unfold intersect'.
+    repeat match goal with
+      | [ |- context [interAux ?x ?y] ] =>
+        let Hx := fresh "Hx" in
+        let Hy := fresh "Hy" in
+        remember (interAux x y) as Hx;
+        remember (interAux y x) as Hy;
+        destruct Hx; destruct Hy
+      | [ H1 : Some ?o1 = interAux ?a ?b,
+          H2 : Some ?o2 = interAux ?b ?a
+          |- _ ] => 
+      let H := fresh "H" in
+      assert (o1 = o2) as H by (apply interAux_comm with (x := a) (y := b); auto); clear H1; clear H2; rewrite -> H
+      | [ H1 : Some _ = interAux ?x ?y,
+          H2 : None = interAux ?y ?x
+          |- _ ] => apply interAux_comm' in H1; rewrite <- H1 in H2; inversion H2 
+    end; try reflexivity.
+   apply inter_Empty.
+   unfold intersect. destruct t'...
+ Qed.
 
   Lemma inter_distr : forall t t' t'', 
     intersect t (intersect t' t'') = intersect (intersect t t') t''.
   Proof with auto.
     intros.
-    apply match_eq.
     intros. 
     destruct t'.
   Admitted.

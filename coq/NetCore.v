@@ -13,7 +13,6 @@ Require Import SimplePatPkt.
 Module NatSet := MSetList.Make (Nat_as_OT).
 Module NatSetDecide := MSetDecide.Decide (NatSet).
 
-Definition port := nat.
 Definition switch := nat.
 
 Inductive A : Type :=
@@ -126,6 +125,3 @@ Proof with simpl; auto.
   apply well_behaved_cmb...
   apply well_behaved_cmb.
 Qed.
-
-Extraction Language Haskell.
-Recursive Extraction compile.
