@@ -156,14 +156,117 @@ Section Proofs.
    unfold intersect. destruct t'...
  Qed.
 
-  Lemma inter_distr : forall t t' t'', 
-    intersect t (intersect t' t'') = intersect (intersect t t') t''.
+ Lemma interAux_assoc : forall x y z a b,
+   Some a = interAux y z ->
+   Some b = interAux x y ->
+   interAux x a = interAux b z.
+ Proof with auto.
+   intros.
+   unfold interAux in *.
+    repeat match goal with
+    | [ H : option nat |- _ ] => destruct H
+    | [ H : context [if beq_nat ?x ?y then _ else _] |- _ ] =>
+      let Hx := fresh "Hx" in
+        remember (beq_nat x y) as Hx;
+        destruct Hx 
+    | [ H : true = beq_nat ?x ?y |- _ ] =>
+        symmetry in H; apply beq_nat_true in H
+    end; crush.
+    rewrite <- beq_nat_refl...
+    rewrite <- beq_nat_refl...
+  Qed.
+
+  Lemma interAux_assoc_contra : forall x y z a b,
+    Some a = interAux y z ->
+    Some b = interAux x a ->
+    exists c, Some c = interAux x y.
+  Proof with eauto.
+   intros.
+   unfold interAux in *.
+    repeat match goal with
+    | [ H : option nat |- _ ] => destruct H
+    | [ H : context [if beq_nat ?x ?y then _ else _] |- _ ] =>
+      let Hx := fresh "Hx" in
+        remember (beq_nat x y) as Hx;
+        destruct Hx 
+    | [ H : true = beq_nat ?x ?y |- _ ] =>
+        symmetry in H; apply beq_nat_true in H
+    end; crush...
+    rewrite <- beq_nat_refl...
+    rewrite <- beq_nat_refl...
+  Qed.
+
+  Lemma interAux_assoc_contra2 : forall x y z a b,
+    Some a = interAux x y ->
+    Some b = interAux a z ->
+    exists w, Some w = interAux y z.
+  Proof with eauto.
+   intros.
+   unfold interAux in *.
+    repeat match goal with
+    | [ H : option nat |- _ ] => destruct H
+    | [ H : context [if beq_nat ?x ?y then _ else _] |- _ ] =>
+      let Hx := fresh "Hx" in
+        remember (beq_nat x y) as Hx;
+        destruct Hx 
+    | [ H : true = beq_nat ?x ?y |- _ ] =>
+        symmetry in H; apply beq_nat_true in H
+    end; crush...
+    rewrite <- beq_nat_refl...
+    rewrite <- beq_nat_refl...
+  Qed.
+
+  Ltac contra_inter_assoc := match goal with
+      | [ H1 : Some ?a' = interAux ?y ?z',
+          H2 : Some ?b' = interAux ?x ?a',
+          H3 : None = interAux ?x ?y |- _ ]
+        => let H := fresh "H" in
+           assert (exists w, Some w = interAux x y) as H by (apply interAux_assoc_contra with (z := z') (a := a') (b := b'); auto); destruct H; rewrite <- H in H3; inversion H3
+      | [ H2 : None = interAux ?y' ?z',
+          H1 : Some ?a' = interAux ?x' ?y',
+          H3 : Some ?b' = interAux ?a' ?z' |- _ ]
+        => let H := fresh "H" in
+           assert (exists w, Some w = interAux y' z') as H by (apply interAux_assoc_contra2 with (x := x') (a := a') (b := b'); auto); destruct H; rewrite <- H in H2; inversion H2
+             end.
+
+  Lemma inter_assoc : forall t1 t2 t3, 
+    intersect t1 (intersect t2 t3) = intersect (intersect t1 t2) t3.
   Proof with auto.
     intros.
-    intros. 
-    destruct t'.
-  Admitted.
-
+    unfold intersect.
+    unfold intersect'.   
+    destruct t1; destruct t2; destruct t3; auto;
+    simpl;
+    repeat match goal with
+      | [ |- context [interAux ?x ?y] ] =>
+        let H := fresh "H" in
+        remember (interAux x y) as H;
+        destruct H; simpl
+      | [ H1 : Some ?a = interAux ?y' ?z,
+          H2 : Some ?b = interAux ?x ?y' |- _ ] 
+        => assert (interAux x a = interAux b z) by (apply interAux_assoc with (y := y'); auto); clear H1; clear H2
+      | [ H1 : interAux _ _  = interAux _ _  |- _ ]
+        => rewrite <- H1 in *; rewrite <- H1; clear H1
+      | [ H1: (interAux _ _) = (interAux _ _)  |- _ ]
+        => rewrite -> H1 in *; try (rewrite -> H1); clear H1
+      | [ H1 : Some ?x = ?e,
+          H2 : Some ?y = ?e |- _ ] =>
+        rewrite <- H1 in H2; clear H1; inversion H2; clear H2; subst
+      | [ H1 : Some ?x = ?e,
+          H2 : None = ?e |- _ ] =>
+        rewrite <- H1 in H2; inversion H2
+    end; try reflexivity.
+    contra_inter_assoc.
+    contra_inter_assoc.
+    contra_inter_assoc.
+    contra_inter_assoc.
+    contra_inter_assoc.
+    contra_inter_assoc.
+    contra_inter_assoc.
+    contra_inter_assoc.
+    contra_inter_assoc.
+    contra_inter_assoc.
+  Qed.
 
   Lemma no_match_subset_r : forall k n t t',
     is_match k n t = false ->
@@ -178,7 +281,7 @@ Section Proofs.
     clear H.
     assert (intersect t' t = intersect t t') by apply inter_comm.
     rewrite -> H.
-    rewrite -> inter_distr.
+    rewrite -> inter_assoc.
     rewrite -> H0.
     rewrite -> inter_comm.
     rewrite -> inter_Empty...
@@ -195,7 +298,7 @@ Section Proofs.
       remember (intersect (exact_match k n) t).
       destruct p. inversion H. trivial.
     clear H.
-    rewrite -> inter_distr.
+    rewrite -> inter_assoc.
     rewrite -> H0.
     rewrite -> inter_empty_l...
   Qed.
@@ -287,7 +390,7 @@ Section Proofs.
     apply exact_intersect in H0.
     unfold is_match.
     unfold is_overlapped.
-    rewrite -> inter_distr.
+    rewrite -> inter_assoc.
     rewrite -> H.
     rewrite -> H0.
     unfold exact_match...
