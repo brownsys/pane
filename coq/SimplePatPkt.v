@@ -14,13 +14,17 @@ Record pkt : Set := mkPkt {
   pktDstPort : nat
 }.
 
-Inductive patElt : Set := 
-  | PatSrcHost : nat -> patElt
-  | PatDstHost : nat -> patElt
-  | PatSrcPort : nat -> patElt
-  | PatDstPort : nat -> patElt.
+Record pat' : Set := mkPat' {
+  patInPort : option port;
+  patSrcHost : option nat;
+  patDstHost : option nat;
+  patSrcPort : option nat;
+  patDstPort : option nat
+}.
 
-Definition pat := list patElt.
+Inductive pat : Set :=
+  | PatMatch : pat' -> pat
+  | PatEmpty : pat.
 
 Lemma pkt_eq_dec : forall (p p' : pkt), { p = p' } + { p <> p' }.
 Proof. repeat decide equality. Qed.
@@ -28,122 +32,247 @@ Proof. repeat decide equality. Qed.
 Lemma pat_eq_dec : forall (p p' : pat), { p = p' } + { p <> p' }.
 Proof. repeat decide equality. Qed.
 
-Inductive patElt_equiv : patElt -> patElt -> Prop :=
- | SrcHostEquiv : forall n, patElt_equiv (PatSrcHost n) (PatSrcHost n)
- | DstHostEquiv : forall n, patElt_equiv (PatDstHost n) (PatDstHost n)
- | SrcPortEquiv : forall n, patElt_equiv (PatSrcPort n) (PatSrcPort n)
- | DstPortEquiv : forall n, patElt_equiv (PatDstPort n) (PatDstPort n).
 
-Hint Constructors patElt_equiv.
-
-Open Local Scope equiv_scope.
-Instance PatElt_Equivalence : Equivalence patElt_equiv.
-Proof with auto.
-  crush.
-  unfold Reflexive. intros. destruct x; crush.
-  unfold Symmetric. intros. destruct x; destruct y; 
-    try solve [ inversion H | 
- assert ({ n = n0 } + { ~ n = n0 }) by (apply eq_nat_dec); destruct H0; 
-   subst; auto; inversion H; subst; contradiction n1; auto ].
-  unfold Transitive.
-  intros. destruct y; inversion H; inversion H0; subst...
-Qed.
-
-Definition beq_patElt p1 p2 := match (p1, p2) with
- | (PatSrcHost n, PatSrcHost n') => beq_nat n n'
- | (PatDstHost n, PatDstHost n') => beq_nat n n'
- | (PatSrcPort n, PatSrcPort n') => beq_nat n n'
- | (PatDstPort n, PatDstPort n') => beq_nat n n'
- | _ => false
+Definition interAux (m : option nat) (n : option nat) := match (m, n) with
+  | (Some m, Some n) => if beq_nat m n then Some (Some m) else None
+  | (Some m, None) => Some (Some m)
+  | (None, Some n) => Some (Some n)
+  | (None, None) => Some None
 end.
 
-Fixpoint intersect (p : pat) (p' : pat) := 
-  match p' with
-    | nil => nil
-    | (elt :: rest) =>
-      if existsb (fun elt' => beq_patElt elt elt') p then
-        elt :: (intersect p rest)
-        else
-          intersect p rest
+Definition intersect' (p p' : pat') := 
+  match (interAux (patInPort p) (patInPort p'),
+    interAux (patSrcHost p) (patSrcHost p'),
+    interAux (patDstHost p) (patDstHost p'),
+    interAux (patSrcPort p) (patSrcPort p'),
+    interAux (patDstPort p) (patDstPort p')) with
+    | (Some v, Some x, Some y, Some z, Some w) => Some (mkPat' v x y z w)
+    | _ => None
+  end.
+
+Definition intersect (p p' : pat) := 
+  match (p, p') with
+    | (PatMatch q, PatMatch q') => 
+      match intersect' q q' with
+        | Some r => PatMatch r
+        | None => PatEmpty
+      end
+    | _ => PatEmpty
   end.
 
 Definition is_overlapped (p1 : pat) (p2 : pat) : bool :=
   match (intersect p1 p2) with
-    | nil => false
-    | _ => true
+    | PatEmpty => false
+    | PatMatch p3 => true
   end.
 
-(* TODO(arjun): match on port *)
-Definition exact_match (k : pkt) (n : port) :=
-  cons (PatSrcHost (pktSrcHost k))
-    (cons (PatDstHost (pktDstHost k))
-      (cons (PatSrcPort (pktSrcPort k))
-        (cons (PatDstPort (pktDstPort k)) nil))).
+Definition exact_match (k : pkt) (n : port) := 
+  PatMatch (mkPat' 
+    (Some n)
+    (Some (pktSrcHost k))
+    (Some (pktDstHost k))
+    (Some (pktSrcPort k))
+    (Some (pktDstPort k))).
 
-Definition match_elt (k : pkt) (n : port) (t : patElt) := match t with
-  | (PatSrcHost n) => beq_nat (pktSrcHost k) n
-  | (PatDstHost n) => beq_nat (pktDstHost k) n
-  | (PatSrcPort n) => beq_nat (pktSrcPort k) n
-  | (PatDstPort n) => beq_nat (pktDstPort k) n
- end.
-
-Fixpoint is_match (k : pkt) (n : port) (t : pat) := match t with
-  | nil => true
-  | (hd :: tl) => andb (match_elt k n hd) (is_match k n tl)
-end.
-
-Lemma is_match_inv : forall k n t,
-  is_match k n t = false ->
-  (exists e : patElt, In e t /\ match_elt k n e = false).
-Proof with (auto with datatypes).
-  intros.
-  induction t.
-  inversion H.
-  simpl in H.
-  apply andb_false_iff in H.
-  destruct H.
-  exists a...
-  apply IHt in H.
-  destruct H as [e [H H']].
-  exists e...
-Qed.
+Definition is_match (k : pkt) (n : port) (t : pat) := 
+  is_overlapped (exact_match k n) t.
 
 Section Proofs.
 
-  Variable k : pkt.
-  Variable t t': pat.
-  Variable n : port.
 
-  Lemma no_match_subset_r :
+  Lemma inter_Empty : forall t, intersect t PatEmpty = PatEmpty.
+  Proof with auto.
+    intros.
+    destruct t...
+  Qed.
+
+  Lemma inter_empty_l : forall t, intersect PatEmpty t = PatEmpty.
+  Proof with auto.
+    intros.
+    destruct t...
+  Qed.
+
+  Lemma match_eq : forall t1 t2,
+    (forall k p, is_match k p t1 = is_match k p t2) ->
+    t1 = t2.
+  Admitted.
+
+  Lemma inter_comm : forall t t', intersect t t' = intersect t' t.
+  Proof with auto.
+    intros.
+    apply match_eq.
+    intros.
+    unfold is_match.
+    unfold is_overlapped.
+    unfold exact_match.
+    simpl.
+  Admitted.
+
+  Lemma inter_distr : forall t t' t'', 
+    intersect t (intersect t' t'') = intersect (intersect t t') t''.
+  Proof with auto.
+    intros.
+    apply match_eq.
+    intros. 
+    destruct t'.
+  Admitted.
+
+
+  Lemma no_match_subset_r : forall k n t t',
     is_match k n t = false ->
     is_match k n (intersect t' t) = false.
   Proof with (auto with datatypes).
     intros.
-    apply is_match_inv in H.
-    destruct H as [e [H H']].
-  (*  generalize dependent e. *)
-    induction t'; intros.
-  Admitted.
+    unfold is_match in *.
+    unfold is_overlapped in *.
+    assert (intersect (exact_match k n) t = PatEmpty).
+      remember (intersect (exact_match k n) t).
+      destruct p. inversion H. trivial.
+    clear H.
+    assert (intersect t' t = intersect t t') by apply inter_comm.
+    rewrite -> H.
+    rewrite -> inter_distr.
+    rewrite -> H0.
+    rewrite -> inter_comm.
+    rewrite -> inter_Empty...
+  Qed.
 
-  Lemma no_match_subset_l :
+  Lemma no_match_subset_l : forall k n t t',
     is_match k n t = false ->
     is_match k n (intersect t t') = false.
-  Proof.
-  Admitted.
-
-  Lemma pkt_match_intersect :
-    is_match k n t = true ->
-    is_match k n t' = true ->
-    is_match k n (intersect t t') = true.
   Proof with auto.
     intros.
-  Admitted.
+    unfold is_match in *.
+    unfold is_overlapped in *.
+    assert (intersect (exact_match k n) t = PatEmpty).
+      remember (intersect (exact_match k n) t).
+      destruct p. inversion H. trivial.
+    clear H.
+    rewrite -> inter_distr.
+    rewrite -> H0.
+    rewrite -> inter_empty_l...
+  Qed.
 
-  Lemma packet_split : 
+  Lemma exact_intersect : forall k n t,
+    is_match k n t = true ->
+    intersect (exact_match k n) t = exact_match k n.
+  Proof with eauto.
+    intros.
+    unfold is_match in H.
+    unfold is_overlapped in H.
+    assert (exists z, intersect (exact_match k n) t = PatMatch z).
+      remember (intersect (exact_match k n) t).
+      destruct p... inversion H.
+    clear H.
+    destruct H0 as [z H].
+    assert (exists z', t = PatMatch z').
+      unfold intersect in H.
+      destruct (exact_match k n)...
+      destruct t... inversion H.
+    destruct H0 as [z' H0].
+    subst.
+    unfold exact_match in H.
+    destruct z.
+    destruct z'.
+    unfold intersect in H.
+    unfold intersect' in H.
+    simpl in H.
+    assert (exists v, interAux (Some n) patInPort1 = Some v).
+    destruct (interAux (Some n) patInPort1)... inversion H.
+    destruct H0 as [patInPort1v H0].
+    rewrite -> H0  in H.
+
+    assert (exists v, interAux (Some (pktSrcHost k)) patSrcHost1 = Some v).
+    destruct (interAux (Some (pktSrcHost k)) patSrcHost1)...
+    inversion H.
+    destruct H1 as [pktSrcHostv H1].
+    rewrite -> H1 in H.
+
+    assert (exists v, interAux (Some (pktDstHost k)) patDstHost1 = Some v).
+    destruct (interAux (Some (pktDstHost k)) patDstHost1)...
+    inversion H.
+    destruct H2 as [pktDstHostv H2].
+    rewrite -> H2 in H.
+
+    assert (exists v, interAux (Some (pktSrcPort k)) patSrcPort1 = Some v).
+    destruct (interAux (Some (pktSrcPort k)) patSrcPort1)...
+    inversion H.
+    destruct H3 as [pktSrcPortv H3].
+    rewrite -> H3 in H.
+
+    assert (exists v, interAux (Some (pktDstPort k)) patDstPort1 = Some v).
+    destruct (interAux (Some (pktDstPort k)) patDstPort1)...
+    inversion H.
+    destruct H4 as [pktDstPortv H4].
+    rewrite -> H4 in H.
+    inversion H.
+    subst.
+    clear H. (* H0 H1 H2 H3 H4.  *)
+    unfold exact_match.
+    unfold intersect.
+    unfold intersect'.
+    simpl.
+    rewrite -> H0.
+    rewrite -> H1.
+    rewrite -> H2.
+    rewrite -> H3.
+    rewrite -> H4.
+    unfold interAux in *.
+    repeat match goal with
+      | [ H : (match ?v with | Some _ => _ | None => _ end) = Some _ |- _ ] =>
+        destruct v
+      | [ H :  (if beq_nat ?x ?y then Some _ else None) = Some _ |- _ ] =>
+        destruct (beq_nat x y)
+      | [ H : None = Some _ |- _ ] =>
+        inversion H
+      | [ H : Some (Some ?x) = Some ?y |- _ ] =>
+        inversion H; clear H
+           end; reflexivity.
+  Qed.
+
+  Lemma pkt_match_intersect : forall k n t t',
+    is_match k n t = true ->
+    is_match k n t' = true ->
+      is_match k n (intersect t t') = true.
+  Proof with auto.
+    intros.
+    apply exact_intersect in H.
+    apply exact_intersect in H0.
+    unfold is_match.
+    unfold is_overlapped.
+    rewrite -> inter_distr.
+    rewrite -> H.
+    rewrite -> H0.
+    unfold exact_match...
+  Qed.
+
+  Lemma packet_split : forall k n t t',
     is_overlapped t t' = false ->
     is_match k n t = true ->
     is_match k n t' = false.
-Admitted.
+  Proof with eauto.
+    intros.
+(*    apply exact_intersect in H0. *)
+    unfold is_match.
+    unfold is_overlapped.
+    remember (intersect (exact_match k n) t').
+      destruct p...
+    assert (is_match k n t' = true).
+      unfold is_match.
+      unfold is_overlapped.
+      rewrite <- Heqp...
+    assert (is_match k n (intersect t t') = true).
+      apply pkt_match_intersect...
+    (* have contradiction here *)
+    unfold is_overlapped in H.
+    assert (intersect t t' = PatEmpty).
+      remember (intersect t t').
+      destruct p0... inversion H.
+    rewrite -> H3 in H2.
+    unfold is_match in H2.
+    unfold is_overlapped in H2.
+    simpl in H2...
+  Qed.
 
 End Proofs.
 
@@ -162,3 +291,4 @@ Module ImplFragment.
   Definition pkt_match_intersect := pkt_match_intersect.
   Definition packet_split := packet_split.
 End ImplFragment.
+

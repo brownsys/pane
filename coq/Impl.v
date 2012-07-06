@@ -29,34 +29,24 @@ Module Type IMPL.
   Parameter is_match : pkt -> port -> pat -> bool.
   Parameter exact_match : pkt -> port -> pat.
 
-  Section Axioms.
+  Axiom no_match_subset_l : forall k n m1 m2, 
+    is_match k n m1 = false ->
+    is_match k n (intersect m1 m2) = false.
 
-    Variable k : pkt.
-    Variable m1 m2 m m': pat.
-    Variable n : port.
+  Axiom no_match_subset_r : forall k n m1 m2,
+    is_match k n m1 = false ->
+    is_match k n (intersect m2 m1) = false.
 
-    Axiom no_match_subset_l : 
-      is_match k n m1 = false ->
-      is_match k n (intersect m1 m2) = false.
-
-    Axiom no_match_subset_r :
-      is_match k n m1 = false ->
-      is_match k n (intersect m2 m1) = false.
-  
-    Axiom pkt_match_intersect :
+  Axiom pkt_match_intersect : forall k n m m',
       is_match k n m = true -> 
       is_match k n m' = true ->
       is_match k n (intersect m m') = true.
 
-    Axiom packet_split : 
-      is_overlapped m1 m2 = false ->
-      is_match k n m1 = true  ->
-      is_match k n m2 = false.
+  Axiom packet_split : forall k n m1 m2,
+    is_overlapped m1 m2 = false ->
+    is_match k n m1 = true  ->
+    is_match k n m2 = false.
 
-  End Axioms.
-  
-  Hint Rewrite pkt_eq_dec pat_eq_dec packet_split
-    no_match_subset_l no_match_subset_r : packet.
 
 End IMPL.
 
@@ -66,5 +56,8 @@ Module ImplAux (Import TheImpl : IMPL).
     (forall (a : A), f a ActionUnit === a) /\
     (forall (a : A), f ActionUnit a === a) /\
     (forall a a' b b', a === a' -> b === b' -> f a b === f a' b').
+
+  Hint Rewrite pkt_eq_dec pat_eq_dec packet_split
+    no_match_subset_l no_match_subset_r : packet.
 
 End ImplAux.

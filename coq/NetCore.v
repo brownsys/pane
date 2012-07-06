@@ -126,3 +126,6 @@ Proof with simpl; auto.
   apply well_behaved_cmb...
   apply well_behaved_cmb.
 Qed.
+
+Extraction Language Haskell.
+Recursive Extraction compile.
