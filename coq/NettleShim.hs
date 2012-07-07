@@ -1,4 +1,4 @@
-module NettleShim where
+module Main where
 
 import Nettle.OpenFlow
 import Nettle.Servers.Server
@@ -83,3 +83,13 @@ nettleServer policy = do
     (switch, switchFeatures) <- acceptSwitch server
     forkIO (handleSwitch switch policy)
   closeServer server
+
+predAll = Coq_mkPat' Nothing Nothing Nothing Nothing Nothing
+
+patInPort p = PatMatch $
+  Coq_mkPat' (Just p) Nothing Nothing Nothing Nothing
+
+main = do
+  let pol = PolUnion (PolAtom (patInPort 1) [2])
+                     (PolAtom (patInPort 2) [1])
+  nettleServer pol
