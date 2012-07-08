@@ -1,20 +1,22 @@
 Require Import Coq.Init.Datatypes.
 Require Import Coq.Lists.List.
 Require Import Coq.Arith.MinMax.
+Require Import Coq.Classes.Equivalence.
 Require Import Omega.
 Require Import CpdtTactics.
-Require Import Packet.
-Require Import Action.
+Require Import Impl.
 
-Module MakeClassifier (Import P : Packet) (Import Act : ACTION).
+Module MakeClassifier (Import TheImpl : IMPL).
+
+  Module Import TheImplAux := ImplAux (TheImpl).
 
   Definition N := list (pat * A).
 
-  Fixpoint scan (pkt : pkt) (n : N) := match n with
-    | nil => None
-    | (m,a) :: tl => match is_match pkt m with
+  Fixpoint scan (pkt : pkt) (p : port) (n : N) := match n with
+    | nil => ActionUnit
+    | (m,a) :: tl => match is_match pkt p m with
       | true => a
-      | false => scan pkt tl
+      | false => scan pkt p tl
     end
   end.
 
@@ -33,15 +35,15 @@ Module MakeClassifier (Import P : Packet) (Import Act : ACTION).
 
   Variable f : A -> A -> A.
 
-  Inductive scan_rel : pkt -> N -> A -> Prop :=
-    | scan_empty : forall pkt, scan_rel pkt nil None
-    | scan_head : forall pkt m  (a : A) (tl : N),
-        is_match pkt m = true ->
-        scan_rel pkt ((m,a)::tl) a
-    | scan_tail : forall pkt m (a a' : A) (tl : N),
-        is_match pkt m = false ->
-        scan_rel pkt tl a' ->
-        scan_rel pkt ((m,a)::tl) a'.
+  Inductive scan_rel : pkt -> port -> N -> A -> Prop :=
+    | scan_empty : forall pkt p, scan_rel pkt p nil ActionUnit
+    | scan_head : forall pkt p m  (a : A) (tl : N),
+        is_match pkt p m = true ->
+        scan_rel pkt p ((m,a)::tl) a
+    | scan_tail : forall pkt p m (a a' : A) (tl : N),
+        is_match pkt p m = false ->
+        scan_rel pkt p tl a' ->
+        scan_rel pkt p ((m,a)::tl) a'.
 
   Hint Constructors scan_rel.
 
@@ -52,14 +54,12 @@ Module MakeClassifier (Import P : Packet) (Import Act : ACTION).
   end.
 
   Ltac destruct_is_overlapped B := match goal with
-    | [ H : context[is_overlapped ?m ?pkt] |- _ ] => 
-        idtac "destructing"  m pkt; remember (is_overlapped m pkt) as B; destruct B
-    | [ |- context[is_overlapped ?m ?pkt] ] => 
-       idtac "destructing"  m pkt;  remember (is_overlapped m pkt) as B; destruct B
-    | [ H : context[is_match ?pkt ?m] |- _ ] => 
-        idtac "destructing"  m pkt; remember (is_match pkt m) as B; destruct B
-    | [ |- context[is_overlapped ?m ?pkt] ] => 
-       idtac "destructing"  m pkt;  remember (is_match pkt m) as B; destruct B
+    | [ H : context[is_overlapped ?m ?pkt] |- _ ] => destruct B
+    | [ |- context[is_overlapped ?m ?pkt] ] =>  destruct B
+    | [ H : context[is_match ?pkt ?n ?m] |- _ ] => 
+      remember (is_match pkt n m) as B; destruct B
+    | [ |- context[is_overlapped ?m ?n ?pkt] ] => 
+      remember (is_match pkt n m) as B; destruct B
 
   end.
 
@@ -67,8 +67,8 @@ Module MakeClassifier (Import P : Packet) (Import Act : ACTION).
     let x := fresh "B" in
       destruct_M_A; destruct_is_overlapped x.
 
-  Lemma scan_alg : forall pkt (a : A) (n : N),
-    scan pkt n = a <-> scan_rel pkt n a.
+  Lemma scan_alg : forall pkt port (a : A) (n : N),
+    scan pkt port n = a <-> scan_rel pkt port n a.
   Proof with subst; eauto.
     split; intros.
     induction n.
@@ -84,17 +84,17 @@ Module MakeClassifier (Import P : Packet) (Import Act : ACTION).
     crush.
   Qed.
 
-Definition scan_inv (pkt : pkt) (N1 : N) :=
+Definition scan_inv (pkt : pkt) (port : port) (N1 : N) :=
   ((forall (m : pat) (a : A), 
-    In (m,a) N1 -> is_match pkt m = false) /\
-   scan pkt N1 = None) \/
+    In (m,a) N1 -> is_match pkt port m = false) /\
+   scan pkt port N1 = ActionUnit) \/
   (exists N2 : N, exists N3 : N, exists m : pat, exists a : A,
    N1 = N2 ++ (m,a)::N3 /\
-   is_match pkt m  = true /\
-   scan pkt N1 = a /\
-   (forall (m' : pat) (a' : A), In (m',a') N2 -> is_match pkt m' = false)).
+   is_match pkt port m  = true /\
+   scan pkt port N1 = a /\
+   (forall (m' : pat) (a' : A), In (m',a') N2 -> is_match pkt port m' = false)).
 
-Lemma scan_off : forall (pkt : pkt) (N1 : N), scan_inv pkt N1.
+Lemma scan_off : forall (pkt : pkt) (port : port) (N1 : N), scan_inv pkt port N1.
 Proof with intros; simpl; auto with datatypes.
   unfold scan_inv.
   intros.
@@ -105,26 +105,24 @@ Proof with intros; simpl; auto with datatypes.
   destruct a.
   destruct IHN1.
   (* Case 1 *)
-  remember (is_match pkt0 p).  destruct b.  
+  remember (is_match pkt0 port p).  destruct b.  
   right. exists nil. exists N1. exists p. exists a. crush. rewrite <- Heqb...
   (* Case 2 *)
   left. crush. apply H0 in H2. crush. rewrite <- Heqb...
   (* Case 3 *)
   destruct H as [N2 [N3 [m [a' [Neq  [Hov [Ha'eq H]]]]]]].
- remember (is_match pkt0 p) as b. destruct b. 
+ remember (is_match pkt0 port p) as b. destruct b. 
   right. exists nil. exists N1. exists p. exists a. crush. rewrite <- Heqb...
   right. exists ((p,a) :: N2). exists N3. exists m. exists a'.
    crush. rewrite <- Heqb... apply H in H1. crush.
 Qed.
 
-Lemma elim_mismatch : forall (n1 n2 : N) p m  (a : A),
-  is_match p m = false ->
-  scan p (n1 ++ (m,a)::n2) = scan p (n1 ++ n2).
+Lemma elim_mismatch : forall (n1 n2 : N) p pt m  (a : A),
+  is_match p pt m = false ->
+  scan p pt (n1 ++ (m,a)::n2) = scan p pt (n1 ++ n2).
 Proof. intros. induction n1; crush. Qed.
 
 Hint Unfold union inter inter_entry.
-Hint Resolve overlap_intersect.
-Hint Rewrite intersect_comm.
 
 Lemma inter_nil_l : forall (n : N),
   inter f nil n = nil.
@@ -135,17 +133,17 @@ Proof. intros. induction n; crush. Qed.
 
 Hint Resolve inter_nil_l inter_nil_r.
 
-Lemma elim_scan_head : forall (N1 N2 : N) pkt,
-  (forall m (a : A), In (m,a) N1 -> is_match pkt m = false) ->
-  scan pkt (N1 ++ N2) = scan pkt N2.
+Lemma elim_scan_head : forall (N1 N2 : N) pkt pt,
+  (forall m (a : A), In (m,a) N1 -> is_match pkt pt m = false) ->
+  scan pkt pt (N1 ++ N2) = scan pkt pt N2.
 Proof with simpl; auto with datatypes.
 intros.
 induction N1...
 destruct a.
-assert (forall m a', In (m,a') N1 -> is_match pkt0 m = false).
+assert (forall m a', In (m,a') N1 -> is_match pkt0 pt m = false).
   intros. apply H with (a0 := a')...
 apply IHN1 in H0.
-assert (is_match pkt0 p = false).
+assert (is_match pkt0 pt p = false).
   assert (In (p,a) ((p,a)::N1))... 
   apply H in H1...
 rewrite -> H1...
@@ -153,22 +151,21 @@ Qed.
 
 Hint Resolve elim_scan_head.
 
-Lemma elim_scan_middle : forall (N1 N2 N3 : N) pkt,
-  (forall m (a : A), In (m,a) N2 -> is_match pkt m = false) ->
-  scan pkt (N1 ++ N2 ++ N3) = scan pkt (N1 ++ N3).
+Lemma elim_scan_middle : forall (N1 N2 N3 : N) pkt pt,
+  (forall m (a : A), In (m,a) N2 -> is_match pkt pt m = false) ->
+  scan pkt pt (N1 ++ N2 ++ N3) = scan pkt pt (N1 ++ N3).
 Proof. intros. generalize dependent N2. induction N1; crush. Qed.
 
-Lemma elim_scan_mid : forall (N1 N2 : N) pkt m (a : A),
-  is_match pkt m = false ->
-  scan pkt (N1 ++ (m,a) :: N2) = scan pkt (N1 ++ N2).
+Lemma elim_scan_mid : forall (N1 N2 : N) pkt pt m (a : A),
+  is_match pkt pt m = false ->
+  scan pkt pt (N1 ++ (m,a) :: N2) = scan pkt pt (N1 ++ N2).
 Proof. intros. induction N1; crush. Qed.
 
-
-Lemma elim_inter_head : forall (N1 N2 : N) pkt m
+Lemma elim_inter_head : forall (N1 N2 : N) pkt pt m
                                (a : A),
-  is_match pkt m = false ->
-  scan pkt (map (inter_entry f (m, a)) N1 ++ N2) = scan pkt N2.
-Proof with auto with packet.
+  is_match pkt pt m = false ->
+  scan pkt pt (map (inter_entry f (m, a)) N1 ++ N2) = scan pkt pt N2.
+Proof with auto.
 intros.
 induction N1. crush.
 solve_is_overlapped. idtac. inversion H.
@@ -177,10 +174,10 @@ Qed.
 
 Hint Resolve elim_inter_head.
 
-Lemma inter_empty_aux : forall (N1 : N) m m0 pkt (a a0 : A),
-  (forall m  (a : A), In (m,a) N1 -> is_match pkt m = false) ->
+Lemma inter_empty_aux : forall (N1 : N) m m0 pkt pt (a a0 : A),
+  (forall m  (a : A), In (m,a) N1 -> is_match pkt pt m = false) ->
   In (m,a) (map (inter_entry f (m0,a0)) N1) ->
-  is_match pkt m = false.
+  is_match pkt pt m = false.
 Proof with auto with datatypes.
 intros.
 induction N1.
@@ -190,22 +187,22 @@ simpl in H0.
 destruct H0.
 (* contra *)
 unfold inter_entry in H0. inversion H0. subst.
-assert (is_match pkt0 p = false). apply H with (a := a1)...
+assert (is_match pkt0 pt p = false). apply H with (a := a1)...
 apply no_match_subset_l...
 (* inductive *)
-assert (forall m' (a' : A), In (m',a') N1 -> is_match pkt0 m' = false).
+assert (forall m' (a' : A), In (m',a') N1 -> is_match pkt0 pt m' = false).
   intros. 
   assert (In (m',a') ((p,a1)::N1))...
   apply H in H2...
 apply IHN1 in H1...
 Qed.
 
-Lemma inter_empty : forall (N2 : N) pkt,
-  (forall m (a : A), In (m,a) N2 -> is_match pkt m = false) ->
+Lemma inter_empty : forall (N2 : N) pkt pt,
+  (forall m (a : A), In (m,a) N2 -> is_match pkt pt m = false) ->
   (forall (N1 : N) m (a : A), In (m,a) (inter f N1 N2) -> 
-                          is_match pkt m = false).
+                          is_match pkt pt m = false).
 Proof with auto with datatypes.
-intros N2 pkt.
+intros N2 pkt pt.
 intros Hlap.
 intros.
 generalize dependent N2.
@@ -225,7 +222,7 @@ Hint Resolve inter_empty scan_off.
 Hint Rewrite in_app_iff.
 
 Ltac destruct_scan' H := match goal with
-  | [ H : scan_inv ?pkt ?tbl |- _ ] =>
+  | [ H : scan_inv ?pkt ?pt ?tbl |- _ ] =>
     let HNotIn := fresh "HNotIn" in
     let HUnit := fresh "HUnit" in
     let Npre := fresh "Npre" in
@@ -242,29 +239,32 @@ Ltac destruct_scan' H := match goal with
 end.
 
 Ltac destruct_scan pkt tbl := match goal with
-  | [ pkt : pkt, tbl : N |- _ ] =>
+  | [ pkt : pkt, tbl : N, pt : port |- _ ] =>
     let H := fresh "H" in
-    assert (scan_off pkt tbl) as H by (apply scan_off);
+    assert (scan_off pkt pt tbl) as H by (apply scan_off);
     destruct_scan' H
 end.
 
-Lemma union_comm : forall (n1 n2 : N) pkt,
+Open Local Scope equiv_scope.
+
+Lemma union_comm : forall (n1 n2 : N) pkt pt,
   well_behaved f ->
-  scan pkt (union f n1 n2) = f (scan pkt n1) (scan pkt n2).
+  scan pkt pt (union f n1 n2) === f (scan pkt pt n1) (scan pkt pt n2).
 Proof with simpl; eauto with datatypes.
-intros n1 n2 pkt H.
+intros n1 n2 pkt pt H.
 intros.
 remember H as Hwb.
-destruct H as [H H0].
+destruct H as [H [H0 H0']].
 induction n1.
 (* Base case *)
-crush.
+rewrite -> H0... 
+apply reflexivity.
 (* Inductive case *)
 unfold union.
 destruct a.
 rename p into m.
-remember (is_match pkt m).
-assert (scan_inv pkt (inter f ((m, a) :: n1) n2 ++ ((m, a) :: n1) ++ n2)).
+remember (is_match pkt pt m).
+assert (scan_inv pkt pt (inter f ((m, a) :: n1) n2 ++ ((m, a) :: n1) ++ n2)).
   crush.
 destruct_scan' H1.
   (* Case: scan falls off the table. *)
@@ -272,15 +272,15 @@ destruct_scan' H1.
   remember (n1 ++ n2) as l2.
   rewrite -> HUnit.
   remember (l1 ++ (((m,a)::n1) ++ n2)) as L.
-  assert (scan pkt n2 = None) as HscanLeft.
-    assert (scan_inv pkt n2)...
+  assert (scan pkt pt n2 = ActionUnit) as HscanLeft.
+    assert (scan_inv pkt pt n2)...
     destruct_scan' H3.
     trivial.
     assert (In (m0, a0) L). crush.
     apply HNotIn0 in H1.
     crush.
-  assert (scan pkt ((m,a)::n1) = None) as HscanRight.
-    assert (scan_inv pkt ((m,a)::n1))... 
+  assert (scan pkt pt ((m,a)::n1) = ActionUnit) as HscanRight.
+    assert (scan_inv pkt pt ((m,a)::n1))... 
     destruct_scan' H3.
     trivial.
     assert (In (m0,a0) L).  
@@ -302,17 +302,17 @@ destruct_scan' H1.
     destruct (is_overlapped m0 m).
     contradiction n. reflexivity. reflexivity.
   clear n.
-  assert (is_match pkt m = false).
+  assert (is_match pkt pt m = false).
     apply packet_split with (m1 := m0)...
   simpl. rewrite <- app_assoc.  
 
-  assert (scan pkt (map (inter_entry f (m, a)) n2 ++ inter f n1 n2 ++ (m, a) :: n1 ++ n2) = 
-          scan pkt (inter f n1 n2 ++ (m, a) :: n1 ++ n2)).
+  assert (scan pkt pt (map (inter_entry f (m, a)) n2 ++ inter f n1 n2 ++ (m, a) :: n1 ++ n2) = 
+          scan pkt pt (inter f n1 n2 ++ (m, a) :: n1 ++ n2)).
     apply elim_inter_head. exact H2.
   rewrite -> H3.
   rewrite -> H2.
-  assert (scan pkt (inter f n1 n2 ++ (m,a) :: n1 ++ n2) =
-          scan pkt (inter f n1 n2 ++ n1 ++ n2)).
+  assert (scan pkt pt (inter f n1 n2 ++ (m,a) :: n1 ++ n2) =
+          scan pkt pt (inter f n1 n2 ++ n1 ++ n2)).
     apply elim_scan_mid.
     exact H2.
   rewrite -> H4.
@@ -327,13 +327,13 @@ destruct_scan' H1.
   Focus 2. (* Packet is not in m, like the case above *) idtac.
   simpl.
   rewrite <- Heqb.
-  assert (scan pkt ((map (inter_entry f (m, a)) n2 ++  (inter f n1 n2)) ++ (m, a) :: n1 ++ n2)
-          = scan pkt ((map (inter_entry f (m, a)) n2 ++ (inter f n1 n2)) ++ n1 ++ n2)).
+  assert (scan pkt pt ((map (inter_entry f (m, a)) n2 ++  (inter f n1 n2)) ++ (m, a) :: n1 ++ n2)
+          = scan pkt pt ((map (inter_entry f (m, a)) n2 ++ (inter f n1 n2)) ++ n1 ++ n2)).
     apply elim_scan_mid. symmetry. exact Heqb.
   rewrite -> H1.
   rewrite <- app_assoc.
-  assert (scan pkt (map (inter_entry f (m, a)) n2 ++ inter f n1 n2 ++ n1 ++ n2) = 
-          scan pkt (inter f n1 n2 ++ n1 ++ n2)).
+  assert (scan pkt pt (map (inter_entry f (m, a)) n2 ++ inter f n1 n2 ++ n1 ++ n2) = 
+          scan pkt pt (inter f n1 n2 ++ n1 ++ n2)).
     apply elim_inter_head. symmetry. exact Heqb.
   rewrite -> H2.
   unfold union in IHn1.
@@ -341,16 +341,16 @@ destruct_scan' H1.
 
   (* Case where pkt is in m *)
   idtac.
-  assert (scan_inv pkt n2). apply scan_off...
+  assert (scan_inv pkt pt n2). apply scan_off...
   unfold scan_inv in H1.
   destruct H1.
   destruct H1.
   rewrite -> H2.
   assert (forall m'  (a' : A), In (m',a') (inter f ((m, a) :: n1) n2) ->
-                 is_match pkt m' = false).
+                 is_match pkt pt m' = false).
     apply inter_empty. exact H1.
-  assert (scan pkt (inter f ((m, a) :: n1) n2 ++ (m, a) :: n1 ++ n2) =
-          scan pkt ((m,a) :: n1 ++ n2)).
+  assert (scan pkt pt (inter f ((m, a) :: n1) n2 ++ (m, a) :: n1 ++ n2) =
+          scan pkt pt ((m,a) :: n1 ++ n2)).
     apply elim_scan_head. exact H3.
   rewrite -> H4.
   assert ((m,a)::n1++n2 = ((m,a) :: n1) ++ n2).
@@ -359,11 +359,11 @@ destruct_scan' H1.
   assert (n2 = n2 ++ nil).
     rewrite -> app_nil_r. reflexivity.
   rewrite -> H6.
-  assert (scan pkt (((m,a)::n1)++n2++nil) = scan pkt (((m,a)::n1)++nil)).
+  assert (scan pkt pt (((m,a)::n1)++n2++nil) = scan pkt pt (((m,a)::n1)++nil)).
     apply elim_scan_middle. exact H1.
   rewrite -> H7.
   rewrite -> app_nil_r.
-  assert (f (scan pkt ((m,a)::n1)) None = scan pkt ((m,a)::n1)).
+  assert (f (scan pkt pt ((m,a)::n1)) ActionUnit === scan pkt pt ((m,a)::n1)).
     apply H.
   rewrite -> H8.
   reflexivity.
@@ -381,34 +381,35 @@ destruct_scan' H1.
       (m, a) :: n1 ++ N2' ++ (m', a') :: N3') as Trash.
   assert (forall m5 (a5 : A), 
           In (m5,a5) (map (inter_entry f (m,a)) N2') ->
-          is_match pkt m5  = false).
+          is_match pkt pt m5  = false).
     assert (map (inter_entry f (m,a)) N2' = inter f ((m,a) ::nil) N2').
       simpl. rewrite -> app_nil_r. reflexivity.
   
   rewrite -> H1.
     apply inter_empty.  exact Hlap2'.
-  assert (scan pkt (map (inter_entry f (m, a)) N2' ++
+  assert (scan pkt pt (map (inter_entry f (m, a)) N2' ++
             ((map (inter_entry f (m, a)) ((m', a') :: N3')) ++ Trash)) =
-           scan pkt (map (inter_entry f (m, a)) ((m', a') :: N3') ++ Trash)).
+           scan pkt pt (map (inter_entry f (m, a)) ((m', a') :: N3') ++ Trash)).
      apply elim_scan_head. exact H1.
     rewrite -> H2.
   simpl.
-  assert (is_match pkt (intersect m' m) = true).
+  assert (is_match pkt pt (intersect m' m) = true).
     apply pkt_match_intersect...
   rewrite -> H3...
+  apply reflexivity.
 Qed. 
 
 Lemma inter_elim : forall 
-  m pkt (a : A) (L1 L2 : N),
-  is_match pkt m = false ->
-  scan pkt (inter f ((m, a) :: nil) L1 ++ L2) =
-  scan pkt L2.
+  m pkt pt (a : A) (L1 L2 : N),
+  is_match pkt pt m = false ->
+  scan pkt pt (inter f ((m, a) :: nil) L1 ++ L2) =
+  scan pkt pt L2.
 Proof with auto.
 intros.
 induction L1.
 crush.
 destruct a0. 
-assert (is_match pkt0 (intersect p m) = false).
+assert (is_match pkt0 pt (intersect p m) = false).
   apply no_match_subset_r...
 simpl. rewrite -> H0. crush.
 Qed.
