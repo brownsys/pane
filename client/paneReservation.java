@@ -3,19 +3,17 @@ public class paneReservation {
 	String _resvName;
 	int _bandwidth;
 	String _userName;
-	int _dstPort;
-	int _srcPort;
-	int _from;
-	int _to;
+	int _start;
+	int _end;
+	paneFlowGroup _flowgroup;
 	
-	public paneReservation(String resvName, int bandwidth) {
+	public paneReservation(String resvName, int bandwidth, paneFlowGroup flowgroup) {
 		_resvName = resvName;
 		_bandwidth = bandwidth;
 		_userName = null;
-		_dstPort = -1;
-		_srcPort = -1;
-		_from = -1;
-		_to = -1;
+		_start = -1;
+		_end = -1;
+		_flowgroup = flowgroup;
 	}
 	
 	//-------------------userName
@@ -31,53 +29,28 @@ public class paneReservation {
 		return _userName;
 	}
 	
-	//-------------------dstPort
-	public void setDstPort(int dstPort){
-		_dstPort = dstPort;
-	}
-
-	public boolean isSetDstPort(){
-		return _dstPort == -1?false:true;
-	}
-
-	public int getDstPort(){
-		return _dstPort;
-	}
-	
-	//-------------------srcPort
-	public void setSrcPort(int srcPort){
-		_srcPort = srcPort;
-	}
-
-	public boolean isSetSrcPort(){
-		return _srcPort == -1?false:true;
-	}
-
-	public int getSrcPort(){
-		return _srcPort;
-	}
 	//-------------------start
 	public void setStart(int start){
-		_from = start;
+		_start = start;
 	}
 
 	public boolean isSetStart(){
-		return _from == -1?false:true;
+		return _start == -1?false:true;
 	}
 
 	public int getStart(){
-		return _from;
+		return _start;
 	}
 	//-------------------end
 	public void setEnd(int end){
-		_to = end;
+		_end = end;
 	}
 
 	public boolean isSetEdn(){
-		return _to == -1?false:true;
+		return _end == -1?false:true;
 	}
 
 	public int getEnd(){
-		return _to;
+		return _end;
 	}
 }

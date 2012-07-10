@@ -23,6 +23,16 @@ public class paneFlowGroup {
 		
 	}
 	
+	public paneFlowGroup(String srcUser, String dstUser, int srcPort, int dstPort,
+			InetAddress srcHost, InetAddress dstHost){
+		_allflows = new ArrayList<paneFlow>();
+		_srcUser = srcUser;
+		_dstUser = dstUser;
+		_srcPort = srcPort;
+		_dstPort = dstPort;
+		_srcHost = srcHost;
+		_dstHost = dstHost;
+	}
 	//----------------srcUser
 	public void setSrcUser(String srcUser){
 		_srcUser = srcUser;
@@ -100,16 +110,7 @@ public class paneFlowGroup {
 	public InetAddress getDstHost(){
 		return _dstHost;
 	}
-	
-	
-//	/**
-//	 * add a new flow to the group, may need to check whether it matches this group
-//	 * @param flow
-//	 * @return
-//	 */
-//	public boolean addFlow(paneFlow flow){
-//		return true;
-//	}
+
 	
 	
 }

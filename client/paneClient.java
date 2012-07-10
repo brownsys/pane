@@ -6,64 +6,13 @@ public interface paneClient {
 	/**
 	 * call 'addUser' command.
 	 * 
-	 * @param user
-	 *            the new user to be added.
+	 * @param userName
+	 *            name of the new user to be created.
 	 * @return
 	 * @throws IOException
 	 */
-	public boolean addUser(paneUser user) throws IOException;
-	
-	/**
-	 * call 'grant' command.
-	 * 
-	 * @param share
-	 *            name of the share
-	 * @param user
-	 *            name of the user.
-	 * @return
-	 * @throws IOException          
-	 */
-	public boolean grant(paneShare share, paneUser user) throws IOException;
-	
-	/**
-	 * call 'newShare' command.
-	 * 
-	 * @param share
-	 *            the new share to be created
-	 * @return
-	 * @throws IOException
-	 */
-	public boolean newShare(paneShare share) throws IOException;
-	
-	/**
-	 * call 'reserve' command.
-	 * 
-	 * @param resv
-	 *            the name of the share that is asking for bandwidth
-	 * @return
-	 * @throws IOException
-	 */
-	public boolean reserve(paneReservation resv) throws IOException;
-	
-	/**
-	 * call 'allow' command.
-	 * @param flowgroup
-	 *            the flow group to be allowed
-	 * @return
-	 * @throws IOException
-	 */
-	public boolean allow(paneFlowGroup flowgroup) throws IOException;
-	
-	
-	/**
-	 * call 'deny' command. 
-	 * @param flowgroup
-	 *            the flow group to be denied
-	 * @return
-	 * @throws IOException
-	 */
-	public boolean deny(paneFlowGroup flowgroup) throws IOException;
-	
+	public paneUser addUser(String userName) throws IOException;
+		
 	/**
 	 * call 'Tick' command
 	 * 

@@ -1,3 +1,4 @@
+import java.io.IOException;
 import java.util.ArrayList;
 
 
@@ -127,4 +128,64 @@ public class paneShare {
 		}
 	}
 
+	
+	/**
+	 * call 'grant' command to grant the current share to the user.
+	 * 
+	 * @param user
+	 *            name of the user to be granted.
+	 * @return
+	 * @throws IOException          
+	 */
+	public boolean grant(paneUser user) throws IOException{
+		return true;
+	}	
+	
+	/**
+	 * call 'reserve' command to reserve bandwidth specified.
+	 * 
+	 * @param resv
+	 *            the name of the share that is asking for bandwidth
+	 * @return
+	 * @throws IOException
+	 */
+	public boolean reserve(paneReservation resv) throws IOException{
+		return true;
+	}
+	
+	
+	/**
+	 * call 'newShare' command to create subshare according to the given parameters.
+	 * 
+	 * @param share
+	 *            the new share to be created
+	 * @return
+	 * @throws IOException
+	 */
+	public boolean newShare(paneShare share) throws IOException{
+		return true;
+	}
+	
+
+	/**
+	 * call 'allow' command on current share for the given flowgroup.
+	 * @param flowgroup
+	 *            the flow group to be allowed
+	 * @return
+	 * @throws IOException
+	 */
+	public boolean allow(paneFlowGroup flowgroup) throws IOException{
+		return true;
+	}
+	
+	/**
+	 * call 'deny' command on current share for the given flowgroup. 
+	 * @param flowgroup
+	 *            the flow group to be denied
+	 * @return
+	 * @throws IOException
+	 */
+	public boolean deny(paneFlowGroup flowgroup) throws IOException{
+		return true;
+	}
 }
