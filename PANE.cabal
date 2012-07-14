@@ -43,7 +43,7 @@ Executable pane
     syb >= 0.1,
     network >= 2.3,
     bytestring,
-    transformers <= 0.3,
+    transformers <= 0.3.0.1,
     HUnit >= 1.2.2.3 && < 1.3,
     nettle-openflow,
     old-time,
