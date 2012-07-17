@@ -13,19 +13,23 @@ public class paneUser {
 	}
 	
 	public void addShare(paneShare share){
-		
+		_allShares.add(share);
 	}
 	
 	public ArrayList<paneShare> listShares(){
-		return null;
+		return _allShares;
 	}
 	
 	public void addReservation(paneReservation resv){
-		
+		_allReservations.add(resv);
 	}
 	
 	public ArrayList<paneReservation> listReservations(){
-		return null;
+		return _allReservations;
+	}
+	
+	public String getName(){
+		return _userName;
 	}
 
 }

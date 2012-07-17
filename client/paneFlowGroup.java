@@ -4,8 +4,6 @@ import java.util.ArrayList;
 
 public class paneFlowGroup {
 	
-	ArrayList<paneFlow> _allflows;
-	
 	String _srcUser;
 	String _dstUser;
 	int _srcPort;
@@ -14,7 +12,6 @@ public class paneFlowGroup {
 	InetAddress _dstHost;
 	
 	public paneFlowGroup(){
-		_allflows = new ArrayList<paneFlow>();
 		_srcUser = null;
 		_dstUser = null;
 		_srcPort = -1;
@@ -25,7 +22,6 @@ public class paneFlowGroup {
 	
 	public paneFlowGroup(String srcUser, String dstUser, int srcPort, int dstPort,
 			InetAddress srcHost, InetAddress dstHost){
-		_allflows = new ArrayList<paneFlow>();
 		_srcUser = srcUser;
 		_dstUser = dstUser;
 		_srcPort = srcPort;
@@ -46,7 +42,7 @@ public class paneFlowGroup {
 		return _srcUser;
 	}
 	
-	//----------------srcUser
+	//----------------dstUser
 	public void setDstUser(String dstUser){
 		_dstUser = dstUser;
 	}
@@ -111,6 +107,41 @@ public class paneFlowGroup {
 		return _dstHost;
 	}
 
-	
+	//---------------------generate the string
+	public String generateConfig(){
+		String config = "";
+		String fill = ", ";
+		if(isSetSrcUser()){
+			config += (fill + "srcUser=" + getSrcUser());
+		}
+		
+		if(isSetDstUser()){
+			config += (fill + "dstUser=" + getDstUser());
+		}
+		
+		if(isSetSrcPort()){
+			config += (fill + "srcPort=" + getSrcPort());
+		}
+		
+		if(isSetDstPort()){
+			config += (fill + "dstPort=" + getDstPort());
+		}
+		
+		if(isSetSrcHost()){
+			config += (fill + "srcHost=" + getSrcHost().getHostAddress());
+		}
+		
+		if(isSetDstHost()){
+			config += (fill + "dstHost=" + getDstHost().getHostAddress());
+		}
+		
+		if(config == ""){
+			config = "*";
+		}else{
+			config = config.replaceFirst(fill, "");
+		}
+		return config;
+		
+	}
 	
 }

@@ -1,4 +1,7 @@
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.Socket;
 import java.util.ArrayList;
 
 
@@ -6,35 +9,34 @@ public class paneShare {
 
 
 	String _shareName;
-	String _parentName;
+	paneShare _parentShare;
 	int _maxresv;
 	int _minresv;
-	String _usrname;
 	Boolean _allow; 
 	Boolean _deny;  
 	int _reserveTBCapacity;
 	int _reserveTBFill;
-	ArrayList<String> _grantedSpks;//contains all speakers that are already granted
-	ArrayList<String> _newSpks;//contains all new speakers, if they are granted, they are moved to grantedSpks
+	ArrayList<String> _speakers;
 	
-	enum Boolean{
-		UNDEF, TRUE, FALSE
-	}
+	Socket _serverSock;	
 
-	public paneShare(String shareName, String parentName, int maxresv){
+	public paneShare(String shareName, paneShare parentShare, int maxresv){
 		_shareName = shareName;
-		_parentName = parentName;
+		_parentShare = parentShare;
 		_maxresv = maxresv;
 		_minresv = -1;
-		_usrname = null;
-		_allow = Boolean.UNDEF;
-		_deny = Boolean.UNDEF;
+		_allow = null;
+		_deny = null;
 		_reserveTBCapacity = -1;
 		_reserveTBFill = -1;
-		_grantedSpks = new ArrayList<String>();
-		_newSpks = new ArrayList<String>();
+		_speakers = new ArrayList<String>();
+		_serverSock = null;
 	}
 
+	
+	public String getShareName(){
+		return _shareName;
+	}
 	//---------------------min resv
 	public void setMinResv(int minresv){
 		_minresv = minresv;
@@ -48,25 +50,25 @@ public class paneShare {
 		return _minresv;
 	}
 
-	//-------------------usr name
-	public void setUsrName(String usrname){
-		_usrname = usrname;
-	}
-
-	public boolean isSetUsrName(){
-		return _usrname == null?false:true;
-	}
-
-	public String getUsrName(){
-		return _usrname;
-	}
+//	//-------------------usr name
+//	public void setUsrName(String usrname){
+//		_usrname = usrname;
+//	}
+//
+//	public boolean isSetUsrName(){
+//		return _usrname == null?false:true;
+//	}
+//
+//	public String getUsrName(){
+//		return _usrname;
+//	}
 	//------------------allow
 	public void setAllow(boolean allow){
 		_allow = allow == true?Boolean.TRUE:Boolean.FALSE;
 	}
 
 	public boolean isSetAllow(){
-		return _allow == Boolean.UNDEF?false:true;
+		return _allow == null?false:true;
 	}
 
 	public boolean getAllow(){
@@ -75,10 +77,11 @@ public class paneShare {
 	//----------------deny
 	public void setDeny(boolean deny){
 		_deny = deny == true?Boolean.TRUE:Boolean.FALSE;
-	}
+	}		
+
 
 	public boolean isSetDeny(){
-		return _deny == Boolean.UNDEF?false:true;
+		return _deny == null?false:true;
 	}
 
 	public boolean getDeny(){
@@ -111,23 +114,16 @@ public class paneShare {
 	}
 	//-------------------speakers
 	public void addSpeaker(String spkName){
-		_newSpks.add(spkName);
+		_speakers.add(spkName);
 	}
 	
-	public boolean hasNewSpk(){
-		return !_newSpks.isEmpty();
+	public void removeSpeakers(String spkName){
+		_speakers.remove(spkName);
 	}
 	
-	public ArrayList<String> getNewSpk(){
-		return _newSpks;
+	public void setServerSoc(Socket soc){
+		_serverSock = soc;
 	}
-	
-	public void confirmSpk(){
-		for(String spk : _newSpks){
-			_grantedSpks.add(spk);
-		}
-	}
-
 	
 	/**
 	 * call 'grant' command to grant the current share to the user.
@@ -137,22 +133,30 @@ public class paneShare {
 	 * @return
 	 * @throws IOException          
 	 */
-	public boolean grant(paneUser user) throws IOException{
-		return true;
+	public synchronized String grant(paneUser user) throws IOException{
+		
+		String cmd = "grant " + getShareName() + " to " + user.getName();
+		String response = contactServer(cmd);
+//		if succeeded
+//		_speakers.add(user.getName());
+//		user.addShare(this);
+		return response;
 	}	
 	
 	/**
 	 * call 'reserve' command to reserve bandwidth specified.
 	 * 
 	 * @param resv
-	 *            the name of the share that is asking for bandwidth
+	 *            configuration for the new reservation
 	 * @return
 	 * @throws IOException
 	 */
-	public boolean reserve(paneReservation resv) throws IOException{
-		return true;
+	public String reserve(paneReservation resv) throws IOException{
+		
+		String cmd = resv.generateCmd();
+		String response = contactServer(cmd);
+		return response;
 	}
-	
 	
 	/**
 	 * call 'newShare' command to create subshare according to the given parameters.
@@ -162,30 +166,89 @@ public class paneShare {
 	 * @return
 	 * @throws IOException
 	 */
-	public boolean newShare(paneShare share) throws IOException{
-		return true;
+	public String newShare(paneShare share) throws IOException{
+		
+		String cmd = share.generateCreationCmd();
+		share.setServerSoc(_serverSock);
+		String response = contactServer(cmd);
+		return response;
 	}
 	
 
 	/**
 	 * call 'allow' command on current share for the given flowgroup.
-	 * @param flowgroup
-	 *            the flow group to be allowed
+	 * @param allow
+	 *            the configuration for the allow command
 	 * @return
 	 * @throws IOException
 	 */
-	public boolean allow(paneFlowGroup flowgroup) throws IOException{
-		return true;
+	public String allow(paneAllow allow) throws IOException{
+		
+		String cmd = allow.generateCmd();
+		String response = contactServer(cmd);
+		return response;
 	}
 	
 	/**
 	 * call 'deny' command on current share for the given flowgroup. 
-	 * @param flowgroup
-	 *            the flow group to be denied
+	 * @param deny
+	 *            the configuration for the deny command
 	 * @return
 	 * @throws IOException
 	 */
-	public boolean deny(paneFlowGroup flowgroup) throws IOException{
-		return true;
+	public String deny(paneDeny deny) throws IOException{
+		
+		String cmd = deny.generateCmd();
+		String response = contactServer(cmd);		
+		return response;
+	}
+	
+	/**
+	 * 
+	 * send the given command to the server ,then wait and return the response from server
+	 * @return
+	 * @throws IOException 
+	 */
+	protected String contactServer(String cmd) throws IOException{
+		
+		byte[] ret = new byte[1000];
+		OutputStream os = _serverSock.getOutputStream();
+		InputStream is = _serverSock.getInputStream();
+		
+		os.write(cmd.getBytes());
+		os.flush();
+		is.read(ret);
+		
+		String response = new String (ret);
+		
+		System.out.println("resposne:"+response);
+		return response;
+		
+	}
+	
+	
+	protected String generateCreationCmd(){
+		/*
+		 * so far, assume that it is always 'NewShare ... for (*)...', the question here
+		 * is that is there a initial flowgroup associated with a share when the
+		 * share is being created? so what is this flowgroup for? I guess maybe
+		 * it is not possible to make reservation beyond the scope of this initial
+		 * flowgroup
+		 */
+		
+		String cmd = "NewShare " + getShareName() + " for (*) ";
+		cmd += "[reserve <= "+ _maxresv;
+		if(_minresv != -1){
+			cmd += " reserve >= "+_minresv;
+		}
+		if(_reserveTBCapacity != -1){
+			cmd += " reserveTBCapacity = "+ _reserveTBCapacity;
+		}
+		if(_reserveTBFill != -1){
+			cmd += " reserveTBFill = " + _reserveTBFill;
+		}
+		cmd += "] on "+_parentShare.getShareName();
+		return cmd;
+		
 	}
 }

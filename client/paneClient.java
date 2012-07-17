@@ -1,8 +1,18 @@
 import java.io.IOException;
+import java.net.InetAddress;
 import java.util.LinkedList;
 
 
 public interface paneClient {
+	
+	/**
+	 * initialize contact information of server
+	 * 
+	 * @param serverIP
+	 * @param serverPort
+	 * @throws IOException 
+	 */
+	public void initialize(InetAddress serverIP, int serverPort) throws IOException;
 	/**
 	 * call 'addUser' command.
 	 * 
@@ -12,15 +22,7 @@ public interface paneClient {
 	 * @throws IOException
 	 */
 	public paneUser addUser(String userName) throws IOException;
-		
-	/**
-	 * call 'Tick' command
-	 * 
-	 * @param time
-	 * @return
-	 * @throws IOException
-	 */
-	public boolean tick(int time) throws IOException;
+
 	
 	/**
 	 * call 'listShares' to list all shares associated to the given user
@@ -31,4 +33,6 @@ public interface paneClient {
 	public LinkedList<paneShare> listShares(paneUser user) throws IOException;
 	
 	public LinkedList<paneShare> listSharesByFlowGroup(paneFlowGroup flowgroup) throws IOException;
+	
+	public paneShare getRootShare() throws IOException;
 }

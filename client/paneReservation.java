@@ -1,56 +1,24 @@
 
-public class paneReservation {
+public class paneReservation extends paneVerb{
 	String _resvName;
 	int _bandwidth;
-	String _userName;
-	int _start;
-	int _end;
 	paneFlowGroup _flowgroup;
 	
-	public paneReservation(String resvName, int bandwidth, paneFlowGroup flowgroup) {
+	public paneReservation(String resvName, int bandwidth, paneFlowGroup flowgroup,
+			paneTime start, paneTime end, paneShare share) {
 		_resvName = resvName;
 		_bandwidth = bandwidth;
-		_userName = null;
-		_start = -1;
-		_end = -1;
 		_flowgroup = flowgroup;
-	}
-	
-	//-------------------userName
-	public void setUsrName(String userName){
-		_userName = userName;
-	}
-
-	public boolean isSetUsrName(){
-		return _userName == null?false:true;
-	}
-
-	public String getUsrName(){
-		return _userName;
-	}
-	
-	//-------------------start
-	public void setStart(int start){
 		_start = start;
-	}
-
-	public boolean isSetStart(){
-		return _start == -1?false:true;
-	}
-
-	public int getStart(){
-		return _start;
-	}
-	//-------------------end
-	public void setEnd(int end){
 		_end = end;
+		_share = share;
 	}
 
-	public boolean isSetEdn(){
-		return _end == -1?false:true;
-	}
-
-	public int getEnd(){
-		return _end;
+	@Override
+	public String generateCmd() {
+		String config = _flowgroup.generateConfig();
+		String cmd = "reserve(" + config +") = " + _bandwidth + " on " + _share.getShareName()
+		+" from " + _start.getTime() + " to " + _end.getTime();
+		return cmd;
 	}
 }
