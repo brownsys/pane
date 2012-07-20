@@ -35,18 +35,6 @@ Module MakeClassifier (Import TheImpl : IMPL).
 
   Variable f : A -> A -> A.
 
-  Inductive scan_rel : pkt -> port -> N -> A -> Prop :=
-    | scan_empty : forall pkt p, scan_rel pkt p nil ActionUnit
-    | scan_head : forall pkt p m  (a : A) (tl : N),
-        is_match pkt p m = true ->
-        scan_rel pkt p ((m,a)::tl) a
-    | scan_tail : forall pkt p m (a a' : A) (tl : N),
-        is_match pkt p m = false ->
-        scan_rel pkt p tl a' ->
-        scan_rel pkt p ((m,a)::tl) a'.
-
-  Hint Constructors scan_rel.
-
   Ltac destruct_M_A := match goal with
     | [ H : (pat * A)%type |- _ ] => destruct H; simpl in *
     | [ H : (pkt * A)%type |- _ ] => destruct H; simpl in *
@@ -66,23 +54,6 @@ Module MakeClassifier (Import TheImpl : IMPL).
   Ltac solve_is_overlapped := 
     let x := fresh "B" in
       destruct_M_A; destruct_is_overlapped x.
-
-  Lemma scan_alg : forall pkt port (a : A) (n : N),
-    scan pkt port n = a <-> scan_rel pkt port n a.
-  Proof with subst; eauto.
-    split; intros.
-    induction n.
-    (* Case 1 *)
-    crush.
-    (* Case 2 *)
-    solve_is_overlapped...
-    (* Case 3 *)
-    induction n.
-    inversion H; crush.
-    destruct a0; inversion H; subst.
-    crush.
-    crush.
-  Qed.
 
 Definition scan_inv (pkt : pkt) (port : port) (N1 : N) :=
   ((forall (m : pat) (a : A), 
