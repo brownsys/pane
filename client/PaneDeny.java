@@ -2,7 +2,7 @@
 public class PaneDeny extends PaneVerb{
 	PaneFlowGroup _flowgroup;
 	
-	public PaneDeny(PaneFlowGroup flowgroup,PaneTime start, PaneTime end) {
+	public PaneDeny(PaneFlowGroup flowgroup, PaneTime start, PaneTime end) {
 		_flowgroup = flowgroup;
 		_start = start;
 		_end = end;
@@ -25,6 +25,6 @@ public class PaneDeny extends PaneVerb{
 
 	@Override
 	public String toString(){
-		return " PaneDeny:"+generateCmd();
+		return "PaneDeny: " + generateCmd();
 	}
 }

@@ -3,7 +3,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.Socket;
-import java.util.LinkedList;
+import java.util.List;
 
 
 public class PaneClientImpl implements PaneClient{
@@ -18,21 +18,20 @@ public class PaneClientImpl implements PaneClient{
 		_serverSock = new Socket(serverIP,serverPort);
 	}
 	
-	public PaneUser addUser(String userName) throws IOException{
+	public PaneUser addUser(PaneUser user) throws IOException{
 		
-		String cmd = "AddUser "+userName;
+		String cmd = "AddUser "+user.getName();
 		String response = sendAndWait(cmd);		
 		//if response == succeed
-		PaneUser user = new PaneUser(userName, this);
 		
 		return user;
 	}
 
-	public LinkedList<PaneShare> listShares(PaneUser user) throws IOException{
+	public List<PaneShare> listShares(PaneUser user) throws IOException{
 		return null;
 	}
 	
-	public LinkedList<PaneShare> listSharesByFlowGroup(PaneFlowGroup flowgroup) throws IOException{
+	public List<PaneShare> listSharesByFlowGroup(PaneFlowGroup flowgroup) throws IOException{
 		return null;
 	}
 
@@ -51,8 +50,10 @@ public class PaneClientImpl implements PaneClient{
 	@Override
 	public boolean authenticate(PaneUser user) throws IOException {
 		
-		
-		return false;
+		String response = sendAndWait(user.getName());
+		//if response == succeed return true=
+		//else return false
+		return true;
 	}
 	
 	@Override
@@ -77,7 +78,7 @@ public class PaneClientImpl implements PaneClient{
 	
 	@Override
 	public String toString(){
-		return " PaneClientImpl: serverIP:"+_serverIP+" serverPort:"+_serverPort;
+		return "PaneClientImpl: serverIP: " + _serverIP + " serverPort: " + _serverPort;
 	}
 
 }

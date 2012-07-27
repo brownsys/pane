@@ -4,10 +4,6 @@ import java.util.Date;
 public class PaneRelativeTime extends PaneTime{
 	long _relTime;
 	
-	public PaneRelativeTime(){
-		_type = Type.REL;
-	}
-	
 	@Override
 	public String getTime() {
 		String time;
@@ -18,9 +14,7 @@ public class PaneRelativeTime extends PaneTime{
 		return time;
 	}
 	
-
-	@Override
-	public boolean setRelTime(long length){
+	public boolean setRelativeTime(long length){
 		if(length < 0){
 			return false;
 		}else{
@@ -30,12 +24,7 @@ public class PaneRelativeTime extends PaneTime{
 	}
 
 	@Override
-	public boolean setAbsTime(Date time) {
-		return false;
-	}
-	
-	@Override
 	public String toString(){
-		return " PaneRelativeTime: type:"+_type + " time:"+getTime();
+		return "PaneRelativeTime: time: " + getTime();
 	}
 }

@@ -22,6 +22,6 @@ public class PaneReservation extends PaneVerb{
 	
 	@Override
 	public String toString(){
-		return " PaneReservation: "+generateCmd();
+		return "PaneReservation: " + generateCmd();
 	}
 }

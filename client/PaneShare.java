@@ -7,17 +7,17 @@ public class PaneShare {
 
 	String _shareName;
 	int _maxresv;
-	int _minresv;
-	Boolean _allow; 
-	Boolean _deny;  
-	int _reserveTBCapacity;
-	int _reserveTBFill;
+	int _minresv = -1;
+	Boolean _allow= null; 
+	Boolean _deny = null;  
+	int _reserveTBCapacity = -1;
+	int _reserveTBFill = -1;
 	ArrayList<String> _principals;
-	String _parentName; //for test and debug purpose
+	PaneShare _parent; //for test and debug purpose
 	
-	PaneFlowGroup _initfg;
+	PaneFlowGroup _flowgroup;
 	
-	PaneClient _client;
+	PaneClient _client = null;
 
 	public PaneShare(String shareName, int maxresv, PaneFlowGroup fg){
 		/*
@@ -26,14 +26,8 @@ public class PaneShare {
 		 */
 		_shareName = shareName;
 		_maxresv = maxresv;
-		_minresv = -1;
-		_allow = null;
-		_deny = null;
-		_reserveTBCapacity = -1;
-		_reserveTBFill = -1;
 		_principals = new ArrayList<String>();
-		_client = null;
-		_initfg = fg;
+		_flowgroup = fg;
 	}
 
 	
@@ -103,11 +97,7 @@ public class PaneShare {
 	public int getReserveTBFill(){
 		return _reserveTBFill;
 	}
-	//-------------------speakers
-	public void addSpeaker(String spkName){
-		_principals.add(spkName);
-	}
-	
+	//-------------------speakers	
 	public void removeSpeakers(String spkName){
 		_principals.remove(spkName);
 	}
@@ -118,8 +108,9 @@ public class PaneShare {
 
 	public synchronized String grant(PaneUser user) throws IOException{
 		
+		_principals.add(user.getName());
 		String cmd = "grant " + getShareName() + " to " + user.getName();
-		String response = contactServer(cmd);
+		String response = _client.sendAndWait(cmd);
 //		if succeeded
 //		_speakers.add(user.getName());
 //		user.addShare(this);
@@ -128,10 +119,10 @@ public class PaneShare {
 
 	public String newShare(PaneShare share) throws IOException{
 		
-		share.setParentName(_shareName);
+		share.setParent(this);
 		String cmd = share.generateCreationCmd();
 		share.setClient(_client);
-		String response = contactServer(cmd);
+		String response = _client.sendAndWait(cmd);
 		return response;
 	}
 	
@@ -139,7 +130,7 @@ public class PaneShare {
 		
 		resv.setParent(this);
 		String cmd = resv.generateCmd();
-		String response = contactServer(cmd);
+		String response = _client.sendAndWait(cmd);
 		return response;
 	}
 	
@@ -147,7 +138,7 @@ public class PaneShare {
 		
 		allow.setParent(this);
 		String cmd = allow.generateCmd();
-		String response = contactServer(cmd);
+		String response = _client.sendAndWait(cmd);
 		return response;
 	}
 	
@@ -155,43 +146,38 @@ public class PaneShare {
 		
 		deny.setParent(this);
 		String cmd = deny.generateCmd();
-		String response = contactServer(cmd);		
+		String response = _client.sendAndWait(cmd);		
 		return response;
 	}
 	
-	protected String contactServer(String cmd) throws IOException{
-		String response = _client.sendAndWait(cmd);
-		return response;
-	}
-
 	
-	protected void setParentName(String parentName){
-		_parentName = parentName;
+	protected void setParent(PaneShare parent){
+		_parent = parent;
 	}
 	
 	protected String generateCreationCmd(){
 		
 		String fg = "*";
-		if(_initfg != null)
-			fg = _initfg.generateConfig();
+		if (_flowgroup != null)
+			fg = _flowgroup.generateConfig();
 		
 		String cmd = "NewShare " + getShareName() + " for ("+fg+") ";
 		cmd += "[reserve <= "+ _maxresv;
-		if(_minresv != -1){
+		if (_minresv != -1){
 			cmd += " reserve >= "+_minresv;
 		}
-		if(_reserveTBCapacity != -1){
+		if (_reserveTBCapacity != -1){
 			cmd += " reserveTBCapacity = "+ _reserveTBCapacity;
 		}
 		if(_reserveTBFill != -1){
 			cmd += " reserveTBFill = " + _reserveTBFill;
 		}
-		cmd += "] on "+ _parentName;
+		cmd += "] on "+ _parent.getShareName();
 		return cmd;
 		
 	}
 	
 	public String toString(){
-		return " PaneShare:"+generateCreationCmd();
+		return "PaneShare: " + generateCreationCmd();
 	}
 }

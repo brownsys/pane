@@ -15,7 +15,7 @@ public class PaneFlowGroup {
 		_srcPort = -1;
 		_dstPort = -1;
 		_srcHost = null;
-		
+		_dstHost = null;
 	}
 	
 	public PaneFlowGroup(String srcUser, String dstUser, int srcPort, int dstPort,
@@ -109,23 +109,23 @@ public class PaneFlowGroup {
 	public String generateConfig(){
 		String config = "";
 		String fill = ", ";
-		if(isSetSrcUser()){
+		if (isSetSrcUser()) {
 			config += (fill + "srcUser=" + getSrcUser());
 		}
 		
-		if(isSetDstUser()){
+		if (isSetDstUser()) {
 			config += (fill + "dstUser=" + getDstUser());
 		}
 		
-		if(isSetSrcPort()){
+		if (isSetSrcPort()) {
 			config += (fill + "srcPort=" + getSrcPort());
 		}
 		
-		if(isSetDstPort()){
+		if (isSetDstPort()) {
 			config += (fill + "dstPort=" + getDstPort());
 		}
 		
-		if(isSetSrcHost()){
+		if (isSetSrcHost()) {
 			config += (fill + "srcHost=" + getSrcHost().getHostAddress());
 		}
 		
@@ -133,9 +133,9 @@ public class PaneFlowGroup {
 			config += (fill + "dstHost=" + getDstHost().getHostAddress());
 		}
 		
-		if(config == ""){
+		if (config == "") {
 			config = "*";
-		}else{
+		}else {
 			config = config.replaceFirst(fill, "");
 		}
 		return config;
@@ -143,7 +143,7 @@ public class PaneFlowGroup {
 	}
 	
 	public String toString(){
-		return " PaneFlowGroup: "+generateConfig();
+		return "PaneFlowGroup: " + generateConfig();
 	}
 	
 }

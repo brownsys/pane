@@ -30,7 +30,7 @@ public class PaneUser {
 	}
 	
 	public String toString(){
-		return " PaneUser: user:"+_userName+_client.toString();
+		return "PaneUser: user: " + _userName+_client.toString();
 	}
 
 }

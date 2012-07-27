@@ -25,6 +25,6 @@ public class PaneAllow extends PaneVerb{
 	
 	@Override
 	public String toString(){
-		return " PaneAllow:"+generateCmd();
+		return "PaneAllow: " + generateCmd();
 	}
 }

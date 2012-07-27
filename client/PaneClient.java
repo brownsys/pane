@@ -1,15 +1,15 @@
 import java.io.IOException;
-import java.util.LinkedList;
+import java.util.List;
 
 
 public interface PaneClient {
 	
 
-	public PaneUser addUser(String userName) throws IOException;
+	public PaneUser addUser(PaneUser user) throws IOException;
 
-	public LinkedList<PaneShare> listShares(PaneUser user) throws IOException;
+	public List<PaneShare> listShares(PaneUser user) throws IOException;
 	
-	public LinkedList<PaneShare> listSharesByFlowGroup(PaneFlowGroup flowgroup) throws IOException;
+	public List<PaneShare> listSharesByFlowGroup(PaneFlowGroup flowgroup) throws IOException;
 	
 	public PaneShare getRootShare() throws IOException;
 	
