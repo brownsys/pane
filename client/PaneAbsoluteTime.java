@@ -1,7 +1,7 @@
 import java.util.Date;
 
 
-public class PaneAbsoluteTime extends PaneTime{
+public class PaneAbsoluteTime extends PaneTime {
 	Date _absTime;
 	
 	@Override
@@ -10,16 +10,16 @@ public class PaneAbsoluteTime extends PaneTime{
 	}
 	
 	public boolean setAbsoluteTime(Date time) {
-		if(time.before(new Date())){
+		if (time.before(new Date())) {
 			return false;
-		}else{
+		} else {
 			_absTime = time;
 			return true;
 		}
 	}
 	
 	@Override
-	public String toString(){
+	public String toString() {
 		return "PaneAbsoluteTime: time: " + getTime();
 	}
 }

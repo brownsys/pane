@@ -5,7 +5,7 @@ public class PaneUser {
 	String _userName;
 	PaneClient _client;
 	
-	public PaneUser(String userName, PaneClient client){
+	public PaneUser(String userName, PaneClient client) {
 		_userName = userName;
 		_client = client;
 	}
@@ -17,19 +17,19 @@ public class PaneUser {
 	 * I left the following two methods blank
 	 * @return
 	 */
-	public List<PaneShare> listShares(){
+	public List<PaneShare> listShares() {
 		return null;
 	}
 	
-	public List<PaneReservation> listReservations(){
+	public List<PaneReservation> listReservations() {
 		return null;
 	}
 	
-	public String getName(){
+	public String getName() {
 		return _userName;
 	}
 	
-	public String toString(){
+	public String toString() {
 		return "PaneUser: user: " + _userName+_client.toString();
 	}
 

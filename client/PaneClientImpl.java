@@ -6,32 +6,32 @@ import java.net.Socket;
 import java.util.List;
 
 
-public class PaneClientImpl implements PaneClient{
+public class PaneClientImpl implements PaneClient {
 	
 	InetAddress _serverIP;
 	int _serverPort;
 	Socket _serverSock;
 	
-	public PaneClientImpl(InetAddress serverIP, int serverPort) throws IOException{
+	public PaneClientImpl(InetAddress serverIP, int serverPort) throws IOException {
 		_serverIP = serverIP;
 		_serverPort = serverPort;
 		_serverSock = new Socket(serverIP,serverPort);
 	}
 	
-	public PaneUser addUser(PaneUser user) throws IOException{
+	public PaneUser addUser(PaneUser user) throws IOException {
 		
-		String cmd = "AddUser "+user.getName();
+		String cmd = "AddUser " + user.getName();
 		String response = sendAndWait(cmd);		
 		//if response == succeed
 		
 		return user;
 	}
 
-	public List<PaneShare> listShares(PaneUser user) throws IOException{
+	public List<PaneShare> listShares(PaneUser user) throws IOException {
 		return null;
 	}
 	
-	public List<PaneShare> listSharesByFlowGroup(PaneFlowGroup flowgroup) throws IOException{
+	public List<PaneShare> listSharesByFlowGroup(PaneFlowGroup flowgroup) throws IOException {
 		return null;
 	}
 
@@ -48,16 +48,16 @@ public class PaneClientImpl implements PaneClient{
 	}
 
 	@Override
-	public boolean authenticate(PaneUser user) throws IOException {
+	public PaneClient authenticate(String username) throws IOException {
 		
-		String response = sendAndWait(user.getName());
-		//if response == succeed return true=
-		//else return false
-		return true;
+		String response = sendAndWait(username);
+		//if response == succeed 
+		PaneClient client = new PaneClientImpl(_serverIP, _serverPort);
+		return client;
 	}
 	
 	@Override
-	public String sendAndWait(String cmd) throws IOException{
+	public String sendAndWait(String cmd) throws IOException {
 		byte[] ret = new byte[1000];
 		OutputStream os = _serverSock.getOutputStream();
 		InputStream is = _serverSock.getInputStream();
@@ -70,14 +70,14 @@ public class PaneClientImpl implements PaneClient{
 	}
 	
 	@Override
-	public void send(String cmd) throws IOException{
+	public void send(String cmd) throws IOException {
 		OutputStream os = _serverSock.getOutputStream();
 		os.write(cmd.getBytes());
 		os.flush();
 	}
 	
 	@Override
-	public String toString(){
+	public String toString() {
 		return "PaneClientImpl: serverIP: " + _serverIP + " serverPort: " + _serverPort;
 	}
 

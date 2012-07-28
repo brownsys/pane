@@ -1,30 +1,27 @@
-import java.util.Date;
-
-
-public class PaneRelativeTime extends PaneTime{
+public class PaneRelativeTime extends PaneTime {
 	long _relTime;
 	
 	@Override
 	public String getTime() {
 		String time;
-		if(_relTime == 0)
+		if (_relTime == 0)
 			time = "now";
 		else
-			time = "+"+_relTime;
+			time = "+" + _relTime;
 		return time;
 	}
 	
-	public boolean setRelativeTime(long length){
-		if(length < 0){
+	public boolean setRelativeTime(long length) {
+		if (length < 0) {
 			return false;
-		}else{
+		} else {
 			_relTime = length;
 			return true;
 		}
 	}
 
 	@Override
-	public String toString(){
+	public String toString() {
 		return "PaneRelativeTime: time: " + getTime();
 	}
 }

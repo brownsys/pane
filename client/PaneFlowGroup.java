@@ -9,7 +9,7 @@ public class PaneFlowGroup {
 	InetAddress _srcHost;
 	InetAddress _dstHost;
 	
-	public PaneFlowGroup(){
+	public PaneFlowGroup() {
 		_srcUser = null;
 		_dstUser = null;
 		_srcPort = -1;
@@ -19,7 +19,7 @@ public class PaneFlowGroup {
 	}
 	
 	public PaneFlowGroup(String srcUser, String dstUser, int srcPort, int dstPort,
-			InetAddress srcHost, InetAddress dstHost){
+			InetAddress srcHost, InetAddress dstHost) {
 		_srcUser = srcUser;
 		_dstUser = dstUser;
 		_srcPort = srcPort;
@@ -28,85 +28,85 @@ public class PaneFlowGroup {
 		_dstHost = dstHost;
 	}
 	//----------------srcUser
-	public void setSrcUser(String srcUser){
+	public void setSrcUser(String srcUser) {
 		_srcUser = srcUser;
 	}
 	
-	public boolean isSetSrcUser(){
+	public boolean isSetSrcUser() {
 		return _srcUser == null?false:true;
 	}
 	
-	public String getSrcUser(){
+	public String getSrcUser() {
 		return _srcUser;
 	}
 	
 	//----------------dstUser
-	public void setDstUser(String dstUser){
+	public void setDstUser(String dstUser) {
 		_dstUser = dstUser;
 	}
 	
-	public boolean isSetDstUser(){
+	public boolean isSetDstUser() {
 		return _dstUser == null?false:true;
 	}
 	
-	public String getDstUser(){
+	public String getDstUser() {
 		return _dstUser;
 	}
 	
 	//----------------------srcPort
-	public void setSrcPort(int srcPort){
+	public void setSrcPort(int srcPort) {
 		_srcPort = srcPort;
 	}
 	
-	public boolean isSetSrcPort(){
+	public boolean isSetSrcPort() {
 		return _srcPort == -1?false:true;
 	}
 	
-	public int getSrcPort(){
+	public int getSrcPort() {
 		return _srcPort;
 	}
 	
 	//----------------------dstPort
-	public void setDstPort(int dstPort){
+	public void setDstPort(int dstPort) {
 		_dstPort = dstPort;
 	}
 	
-	public boolean isSetDstPort(){
+	public boolean isSetDstPort() {
 		return _dstPort == -1?false:true;
 	}
 	
-	public int getDstPort(){
+	public int getDstPort() {
 		return _dstPort;
 	}
 	
 	//----------------------srcHost
-	public void setSrcHost(InetAddress srcHost){
+	public void setSrcHost(InetAddress srcHost) {
 		_srcHost = srcHost;
 	}
 	
-	public boolean isSetSrcHost(){
+	public boolean isSetSrcHost() {
 		return _srcHost == null?false:true;
 	}
 	
-	public InetAddress getSrcHost(){
+	public InetAddress getSrcHost() {
 		return _srcHost;
 	}
 	
 	//----------------------dstHost
-	public void setDstHost(InetAddress dstHost){
+	public void setDstHost(InetAddress dstHost) {
 		_dstHost = dstHost;
 	}
 	
-	public boolean isSetDstHost(){
+	public boolean isSetDstHost() {
 		return _dstHost == null?false:true;
 	}
 	
-	public InetAddress getDstHost(){
+	public InetAddress getDstHost() {
 		return _dstHost;
 	}
 
 	//---------------------generate the string
-	public String generateConfig(){
+	public String generateConfig() {
 		String config = "";
 		String fill = ", ";
 		if (isSetSrcUser()) {
@@ -135,14 +135,14 @@ public class PaneFlowGroup {
 		
 		if (config == "") {
 			config = "*";
-		}else {
+		} else {
 			config = config.replaceFirst(fill, "");
 		}
 		return config;
 		
 	}
 	
-	public String toString(){
+	public String toString() {
 		return "PaneFlowGroup: " + generateConfig();
 	}
 	

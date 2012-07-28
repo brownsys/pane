@@ -1,5 +1,5 @@
 
-public class PaneReservation extends PaneVerb{
+public class PaneReservation extends PaneVerb {
 	int _bandwidth;
 	PaneFlowGroup _flowgroup;
 	
@@ -15,13 +15,13 @@ public class PaneReservation extends PaneVerb{
 	@Override
 	public String generateCmd() {
 		String fg = _flowgroup.generateConfig();
-		String cmd = "reserve(" + fg +") = " + _bandwidth + " on " + _share.getShareName()
-		+" from " + _start.getTime() + " to " + _end.getTime();
+		String cmd = "reserve(" + fg + ") = " + _bandwidth + " on " + _share.getShareName()
+		+ " from " + _start.getTime() + " to " + _end.getTime();
 		return cmd;
 	}
 	
 	@Override
-	public String toString(){
+	public String toString() {
 		return "PaneReservation: " + generateCmd();
 	}
 }

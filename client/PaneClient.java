@@ -13,7 +13,7 @@ public interface PaneClient {
 	
 	public PaneShare getRootShare() throws IOException;
 	
-	public boolean authenticate(PaneUser user) throws IOException;
+	public PaneClient authenticate(String username) throws IOException;
 	
 	public String sendAndWait(String cmd) throws IOException;
 	

@@ -1,5 +1,5 @@
 
-public class PaneDeny extends PaneVerb{
+public class PaneDeny extends PaneVerb {
 	PaneFlowGroup _flowgroup;
 	
 	public PaneDeny(PaneFlowGroup flowgroup, PaneTime start, PaneTime end) {
@@ -14,17 +14,17 @@ public class PaneDeny extends PaneVerb{
 	public String generateCmd() {		
 		String fg = _flowgroup.generateConfig();
 		String cmd = "deny(" + fg + ") on " + _share.getShareName();
-		if(_start != null){
-			cmd += " from "+_start.getTime();
+		if (_start != null) {
+			cmd += " from " + _start.getTime();
 		}
-		if(_end != null){
-			cmd += " to "+_end.getTime();
+		if (_end != null) {
+			cmd += " to " + _end.getTime();
 		}
 		return cmd;
 	}
 
 	@Override
-	public String toString(){
+	public String toString() {
 		return "PaneDeny: " + generateCmd();
 	}
 }

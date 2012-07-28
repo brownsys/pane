@@ -4,11 +4,10 @@ import java.util.ArrayList;
 
 public class PaneShare {
 
-
 	String _shareName;
 	int _maxresv;
 	int _minresv = -1;
-	Boolean _allow= null; 
+	Boolean _allow = null; 
 	Boolean _deny = null;  
 	int _reserveTBCapacity = -1;
 	int _reserveTBFill = -1;
@@ -19,7 +18,7 @@ public class PaneShare {
 	
 	PaneClient _client = null;
 
-	public PaneShare(String shareName, int maxresv, PaneFlowGroup fg){
+	public PaneShare(String shareName, int maxresv, PaneFlowGroup fg) {
 		/*
 		 * fg here is the initial flow group of this share, if a null
 		 * is given, '*' will be put into the command
@@ -31,82 +30,82 @@ public class PaneShare {
 	}
 
 	
-	public String getShareName(){
+	public String getShareName() {
 		return _shareName;
 	}
 	//---------------------min resv
-	public void setMinResv(int minresv){
+	public void setMinResv(int minresv) {
 		_minresv = minresv;
 	}
 
-	public boolean isSetMin(){
+	public boolean isSetMin() {
 		return _minresv == -1?false:true;
 	}
 
-	public int getMinResv(){
+	public int getMinResv() {
 		return _minresv;
 	}
 
 	//------------------allow
-	public void setAllow(boolean allow){
+	public void setAllow(boolean allow) {
 		_allow = allow == true?Boolean.TRUE:Boolean.FALSE;
 	}
 
-	public boolean isSetAllow(){
+	public boolean isSetAllow() {
 		return _allow == null?false:true;
 	}
 
-	public boolean getAllow(){
+	public boolean getAllow() {
 		return _allow == Boolean.TRUE?true:false;
 	}
 	//----------------deny
-	public void setDeny(boolean deny){
+	public void setDeny(boolean deny) {
 		_deny = deny == true?Boolean.TRUE:Boolean.FALSE;
 	}		
 
 
-	public boolean isSetDeny(){
+	public boolean isSetDeny() {
 		return _deny == null?false:true;
 	}
 
-	public boolean getDeny(){
+	public boolean getDeny() {
 		return _deny == Boolean.TRUE?true:false;
 	}	
 
 	//---------------reserveTBCapacity
-	public void setReserveTBCapacity(int rtbc){
+	public void setReserveTBCapacity(int rtbc) {
 		_reserveTBCapacity = rtbc;
 	}
 
-	public boolean isSetReserveTBCapacity(){
+	public boolean isSetReserveTBCapacity() {
 		return _reserveTBCapacity == -1?false:true;
 	}
 
-	public int getReserveTBCapacity(){
+	public int getReserveTBCapacity() {
 		return _reserveTBCapacity;
 	}
 	//---------------reserveTBFill
-	public void setReserveTBFill(int rtbf){
+	public void setReserveTBFill(int rtbf) {
 		_reserveTBFill = rtbf;
 	}
 
-	public boolean isSetReserveTBFill(){
+	public boolean isSetReserveTBFill() {
 		return _reserveTBFill == -1?false:true;
 	}
 
-	public int getReserveTBFill(){
+	public int getReserveTBFill() {
 		return _reserveTBFill;
 	}
 	//-------------------speakers	
-	public void removeSpeakers(String spkName){
+	public void removeSpeakers(String spkName) {
 		_principals.remove(spkName);
 	}
 	
-	public void setClient(PaneClient client){
+	public void setClient(PaneClient client) {
 		_client = client;
 	}
 
-	public synchronized String grant(PaneUser user) throws IOException{
+	public synchronized String grant(PaneUser user) throws IOException {
 		
 		_principals.add(user.getName());
 		String cmd = "grant " + getShareName() + " to " + user.getName();
@@ -117,7 +116,7 @@ public class PaneShare {
 		return response;
 	}	
 
-	public String newShare(PaneShare share) throws IOException{
+	public String newShare(PaneShare share) throws IOException {
 		
 		share.setParent(this);
 		String cmd = share.generateCreationCmd();
@@ -126,7 +125,7 @@ public class PaneShare {
 		return response;
 	}
 	
-	public String reserve(PaneReservation resv) throws IOException{
+	public String reserve(PaneReservation resv) throws IOException {
 		
 		resv.setParent(this);
 		String cmd = resv.generateCmd();
@@ -134,7 +133,7 @@ public class PaneShare {
 		return response;
 	}
 	
-	public String allow(PaneAllow allow) throws IOException{
+	public String allow(PaneAllow allow) throws IOException {
 		
 		allow.setParent(this);
 		String cmd = allow.generateCmd();
@@ -142,7 +141,7 @@ public class PaneShare {
 		return response;
 	}
 	
-	public String deny(PaneDeny deny) throws IOException{
+	public String deny(PaneDeny deny) throws IOException {
 		
 		deny.setParent(this);
 		String cmd = deny.generateCmd();
@@ -151,11 +150,11 @@ public class PaneShare {
 	}
 	
 	
-	protected void setParent(PaneShare parent){
+	protected void setParent(PaneShare parent) {
 		_parent = parent;
 	}
 	
-	protected String generateCreationCmd(){
+	protected String generateCreationCmd() {
 		
 		String fg = "*";
 		if (_flowgroup != null)
@@ -163,13 +162,13 @@ public class PaneShare {
 		
 		String cmd = "NewShare " + getShareName() + " for ("+fg+") ";
 		cmd += "[reserve <= "+ _maxresv;
-		if (_minresv != -1){
+		if (_minresv != -1) {
 			cmd += " reserve >= "+_minresv;
 		}
-		if (_reserveTBCapacity != -1){
+		if (_reserveTBCapacity != -1) {
 			cmd += " reserveTBCapacity = "+ _reserveTBCapacity;
 		}
-		if(_reserveTBFill != -1){
+		if(_reserveTBFill != -1) {
 			cmd += " reserveTBFill = " + _reserveTBFill;
 		}
 		cmd += "] on "+ _parent.getShareName();
@@ -177,7 +176,7 @@ public class PaneShare {
 		
 	}
 	
-	public String toString(){
+	public String toString() {
 		return "PaneShare: " + generateCreationCmd();
 	}
 }
