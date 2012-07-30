@@ -5,7 +5,6 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.util.List;
 
-
 public class PaneClientImpl implements PaneClient {
 	
 	InetAddress _serverIP;
@@ -18,13 +17,19 @@ public class PaneClientImpl implements PaneClient {
 		_serverSock = new Socket(serverIP,serverPort);
 	}
 	
-	public PaneUser addUser(PaneUser user) throws IOException {
+	public PaneUser addUser(PaneUser user) throws IOException, PaneException {
 		
 		String cmd = "AddUser " + user.getName();
 		String response = sendAndWait(cmd);		
-		//if response == succeed
+		if (response.equals("True")) {
+			return user;
+		} else if (response.equals("False")) {
+			return null;
+		} else {
+			//throw new InvalidUserException(user.toString());
+			throw PaneException.create(PaneException.Type.INVALIDNEWUSER, user.toString());
+		}
 		
-		return user;
 	}
 
 	public List<PaneShare> listShares(PaneUser user) throws IOException {
@@ -48,12 +53,18 @@ public class PaneClientImpl implements PaneClient {
 	}
 
 	@Override
-	public PaneClient authenticate(String username) throws IOException {
+	public PaneUser authenticate(String username) throws IOException, PaneException {
 		
 		String response = sendAndWait(username);
-		//if response == succeed 
-		PaneClient client = new PaneClientImpl(_serverIP, _serverPort);
-		return client;
+		if (response.equals("True")) {	
+			return new PaneUser(username, this);
+		} else if (response.equals("False")) {
+			return null;
+		} else {
+			//throw new AuthenticateFailException(username);
+			throw PaneException.create(PaneException.Type.INVALIDAUTHTICATE, username);
+		}
+		
 	}
 	
 	@Override
