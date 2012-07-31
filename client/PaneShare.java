@@ -105,23 +105,21 @@ public class PaneShare {
 		_client = client;
 	}
 
-	public synchronized boolean grant(PaneUser user) throws IOException, PaneException {
+	public synchronized void grant(PaneUser user) throws IOException, PaneException {
 		
 		_principals.add(user.getName());
 		String cmd = "grant " + getShareName() + " to " + user.getName();
 		String response = _client.sendAndWait(cmd);
 		
 		if(response.equals("True")) {
-			return true;
-		} else if (response.equals("False")) {
-			return false;
+			return;
 		} else {
 			//throw new GrantFailException("grant failed on " + cmd);
 			throw PaneException.create(PaneException.Type.INVALIDGRANT, cmd);
 		}
 	}	
 
-	public boolean newShare(PaneShare share) throws IOException, PaneException {
+	public void newShare(PaneShare share) throws IOException, PaneException {
 		
 		share.setParent(this);
 		String cmd = share.generateCreationCmd();
@@ -129,57 +127,49 @@ public class PaneShare {
 		String response = _client.sendAndWait(cmd);
 		
 		if(response.equals("True")) {
-			return true;
-		} else if (response.equals("False")) {
-			return false;
+			return;
 		} else {
 			//throw new NewShareFailException(share.toString());
 			throw PaneException.create(PaneException.Type.INVALIDNEWSHARE, share.toString());
 		}
 	}
 	
-	public boolean reserve(PaneReservation resv) throws IOException, PaneException {
+	public void reserve(PaneReservation resv) throws IOException, PaneException {
 		
 		resv.setParent(this);
 		String cmd = resv.generateCmd();
 		String response = _client.sendAndWait(cmd);
 		
 		if(response.equals("True")) {
-			return true;
-		} else if (response.equals("False")) {
-			return false;
+			return;
 		} else {
 			//throw new ReserveFailException(resv.toString());
 			throw PaneException.create(PaneException.Type.INVALIDRESV, resv.toString());
 		}
 	}
 	
-	public boolean allow(PaneAllow allow) throws IOException, PaneException {
+	public void allow(PaneAllow allow) throws IOException, PaneException {
 		
 		allow.setParent(this);
 		String cmd = allow.generateCmd();
 		String response = _client.sendAndWait(cmd);
 		
 		if(response.equals("True")) {
-			return true;
-		} else if (response.equals("False")) {
-			return false;
+			return;
 		} else {
 			//throw new AllowFailException(allow.toString());
 			throw PaneException.create(PaneException.Type.INVALIDALLOW, allow.toString());
 		}
 	}
 	
-	public boolean deny(PaneDeny deny) throws IOException, PaneException {
+	public void deny(PaneDeny deny) throws IOException, PaneException {
 		
 		deny.setParent(this);
 		String cmd = deny.generateCmd();
 		String response = _client.sendAndWait(cmd);	
 		
 		if(response.equals("True")) {
-			return true;
-		} else if (response.equals("False")) {
-			return false;
+			return;
 		} else {
 			//throw new DenyFailException(deny.toString());
 			throw PaneException.create(PaneException.Type.INVALIDDENY, deny.toString());
