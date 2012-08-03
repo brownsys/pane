@@ -12,7 +12,12 @@ public class PaneAllow extends PaneVerb {
 
 	@Override
 	public String generateCmd() {		
-		String fg = _flowgroup.generateConfig();
+		String fg;
+		if (_flowgroup == null)
+			fg = "*";
+		else
+			fg = _flowgroup.generateConfig();
+		
 		String cmd = "allow(" + fg +") on " + _share.getShareName();
 		if (_start != null) {
 			cmd += " from "+_start.getTime();
@@ -20,6 +25,7 @@ public class PaneAllow extends PaneVerb {
 		if (_end != null) {
 			cmd += " to "+_end.getTime();
 		}
+		cmd += ".\n";
 		return cmd;
 	}
 	

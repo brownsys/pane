@@ -14,9 +14,14 @@ public class PaneReservation extends PaneVerb {
 
 	@Override
 	public String generateCmd() {
-		String fg = _flowgroup.generateConfig();
+		String fg;
+		if(_flowgroup == null)
+			fg = "*";
+		else 
+			fg = _flowgroup.generateConfig();
 		String cmd = "reserve(" + fg + ") = " + _bandwidth + " on " + _share.getShareName()
 		+ " from " + _start.getTime() + " to " + _end.getTime();
+		cmd += ".\n";
 		return cmd;
 	}
 	

@@ -108,10 +108,10 @@ public class PaneShare {
 	public synchronized void grant(PaneUser user) throws IOException, PaneException {
 		
 		_principals.add(user.getName());
-		String cmd = "grant " + getShareName() + " to " + user.getName();
+		String cmd = "Grant " + getShareName() + " to " + user.getName() + ".\n";
 		String response = _client.sendAndWait(cmd);
 		
-		if(response.equals("True")) {
+		if(response.trim().equals("True")) {
 			return;
 		} else {
 			//throw new GrantFailException("grant failed on " + cmd);
@@ -126,7 +126,7 @@ public class PaneShare {
 		share.setClient(_client);
 		String response = _client.sendAndWait(cmd);
 		
-		if(response.equals("True")) {
+		if(response.trim().equals("True")) {
 			return;
 		} else {
 			//throw new NewShareFailException(share.toString());
@@ -140,7 +140,7 @@ public class PaneShare {
 		String cmd = resv.generateCmd();
 		String response = _client.sendAndWait(cmd);
 		
-		if(response.equals("True")) {
+		if(response.trim().equals("True")) {
 			return;
 		} else {
 			//throw new ReserveFailException(resv.toString());
@@ -154,7 +154,7 @@ public class PaneShare {
 		String cmd = allow.generateCmd();
 		String response = _client.sendAndWait(cmd);
 		
-		if(response.equals("True")) {
+		if(response.trim().equals("True")) {
 			return;
 		} else {
 			//throw new AllowFailException(allow.toString());
@@ -168,7 +168,7 @@ public class PaneShare {
 		String cmd = deny.generateCmd();
 		String response = _client.sendAndWait(cmd);	
 		
-		if(response.equals("True")) {
+		if(response.trim().equals("True")) {
 			return;
 		} else {
 			//throw new DenyFailException(deny.toString());
@@ -199,6 +199,7 @@ public class PaneShare {
 			cmd += " reserveTBFill = " + _reserveTBFill;
 		}
 		cmd += "] on "+ _parent.getShareName();
+		cmd += ".\n";
 		return cmd;
 		
 	}
