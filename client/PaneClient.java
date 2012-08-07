@@ -1,3 +1,5 @@
+package paneclient;
+
 import java.io.IOException;
 import java.util.List;
 
@@ -5,7 +7,7 @@ import java.util.List;
 public interface PaneClient {
 	
 
-	public PaneUser addUser(PaneUser user) throws IOException, PaneException;
+	public PaneUser addUser(PaneUser user) throws IOException, InvalidUserException;
 
 	public List<PaneShare> listShares(PaneUser user) throws IOException;
 	
@@ -13,7 +15,7 @@ public interface PaneClient {
 	
 	public PaneShare getRootShare() throws IOException;
 	
-	public PaneUser authenticate(String username) throws IOException, PaneException;
+	public PaneUser authenticate(String username) throws IOException, InvalidAuthenticateException;
 	
 	public String sendAndWait(String cmd) throws IOException;
 	

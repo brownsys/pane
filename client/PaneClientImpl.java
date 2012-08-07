@@ -1,9 +1,12 @@
+package paneclient;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.util.List;
+
 
 public class PaneClientImpl implements PaneClient {
 	
@@ -21,15 +24,14 @@ public class PaneClientImpl implements PaneClient {
 		System.out.println("welcome:" + new String(welcome));
 	}
 	
-	public PaneUser addUser(PaneUser user) throws IOException, PaneException {
+	public PaneUser addUser(PaneUser user) throws IOException, InvalidUserException {
 		
 		String cmd = "AddUser " + user.getName() + ".\n";
 		String response = sendAndWait(cmd);		
 		if (response.trim().equals("True")) {
 			return user;
 		} else {
-			//throw new InvalidUserException(user.toString());
-			throw PaneException.create(PaneException.Type.INVALIDNEWUSER, response);
+			throw new InvalidUserException(user.toString());
 		}
 		
 	}
@@ -47,7 +49,7 @@ public class PaneClientImpl implements PaneClient {
 		
 
 		//---------------only for test purpose-------------------------
-		PaneShare root = new PaneShare("rootShare",1000, null);
+		PaneShare root = new PaneShare("rootShare",Integer.MAX_VALUE, null);
 		root.setClient(this);
 		//-------------------------------------------------------------
 		
@@ -55,14 +57,13 @@ public class PaneClientImpl implements PaneClient {
 	}
 
 	@Override
-	public PaneUser authenticate(String username) throws IOException, PaneException {
+	public PaneUser authenticate(String username) throws IOException, InvalidAuthenticateException {
 		
 		String response = sendAndWait(username + ".\n");
 		if (response.trim().equals("logged in")) {	
 			return new PaneUser(username, this);
 		} else {
-			//throw new AuthenticateFailException(username);
-			throw PaneException.create(PaneException.Type.INVALIDAUTHTICATE, response);
+			throw new InvalidAuthenticateException(username);
 		}
 		
 	}

@@ -1,3 +1,5 @@
+package paneclient;
+
 import java.io.IOException;
 import java.util.ArrayList;
 
@@ -105,7 +107,7 @@ public class PaneShare {
 		_client = client;
 	}
 
-	public synchronized void grant(PaneUser user) throws IOException, PaneException {
+	public synchronized void grant(PaneUser user) throws IOException, InvalidGrantException {
 		
 		_principals.add(user.getName());
 		String cmd = "Grant " + getShareName() + " to " + user.getName() + ".\n";
@@ -114,12 +116,11 @@ public class PaneShare {
 		if(response.trim().equals("True")) {
 			return;
 		} else {
-			//throw new GrantFailException("grant failed on " + cmd);
-			throw PaneException.create(PaneException.Type.INVALIDGRANT, cmd);
+			throw new InvalidGrantException("grant failed on " + cmd);
 		}
 	}	
 
-	public void newShare(PaneShare share) throws IOException, PaneException {
+	public void newShare(PaneShare share) throws IOException, InvalidNewShareException {
 		
 		share.setParent(this);
 		String cmd = share.generateCreationCmd();
@@ -129,12 +130,11 @@ public class PaneShare {
 		if(response.trim().equals("True")) {
 			return;
 		} else {
-			//throw new NewShareFailException(share.toString());
-			throw PaneException.create(PaneException.Type.INVALIDNEWSHARE, share.toString());
+			throw new InvalidNewShareException(share.toString());
 		}
 	}
 	
-	public void reserve(PaneReservation resv) throws IOException, PaneException {
+	public void reserve(PaneReservation resv) throws IOException, InvalidResvException {
 		
 		resv.setParent(this);
 		String cmd = resv.generateCmd();
@@ -143,12 +143,11 @@ public class PaneShare {
 		if(response.trim().equals("True")) {
 			return;
 		} else {
-			//throw new ReserveFailException(resv.toString());
-			throw PaneException.create(PaneException.Type.INVALIDRESV, resv.toString());
+			throw new InvalidResvException(resv.toString());
 		}
 	}
 	
-	public void allow(PaneAllow allow) throws IOException, PaneException {
+	public void allow(PaneAllow allow) throws IOException, InvalidAllowException {
 		
 		allow.setParent(this);
 		String cmd = allow.generateCmd();
@@ -157,12 +156,11 @@ public class PaneShare {
 		if(response.trim().equals("True")) {
 			return;
 		} else {
-			//throw new AllowFailException(allow.toString());
-			throw PaneException.create(PaneException.Type.INVALIDALLOW, allow.toString());
+			throw new InvalidAllowException(allow.toString());
 		}
 	}
 	
-	public void deny(PaneDeny deny) throws IOException, PaneException {
+	public void deny(PaneDeny deny) throws IOException, InvalidDenyException {
 		
 		deny.setParent(this);
 		String cmd = deny.generateCmd();
@@ -171,8 +169,7 @@ public class PaneShare {
 		if(response.trim().equals("True")) {
 			return;
 		} else {
-			//throw new DenyFailException(deny.toString());
-			throw PaneException.create(PaneException.Type.INVALIDDENY, deny.toString());
+			throw new InvalidDenyException(deny.toString());
 		}
 	}
 	
