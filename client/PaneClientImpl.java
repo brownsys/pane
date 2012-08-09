@@ -7,6 +7,9 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.util.List;
 
+import paneclient.PaneException.InvalidAuthenticateException;
+import paneclient.PaneException.InvalidUserException;
+
 
 public class PaneClientImpl implements PaneClient {
 	
@@ -31,7 +34,7 @@ public class PaneClientImpl implements PaneClient {
 		if (response.trim().equals("True")) {
 			return user;
 		} else {
-			throw new InvalidUserException(user.toString());
+			throw new PaneException.InvalidUserException(user.toString());
 		}
 		
 	}
@@ -63,7 +66,7 @@ public class PaneClientImpl implements PaneClient {
 		if (response.trim().equals("logged in")) {	
 			return new PaneUser(username, this);
 		} else {
-			throw new InvalidAuthenticateException(username);
+			throw new PaneException.InvalidAuthenticateException(username);
 		}
 		
 	}

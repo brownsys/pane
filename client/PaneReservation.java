@@ -1,3 +1,4 @@
+package paneclient;
 
 public class PaneReservation extends PaneVerb {
 	int _bandwidth;

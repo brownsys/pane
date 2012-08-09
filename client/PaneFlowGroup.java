@@ -1,3 +1,4 @@
+package paneclient;
 import java.net.InetAddress;
 
 public class PaneFlowGroup {

@@ -1,3 +1,4 @@
+package paneclient;
 
 public abstract class PaneVerb {
 	PaneTime _start;

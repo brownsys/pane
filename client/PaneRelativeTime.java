@@ -1,3 +1,4 @@
+package paneclient;
 public class PaneRelativeTime extends PaneTime {
 	long _relTime;
 	

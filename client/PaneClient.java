@@ -7,7 +7,7 @@ import java.util.List;
 public interface PaneClient {
 	
 
-	public PaneUser addUser(PaneUser user) throws IOException, InvalidUserException;
+	public PaneUser addUser(PaneUser user) throws IOException, PaneException.InvalidUserException;
 
 	public List<PaneShare> listShares(PaneUser user) throws IOException;
 	
@@ -15,7 +15,7 @@ public interface PaneClient {
 	
 	public PaneShare getRootShare() throws IOException;
 	
-	public PaneUser authenticate(String username) throws IOException, InvalidAuthenticateException;
+	public PaneUser authenticate(String username) throws IOException, PaneException.InvalidAuthenticateException;
 	
 	public String sendAndWait(String cmd) throws IOException;
 	

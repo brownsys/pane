@@ -1,3 +1,4 @@
+package paneclient;
 
 public class PaneAllow extends PaneVerb {
 	PaneFlowGroup _flowgroup;

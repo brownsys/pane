@@ -3,6 +3,12 @@ package paneclient;
 import java.io.IOException;
 import java.util.ArrayList;
 
+import paneclient.PaneException.InvalidAllowException;
+import paneclient.PaneException.InvalidDenyException;
+import paneclient.PaneException.InvalidGrantException;
+import paneclient.PaneException.InvalidNewShareException;
+import paneclient.PaneException.InvalidResvException;
+
 
 public class PaneShare {
 
@@ -116,7 +122,7 @@ public class PaneShare {
 		if(response.trim().equals("True")) {
 			return;
 		} else {
-			throw new InvalidGrantException("grant failed on " + cmd);
+			throw new PaneException.InvalidGrantException("grant failed on " + cmd);
 		}
 	}	
 
@@ -130,7 +136,7 @@ public class PaneShare {
 		if(response.trim().equals("True")) {
 			return;
 		} else {
-			throw new InvalidNewShareException(share.toString());
+			throw new PaneException.InvalidNewShareException(share.toString());
 		}
 	}
 	
@@ -143,7 +149,7 @@ public class PaneShare {
 		if(response.trim().equals("True")) {
 			return;
 		} else {
-			throw new InvalidResvException(resv.toString());
+			throw new PaneException.InvalidResvException(resv.toString());
 		}
 	}
 	
@@ -156,7 +162,7 @@ public class PaneShare {
 		if(response.trim().equals("True")) {
 			return;
 		} else {
-			throw new InvalidAllowException(allow.toString());
+			throw new PaneException.InvalidAllowException(allow.toString());
 		}
 	}
 	
@@ -169,7 +175,7 @@ public class PaneShare {
 		if(response.trim().equals("True")) {
 			return;
 		} else {
-			throw new InvalidDenyException(deny.toString());
+			throw new PaneException.InvalidDenyException(deny.toString());
 		}
 	}
 	
