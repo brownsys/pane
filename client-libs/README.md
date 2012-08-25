@@ -21,10 +21,11 @@ As a simple Maven project, the client libraries can easily be developed using
 Eclipse. It is necessary to first set the M2_REPO variable for your workspace
 (This command only needs to be executed once per workspace):
 
-	mvn -Declipse.workspace=<path-to-eclipse-workspace> eclipse:add-maven-repo
+	mvn -Declipse.workspace=<path-to-eclipse-workspace> eclipse:configure-workspace
 
-Next, create the Eclipse project files:
+Next, build the libraries and create the Eclipse project files:
 
+	mvn install -DskipTests
 	mvn eclipse:eclipse
 
 You can now import the project into eclipse using, File > Import > Existing
