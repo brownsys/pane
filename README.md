@@ -28,6 +28,8 @@ Code Layout
 
 `/coq/`            (Correctness proofs developed with Coq proof assistant)
 
+`/client-libs/`    (Client libraries, see client-libs/README.md for more info)
+
 
 Building PANE 
 -------------------------

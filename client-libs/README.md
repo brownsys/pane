@@ -1,8 +1,7 @@
 # PANE Client Libraries
 
-Authors:
-  Chen Liang (chen_liang@cs.brown.edu)
-  Andrew Ferguson (adf@cs.brown.edu)
+These files provide client libraries for applications to join in the management
+and configuration of the network using Participatory Networking.
 
 http://pane.cs.brown.edu
 
@@ -11,6 +10,7 @@ http://pane.cs.brown.edu
 
 The Java library -- edu.brown.cs.paneclient -- is provided as a Maven project.
 To compile and install:
+
 	mvn package
 	mvn install
 
