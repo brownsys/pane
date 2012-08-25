@@ -7,3 +7,6 @@ filetest:
 
 test: filetest
 	cabal test
+
+clientlibs:
+	cd client-libs; mvn package; mvn install

@@ -1,4 +1,4 @@
-package paneclient;
+package edu.brown.cs.paneclient;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -7,8 +7,8 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.util.List;
 
-import paneclient.PaneException.InvalidAuthenticateException;
-import paneclient.PaneException.InvalidUserException;
+import edu.brown.cs.paneclient.PaneException.InvalidAuthenticateException;
+import edu.brown.cs.paneclient.PaneException.InvalidUserException;
 
 
 public class PaneClientImpl implements PaneClient {

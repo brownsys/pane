@@ -4,3 +4,4 @@
 out
 *.class
 *.pyc
+client-libs/target/

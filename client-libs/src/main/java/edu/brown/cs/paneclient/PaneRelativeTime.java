@@ -1,4 +1,4 @@
-package paneclient;
+package edu.brown.cs.paneclient;
 public class PaneRelativeTime extends PaneTime {
 	long _relTime;
 	

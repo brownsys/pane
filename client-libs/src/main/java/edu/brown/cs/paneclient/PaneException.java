@@ -1,4 +1,4 @@
-package paneclient;
+package edu.brown.cs.paneclient;
 
 @SuppressWarnings("serial")
 public abstract class PaneException extends Exception {

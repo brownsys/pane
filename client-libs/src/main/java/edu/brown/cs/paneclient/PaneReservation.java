@@ -1,4 +1,4 @@
-package paneclient;
+package edu.brown.cs.paneclient;
 
 public class PaneReservation extends PaneVerb {
 	int _bandwidth;

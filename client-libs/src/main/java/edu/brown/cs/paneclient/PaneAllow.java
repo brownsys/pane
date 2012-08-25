@@ -1,4 +1,4 @@
-package paneclient;
+package edu.brown.cs.paneclient;
 
 public class PaneAllow extends PaneVerb {
 	PaneFlowGroup _flowgroup;

@@ -1,4 +1,4 @@
-package paneclient;
+package edu.brown.cs.paneclient;
 import java.util.Date;
 
 

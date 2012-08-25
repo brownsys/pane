@@ -1,4 +1,4 @@
-package paneclient;
+package edu.brown.cs.paneclient;
 import java.net.InetAddress;
 
 public class PaneFlowGroup {

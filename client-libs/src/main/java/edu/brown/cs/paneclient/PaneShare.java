@@ -1,13 +1,13 @@
-package paneclient;
+package edu.brown.cs.paneclient;
 
 import java.io.IOException;
 import java.util.ArrayList;
 
-import paneclient.PaneException.InvalidAllowException;
-import paneclient.PaneException.InvalidDenyException;
-import paneclient.PaneException.InvalidGrantException;
-import paneclient.PaneException.InvalidNewShareException;
-import paneclient.PaneException.InvalidResvException;
+import edu.brown.cs.paneclient.PaneException.InvalidAllowException;
+import edu.brown.cs.paneclient.PaneException.InvalidDenyException;
+import edu.brown.cs.paneclient.PaneException.InvalidGrantException;
+import edu.brown.cs.paneclient.PaneException.InvalidNewShareException;
+import edu.brown.cs.paneclient.PaneException.InvalidResvException;
 
 
 public class PaneShare {
