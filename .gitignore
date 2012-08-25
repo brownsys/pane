@@ -5,3 +5,5 @@ out
 *.class
 *.pyc
 client-libs/target/
+client-libs/.classpath
+client-libs/.project
