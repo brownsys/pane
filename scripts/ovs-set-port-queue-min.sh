@@ -7,7 +7,7 @@ min_rate="$4000000" # convert to Mbps
 
 queue_name="q$queue_id"
 
-if [ "$min_rate" == "" ]; then
+if [ "$min_rate" == "000000" ]; then
 	echo "Error: requires <dpid> <port_num> <queue_id> <min_rate>"
 	exit
 fi
