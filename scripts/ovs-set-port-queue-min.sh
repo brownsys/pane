@@ -1,17 +1,38 @@
 #!/bin/bash
 
-port_num=$1
-queue_id=$2
-min_rate="$3000000" # convert to Mbps
+dpid=$1
+port_num=$2
+queue_id=$3
+min_rate="$4000000" # convert to Mbps
 
 queue_name="q$queue_id"
 
 if [ "$min_rate" == "" ]; then
-	echo "Error: requires <port_num> <queue_id> <min_rate>"
+	echo "Error: requires <dpid> <port_num> <queue_id> <min_rate>"
 	exit
 fi
 
-port_dev=`ovs-ofctl show br0 | grep addr | awk -F: '(NR=='$port_num'){ print $1 }' | cut -d\( -f2 | cut -d\) -f1`
+##
+# First, convert datapath id to switch name
+
+for name in `ovs-vsctl list-br`; do
+    tmp_dpid=`ovs-ofctl show $name | grep dpid | awk -F"dpid:" '{ print $2 }'`
+    if [ "$tmp_dpid" -eq "$dpid" ]; then
+        break
+    fi
+done
+
+if [ ! "$tmp_dpid" -eq "$dpid" ]; then
+    echo "Error: could not find switch name in `ovs-vsctl | list-br` !"
+    exit
+fi
+
+switch_name=$name
+
+##
+# Convert port number to port device name
+
+port_dev=`ovs-ofctl show $switch_name | grep addr | awk -F: '(NR=='$port_num'){ print $1 }' | cut -d\( -f2 | cut -d\) -f1`
 
 ##
 

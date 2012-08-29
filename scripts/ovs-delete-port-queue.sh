@@ -1,10 +1,11 @@
 #!/bin/bash
 
-port_num=$1
-queue_id=$2
+dpid=$1
+port_num=$2
+queue_id=$3
 
 if [ "$queue_id" == "" ]; then
-	echo "Error: requires <port_num> <queue_id>"
+	echo "Error: requires <dpid> <port_num> <queue_id>"
 	exit
 fi
 
@@ -13,7 +14,27 @@ if [ "$queue_id" == "0" ]; then
 	exit
 fi
 
-port_dev=`ovs-ofctl show br0 | grep addr | awk -F: '(NR=='$port_num'){ print $1 }' | cut -d\( -f2 | cut -d\) -f1`
+##
+# First, convert datapath id to switch name
+
+for name in `ovs-vsctl list-br`; do
+    tmp_dpid=`ovs-ofctl show $name | grep dpid | awk -F"dpid:" '{ print $2 }'`
+    if [ "$tmp_dpid" -eq "$dpid" ]; then
+        break
+    fi
+done
+
+if [ ! "$tmp_dpid" -eq "$dpid" ]; then
+    echo "Error: could not find switch name in `ovs-vsctl | list-br` !"
+    exit
+fi
+
+switch_name=$name
+
+##
+# Convert port number to port device name
+
+port_dev=`ovs-ofctl show $switch_name | grep addr | awk -F: '(NR=='$port_num'){ print $1 }' | cut -d\( -f2 | cut -d\) -f1`
 
 queue_uuid=`ovs-vsctl list QoS $port_dev | grep "^queues" | awk -F{ '{ print $2 }' | cut -d} -f1 | tr ',' '\n' | grep "$queue_id=" | cut -d= -f2`
 
