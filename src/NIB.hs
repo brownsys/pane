@@ -388,10 +388,10 @@ type Network = (Map OF.SwitchID Switch, [Endpoint], [Edge])
 
 emptySwitch = Switch Map.empty Set.empty
 
--- |'unusedNum lst' returns the smallest positive number that is not in 'lst'.
--- Assumes that 'lst' is in ascending order.
-unusedNum :: (Num a, Ord a) => [a] -> a
-unusedNum lst = loop 0 lst
+-- |'unusedNumWithFloor flr lst' returns the smallest positive number greater
+-- than 'flr' which is not in 'lst'. Assumes that 'lst' is in ascending order.
+unusedNumWithFloor ::  (Num a, Ord a) => a -> [a] -> a
+unusedNumWithFloor flr lst = loop flr lst
   where loop m [] = m
         loop m (n:ns) | m < n     = m
                       | m == n    = loop (m+1) ns
@@ -403,7 +403,8 @@ newQueue :: Map OF.PortID PortCfg -- ^ports
          -> Limit                 -- ^queue ending time
          -> (OF.QueueID, Map OF.PortID PortCfg) -- ^new configuration
 newQueue ports portID gmb end = (queueID, ports')
-  where queueID = unusedNum (Map.keys queues)
+  -- Queue IDs start with 1 for Open vSwitch and go up, so let's follow that
+  where queueID = unusedNumWithFloor 1 (Map.keys queues)
         queues  = case Map.lookup portID ports of
                     Just (PortCfg q)  -> q
                     Nothing -> error "newQueue: bad portID"
