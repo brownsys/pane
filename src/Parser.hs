@@ -58,7 +58,16 @@ hexByte = do
   ch2 <- hexChar
   let b :: Word8 = read ['0','x',ch1,ch2]
   return b
-  
+
+transportType = do reserved "TCP"
+                   return OF.ipTypeTcp
+            <|> do reserved "UDP"
+                   return OF.ipTypeUdp
+            <|> do reserved "ICMP"
+                   return OF.ipTypeIcmp
+            <|> do t <- T.integer lex
+                   return (fromIntegral t)
+
 -----------------------------
 -- Flow Group handling
 -----------------------------
@@ -69,6 +78,13 @@ expUser = do
   reservedOp "="
   name <- identifier
   return (Flows.fromMatch OF.matchAny)
+
+expTransport = do
+  reserved "transport"
+  reservedOp "="
+  transport <- transportType
+  return $ Flows.fromMatch $
+    OF.matchAny { OF.matchIPProtocol = Just transport }
 
 expSrcPort = do
   reserved "srcPort"
@@ -128,14 +144,31 @@ dstEth = do
   e <- ethAddr
   return $ Flows.fromMatch $ OF.matchAny { OF.dstEthAddress = Just e }
 
+checkTransport flow = case Flows.toMatch flow of
+  Nothing -> True
+  Just match ->
+    let protoPresent = case OF.matchIPProtocol match of
+                       Nothing -> False
+                       (Just _) -> True
+        srcCheck   = case OF.srcTransportPort match of
+                       Nothing -> True
+                       (Just _) -> protoPresent
+        dstCheck   = case OF.dstTransportPort match of
+                       Nothing -> True
+                       (Just _) -> protoPresent
+    in (srcCheck && dstCheck)
+
 flowGroupSet = do
-  let prin = expUser <|> expSrcPort <|> expDstPort <|> expSrcHost <|> expDstHost
+  let prin = expUser <|> expTransport <|> expSrcPort <|> expDstPort
+             <|> expSrcHost <|> expDstHost
              <|> srcEth <|> dstEth
   prins <- parens (sepBy prin comma)
   let flow = foldl Flows.intersection Flows.all prins
   case Flows.null flow of
     True -> fail "invalid flow"
-    False -> return flow
+    False -> case checkTransport flow of
+               True -> return flow
+               False -> fail "invalid flow: must contain transport protocol"
 
 flowGroupAll = do
   parens (reservedOp "*")

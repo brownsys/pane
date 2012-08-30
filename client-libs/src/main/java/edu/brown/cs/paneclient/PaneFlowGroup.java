@@ -9,6 +9,11 @@ public class PaneFlowGroup {
 	int _dstPort;
 	InetAddress _srcHost;
 	InetAddress _dstHost;
+	int _transportProto;
+
+	public final static int PROTO_ICMP = 1;
+	public final static int PROTO_TCP = 6;
+	public final static int PROTO_UDP = 17;
 	
 	public PaneFlowGroup() {
 		_srcUser = null;
@@ -17,16 +22,18 @@ public class PaneFlowGroup {
 		_dstPort = -1;
 		_srcHost = null;
 		_dstHost = null;
+		_transportProto = -1;
 	}
 	
 	public PaneFlowGroup(String srcUser, String dstUser, int srcPort, int dstPort,
-			InetAddress srcHost, InetAddress dstHost) {
+			InetAddress srcHost, InetAddress dstHost, int transportProto) {
 		_srcUser = srcUser;
 		_dstUser = dstUser;
 		_srcPort = srcPort;
 		_dstPort = dstPort;
 		_srcHost = srcHost;
 		_dstHost = dstHost;
+		_transportProto = transportProto;
 	}
 	//----------------srcUser
 	public void setSrcUser(String srcUser) {
@@ -106,6 +113,19 @@ public class PaneFlowGroup {
 		return _dstHost;
 	}
 
+	//----------------------transportProto
+	public void setTransportProtot(int transportProto) {
+		_transportProto = transportProto;
+	}
+
+	public boolean isSetTransportProto() {
+		return _transportProto == -1?false:true;
+	}
+
+	public int getTransportProto() {
+		return _transportProto;
+	}
+
 	//---------------------generate the string
 	public String generateConfig() {
 		String config = "";
@@ -130,10 +150,14 @@ public class PaneFlowGroup {
 			config += (fill + "srcHost=" + getSrcHost().getHostAddress());
 		}
 		
-		if(isSetDstHost()){
+		if (isSetDstHost()) {
 			config += (fill + "dstHost=" + getDstHost().getHostAddress());
 		}
 		
+		if (isSetTransportProto()) {
+			config += (fill + "transport=" + getTransportProto());
+		}
+
 		if (config == "") {
 			config = "*";
 		} else {
