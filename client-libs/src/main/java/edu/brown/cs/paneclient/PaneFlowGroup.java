@@ -114,7 +114,7 @@ public class PaneFlowGroup {
 	}
 
 	//----------------------transportProto
-	public void setTransportProtot(int transportProto) {
+	public void setTransportProto(int transportProto) {
 		_transportProto = transportProto;
 	}
 
