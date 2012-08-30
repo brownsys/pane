@@ -383,7 +383,7 @@ testAdmComm2 = TestLabel "strict should comm" $ TestCase $ do
   writeChan req ("root", "deny(user=adf, dstHost=10.200.0.1) on rootShare.")
   assertReadChanEqual "deny should succeed" ("root", "True") resp
   writeChan req ("root", "allow(user=adf) strict on rootShare.")
-  assertReadChanEqual "strict allow should fail" ("root", "True") resp
+  assertReadChanEqual "strict allow should fail" ("root", "True") resp -- TODO(adf): should be "False" ???
   -- Flip order of requests
   (tbl, resp, req, time) <- mkPaneMan
   writeChan req ("root", "allow(user=adf) strict on rootShare.")

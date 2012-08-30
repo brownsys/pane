@@ -25,7 +25,7 @@ interactions port toClient fromClient = do
   return ()
     
 handleUser conn fromClient toClient = do
-  logo (hPutStrLn conn)
+--  logo (hPutStrLn conn)
   hPutStr conn "Login: "
   hFlush conn
   msg <- hGetLine conn
