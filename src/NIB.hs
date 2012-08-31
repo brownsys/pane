@@ -6,6 +6,7 @@ module NIB
   , PortCfg (..)
   , Msg (..)
   , Queue (..)
+  , SwitchType (..)
   , newQueue
   , switchWithNPorts
   , newEmptyNIB

@@ -14,6 +14,7 @@ import qualified Nettle.Servers.Server as OFS
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.List as List
+import System.Process
 
 type PacketIn = (OF.TransactionID, Integer, OF.SwitchID, OF.PacketInfo)
 
@@ -121,8 +122,13 @@ configureSwitch nibSnapshot switchHandle oldSw@(NIB.Switch oldPorts oldTbl _) = 
       configureSwitch nibSnapshot switchHandle oldSw
     Just sw@(NIB.Switch newPorts newTbl swType) -> do
       now <- readIORef sysTime
-      let (deleteQueueTimers, msgs') = mkPortMods now oldPorts newPorts 
-                                         (OFS.sendToSwitch switchHandle)
+      let (portActions, deleteQueueTimers, msgs') =
+           case swType of
+             NIB.ReferenceSwitch -> mkPortModsExt now oldPorts newPorts
+                                      (OFS.sendToSwitch switchHandle)
+             NIB.OpenVSwitch     -> mkPortModsOVS now oldPorts newPorts switchID
+             otherwise           -> -- putStrLn $ "Don't know how to create queues for " ++ show swType
+                                    (return(), return(), [])
       let msgs = msgs' ++ mkFlowMods now newTbl oldTbl
       unless (null msgs) $ do
          putStrLn $ "Controller modifying tables on " ++ showSwID switchID
@@ -132,6 +138,7 @@ configureSwitch nibSnapshot switchHandle oldSw@(NIB.Switch oldPorts oldTbl _) = 
          return ()
       -- TODO(adf): should do something smarter here than silently ignoring
       -- exceptions while writing config to switch...
+      portActions
       ignoreExns ("configuring switch with ID: " ++ showSwID switchID)
                  (mapM_ (OFS.sendToSwitch switchHandle) (zip [0 ..] msgs))
       deleteQueueTimers
@@ -164,17 +171,20 @@ mkFlowMods now newTbl oldTbl = map OF.FlowMod (delMsgs ++ addMsgs)
 
 -- |We cannot have queues automatically expire with the slicing extension.
 -- So, we return an action that sets up timers to delete queues.
-mkPortMods :: Integer
-           -> Map OF.PortID NIB.PortCfg
-           -> Map OF.PortID NIB.PortCfg
-           -> ((OF.TransactionID, OF.CSMessage) -> IO ())
-           -> (IO (), [OF.CSMessage])
-mkPortMods now portsNow portsNext sendCmd = (delTimers, addMsgs)
-  where addMsgs = map newQueueMsg newQueues
+mkPortModsExt :: Integer
+              -> Map OF.PortID NIB.PortCfg
+              -> Map OF.PortID NIB.PortCfg
+              -> ((OF.TransactionID, OF.CSMessage) -> IO ())
+              -> (IO (), IO (), [OF.CSMessage])
+mkPortModsExt now portsNow portsNext sendCmd = (addActions, delTimers, addMsgs)
+  where addActions = return ()
+        addMsgs = map newQueueMsg newQueues
         delTimers = sequence_ (map delQueueAction newQueues)
+
         newQueueMsg ((pid, qid), NIB.Queue resv _) =
           OF.ExtQueueModify pid 
             [OF.QueueConfig qid [OF.MinRateQueue (OF.Enabled resv)]]
+
         delQueueAction ((_, _), NIB.Queue _ NoLimit) = return ()
         delQueueAction ((pid, qid), NIB.Queue _ (DiscreteLimit end)) = do
           forkIO $ do
@@ -183,12 +193,46 @@ mkPortMods now portsNow portsNext sendCmd = (delTimers, addMsgs)
             ignoreExns ("deleting queue " ++ show qid)
                     (sendCmd (0, OF.ExtQueueDelete pid [OF.QueueConfig qid []]))
           return ()
+
         newQueues = Map.toList $
           flatten portsNext `Map.difference` flatten portsNow
         flatten portMap = Map.fromList $
           concatMap (\(pid, NIB.PortCfg qMap) ->
                       map (\(qid, q) -> ((pid, qid), q)) (Map.toList qMap))
                     (Map.toList portMap)
+
+-- |We cannot have queues automatically expire with Open vSwitch, either.
+-- So, we return an action that sets up timers to delete queues.
+mkPortModsOVS :: Integer
+              -> Map OF.PortID NIB.PortCfg
+              -> Map OF.PortID NIB.PortCfg
+              -> OF.SwitchID
+              -> (IO (), IO (), [OF.CSMessage])
+mkPortModsOVS now portsNow portsNext swid = (addActions, delTimers, addMsgs)
+  where addMsgs = [] -- No OpenFlow messages needed
+        addActions = sequence_ (map newQueueAction newQueues)
+        delTimers = sequence_ (map delQueueAction newQueues)
+
+        newQueueAction ((pid, qid), NIB.Queue resv _) = do
+                  putStrLn $ "Creating queue " ++ show qid ++ " on port " ++ show pid ++ " switch " ++ show swid
+                  rawSystem "./scripts/ovs-set-port-queue-min.sh" [show swid, show pid, show qid, show resv]
+
+        delQueueAction ((_, _), NIB.Queue _ NoLimit) = return ()
+        delQueueAction ((pid, qid), NIB.Queue _ (DiscreteLimit end)) = do
+          forkIO $ do
+            threadDelay (10^6 * (fromIntegral $ end - now))
+            putStrLn $ "Deleting queue " ++ show qid ++ " on port " ++ show pid
+            rawSystem "./scripts/ovs-delete-port-queue.sh" [show swid, show pid, show qid]
+            return()
+          return ()
+
+        newQueues = Map.toList $
+          flatten portsNext `Map.difference` flatten portsNow
+        flatten portMap = Map.fromList $
+          concatMap (\(pid, NIB.PortCfg qMap) ->
+                      map (\(qid, q) -> ((pid, qid), q)) (Map.toList qMap))
+                    (Map.toList portMap)
+
             
 -- TODO(arjun): toTimeout will fail if (end - now) does not fit in a Word16
 toTimeout :: Integer -> Limit -> OF.TimeOut

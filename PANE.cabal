@@ -47,6 +47,7 @@ Executable pane
     HUnit >= 1.2.2.3 && < 1.3,
     nettle-openflow,
     old-time,
-    HList
+    HList,
+    process
   ghc-options:
     -fwarn-incomplete-patterns
