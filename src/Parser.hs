@@ -148,15 +148,15 @@ checkTransport flow = case Flows.toMatch flow of
   Nothing -> True
   Just match ->
     let protoPresent = case OF.matchIPProtocol match of
-                       Nothing -> False
-                       (Just _) -> True
-        srcCheck   = case OF.srcTransportPort match of
-                       Nothing -> True
-                       (Just _) -> protoPresent
-        dstCheck   = case OF.dstTransportPort match of
-                       Nothing -> True
-                       (Just _) -> protoPresent
-    in (srcCheck && dstCheck)
+                         Nothing -> False
+                         Just _ -> True
+        srcCheck     = case OF.srcTransportPort match of
+                         Nothing -> True
+                         Just _ -> protoPresent
+        dstCheck     = case OF.dstTransportPort match of
+                         Nothing -> True
+                         Just _ -> protoPresent
+    in srcCheck && dstCheck
 
 flowGroupSet = do
   let prin = expUser <|> expTransport <|> expSrcPort <|> expDstPort
