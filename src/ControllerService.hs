@@ -111,7 +111,7 @@ configureSwitch :: Chan NIB.Snapshot -- ^input channel (from the Compiler)
                 -> OFS.SwitchHandle
                 -> NIB.Switch
                 -> IO ()
-configureSwitch nibSnapshot switchHandle oldSw@(NIB.Switch oldPorts oldTbl) = do
+configureSwitch nibSnapshot switchHandle oldSw@(NIB.Switch oldPorts oldTbl _) = do
   let switchID = OFS.handle2SwitchID switchHandle
   snapshot <- readChan nibSnapshot
   case Map.lookup switchID snapshot of
@@ -119,7 +119,7 @@ configureSwitch nibSnapshot switchHandle oldSw@(NIB.Switch oldPorts oldTbl) = do
       putStrLn $ "configureSwitch did not find " ++ showSwID switchID ++
                  " in the NIB snapshot."
       configureSwitch nibSnapshot switchHandle oldSw
-    Just sw@(NIB.Switch newPorts newTbl) -> do
+    Just sw@(NIB.Switch newPorts newTbl swType) -> do
       now <- readIORef sysTime
       let (deleteQueueTimers, msgs') = mkPortMods now oldPorts newPorts 
                                          (OFS.sendToSwitch switchHandle)

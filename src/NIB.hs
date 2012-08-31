@@ -85,6 +85,7 @@ data SwitchType
   | OpenVSwitch
   | OtherSwitch String
   | UnknownSwitch
+  deriving Eq
 
 instance Show SwitchType where
   show ReferenceSwitch = "Reference Switch"
@@ -397,7 +398,7 @@ snapshotSwitchData (sid, switch) = do
   ft <- readIORef (switchFlowTable switch)
   ports <- Ht.toList (switchPorts switch)
   ports <- mapM snapshotPortData ports
-  return (sid, Switch (Map.fromList ports) ft)
+  return (sid, Switch (Map.fromList ports) ft (switchType switch))
 
 snapshot :: NIB -> IO Snapshot
 snapshot nib = do
@@ -409,8 +410,9 @@ snapshot nib = do
 data PortCfg = PortCfg (Map OF.QueueID Queue) deriving (Show, Eq)
 
 data Switch = Switch {
-  switchPortMap :: Map OF.PortID PortCfg,
-  switchTbl :: FlowTbl 
+  switchPortMap  :: Map OF.PortID PortCfg,
+  switchTbl      :: FlowTbl,
+  switchTypeSnap :: SwitchType
 } deriving (Show, Eq)
 
 data Endpoint = Endpoint OF.IPAddress OF.EthernetAddress deriving (Show, Eq)
@@ -422,7 +424,7 @@ data Edge
 
 type Network = (Map OF.SwitchID Switch, [Endpoint], [Edge])
 
-emptySwitch = Switch Map.empty Set.empty
+emptySwitch = Switch Map.empty Set.empty UnknownSwitch
 
 -- |'unusedNumWithFloor flr lst' returns the smallest positive number greater
 -- than 'flr' which is not in 'lst'. Assumes that 'lst' is in ascending order.
@@ -451,4 +453,4 @@ newQueue ports portID gmb end = (queueID, ports')
 
 switchWithNPorts :: Word16 -> Switch
 switchWithNPorts n = 
-  Switch (Map.fromList [(k, PortCfg Map.empty) | k <- [0 .. n-1]]) Set.empty
+  Switch (Map.fromList [(k, PortCfg Map.empty) | k <- [0 .. n-1]]) Set.empty UnknownSwitch

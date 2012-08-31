@@ -81,7 +81,7 @@ compile nib (MatchTable tbl) = do
             putStrLn "compile error: ReqOutPort does not match a switch"
             return switches
           Just (_, match) -> return (Map.map upd switches)
-            where upd (ports, flows) = (ports, flows ++ [rule])
+            where upd (ports, flows, swtype) = (ports, flows ++ [rule], swtype)
                   rule = (match, [OF.SendOutPort pseudoPort], end)
       loop switches (fl, Just (ReqOutPort (Just switchID) pseudoPort, end)) =
         case Flows.flowSwitchMatch fl of
@@ -89,12 +89,12 @@ compile nib (MatchTable tbl) = do
             putStrLn "compile error: ReqOutPort does not match a switch"
             return switches
           Just (_, match) -> return (Map.adjust upd switchID switches)
-            where upd (ports, flows) = (ports, flows ++ [rule])
+            where upd (ports, flows, swtype) = (ports, flows ++ [rule], swtype)
                   rule = (match, [OF.SendOutPort pseudoPort], end)
       loop switches (flow, Just (ReqDeny, end)) = case Flows.toMatch flow of
         Just match -> 
           return (Map.map upd switches)
-            where upd (ports, flows) = (ports, flows ++ [rule])
+            where upd (ports, flows, swtype) = (ports, flows ++ [rule], swtype)
                   rule = (match, [], end)
         Nothing -> do
           putStrLn $ "compile deny cannot realize " ++ show flow
@@ -106,7 +106,7 @@ compile nib (MatchTable tbl) = do
           case path of
             [] -> return switches -- TODO(arjun): error?
             ((inp, sid, outp):_) -> return (Map.adjust upd sid switches)
-              where upd (ports, flows) = (ports, flows ++ [rule])
+              where upd (ports, flows, swtype) = (ports, flows ++ [rule], swtype)
                     port = OF.SendOutPort (OF.PhysicalPort outp)
                     rule = (Flows.toMatch' fl, [port], end)
       loop switches (fl, Just (ReqResv bw, end)) =
@@ -115,15 +115,15 @@ compile nib (MatchTable tbl) = do
           path <- NIB.getPath srcEth dstEth nib -- TODO(arjun): error on empty?
           let queue switches (inp, swid, outp) = 
                   Map.adjust (updSwitch inp outp) swid switches
-              updSwitch inp outp (ports, flows) = (ports', flows ++ [rule])
+              updSwitch inp outp (ports, flows, swtype) = (ports', flows ++ [rule], swtype)
                 where (queueID, ports') = NIB.newQueue ports outp bw' end
                       bw' = fromInteger bw -- TODO(arjun): fit in Word16
                       m   = Flows.toMatch' fl
                       rule = (m, [OF.Enqueue outp queueID], end)
           return (foldl queue switches path)
   snap <- NIB.snapshot nib
-  -- Recompile switches' flow tables from scratch, but remember port cfgs
-  let cfgs = Map.map (\(NIB.Switch p _) -> (p, [])) snap
+  -- Recompile switches' flow tables from scratch, but remember port cfgs and types
+  let cfgs = Map.map (\(NIB.Switch p _ t) -> (p, [], t)) snap
   cfgs' <- foldM loop cfgs tbl
   -- putStrLn "Policy:"
   -- mapM_ (\x -> putStrLn $ "    " ++ (show x)) tbl
@@ -131,5 +131,5 @@ compile nib (MatchTable tbl) = do
   -- mapM_ (\(_, (_, v)) -> putStrLn $ "  " ++ show v) (Map.toList cfgs')
   --
   -- Produce output snapshot
-  let f (ports, flows) = NIB.Switch ports (toFlowTbl flows)
+  let f (ports, flows, swtype) = NIB.Switch ports (toFlowTbl flows) swtype
   return (Map.map f cfgs')
