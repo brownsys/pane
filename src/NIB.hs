@@ -74,11 +74,23 @@ data EndpointData = EndpointData {
 
 data SwitchData = SwitchData {
   switchSwitchID                 :: OF.SwitchID,
+  switchType                     :: SwitchType,
   switchFlowTable                :: IORef FlowTbl,
   switchPorts                    :: HashTable OF.PortID PortData,
   switchFlowTableUpdateListener  :: IORef (FlowTbl -> IO ())
 }
 
+data SwitchType
+  = ReferenceSwitch
+  | OpenVSwitch
+  | OtherSwitch String
+  | UnknownSwitch
+
+instance Show SwitchType where
+  show ReferenceSwitch = "Reference Switch"
+  show OpenVSwitch = "Open vSwitch"
+  show (OtherSwitch t) = show t
+  show UnknownSwitch = "(Unknown)"
 
 data PortData = PortData {
   portPortID              :: OF.PortID,
@@ -104,6 +116,7 @@ instance Show PortData where
 data Msg
   = NewSwitch OFS.SwitchHandle OF.SwitchFeatures
   | PacketIn OF.SwitchID OF.PacketInfo
+  | StatsReply OF.SwitchID OF.StatsReply
 
 newEmptyNIB :: Chan Msg -> IO NIB
 newEmptyNIB msg = do
@@ -132,6 +145,14 @@ nibMutator nib (NewSwitch handle features) = do
                 sendDP handle (OF.portID p)
                 return ()
       mapM_ addPort' (OF.ports features)
+nibMutator nib (StatsReply swid reply) = case reply of
+  OF.DescriptionReply desc -> case OF.hardwareDesc desc of
+      "Reference Userspace Switch" -> setSwitchType swid ReferenceSwitch nib
+      "Open vSwitch" -> setSwitchType swid OpenVSwitch nib
+      otherwise -> setSwitchType swid (OtherSwitch (OF.hardwareDesc desc)) nib
+  otherwise -> putStrLn $ "unhandled statistics reply from switch " ++
+                 (OF.showSwID swid) ++ "\n" ++ show reply
+-- TODO: the code below should be broken-up somehow
 nibMutator nib (PacketIn tS pkt) = case OF.enclosedFrame pkt of
   Right (HL.HCons _ (HL.HCons (OF.PaneDPInEthernet fS fP) HL.HNil)) -> do
     let tP = OF.receivedOnPort pkt
@@ -217,9 +238,24 @@ addSwitch newSwitchID nib = do
   flowTbl <- newIORef Set.empty
   ports <- Ht.new (==) ((Ht.hashInt).fromIntegral)
   updListener <- newIORef (\_ -> return ()) 
-  let sw = SwitchData newSwitchID flowTbl ports updListener
+  let sw = SwitchData newSwitchID UnknownSwitch flowTbl ports updListener
   Ht.insert (nibSwitches nib) newSwitchID sw
   return (Just sw)
+
+setSwitchType :: OF.SwitchID -> SwitchType -> NIB -> IO ()
+setSwitchType swid stype nib = do
+  maybe <- Ht.lookup (nibSwitches nib) swid
+  case maybe of
+   Nothing -> do
+     putStrLn $ "switch " ++ OF.showSwID swid ++ " not yet in NIB."
+                          ++ " cannot add its type."
+     return()
+   Just sd ->
+     let sd' = sd { switchType = stype }
+     in do Ht.update (nibSwitches nib) swid sd'
+           -- putStrLn $ "set switch " ++ OF.showSwID swid ++
+           --            " to have type: " ++ show stype #DEBUG
+           return()
 
 addPort :: OF.PortID -> SwitchData -> IO (Maybe PortData)
 addPort newPortID switch = do

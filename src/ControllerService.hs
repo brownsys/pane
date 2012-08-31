@@ -56,6 +56,7 @@ controller nibSnapshot toNIB packets switches pktOut port = do
     nibSnapshot <- dupChan nibSnapshot
     forkIO (handleSwitch packets toNIB switches switch)
     forkIO (configureSwitch nibSnapshot switch NIB.emptySwitch)
+    OFS.sendToSwitch switch (0, OF.StatsRequest OF.DescriptionRequest)
   OFS.closeServer server
 
 --
@@ -93,6 +94,8 @@ messageHandler packets toNIB switch (xid, msg) = case msg of
     now <- readIORef sysTime
     writeChan packets (xid, now, OFS.handle2SwitchID switch, pkt)
     writeChan toNIB (NIB.PacketIn (OFS.handle2SwitchID switch) pkt)
+  OF.StatsReply pkt -> do
+    writeChan toNIB (NIB.StatsReply (OFS.handle2SwitchID switch) pkt)
   otherwise -> do
     putStrLn $ "unhandled message from switch " ++ 
                 (showSwID $ OFS.handle2SwitchID switch) ++ "\n" ++ show msg
