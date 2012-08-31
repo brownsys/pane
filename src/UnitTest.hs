@@ -208,7 +208,7 @@ testDeny1Switch = TestLabel "compile deny to 1 switch" $ TestCase $ do
       nib1 <- mkNib1
       cfg <- OFC.compile nib1 tbl
       case Map.toList cfg of
-        [(0, NIB.Switch _ tbl)] ->
+        [(0, NIB.Switch _ tbl _)] ->
           assertEqual "expected deny rule"
             [(65535, Flows.toMatch' flowHttp1, [], 15)]
             (S.toList tbl)
@@ -225,7 +225,7 @@ testResv1Switch = TestLabel "compile Resv to 1 switch" $ TestCase $ do
       nib1 <- mkNib1
       cfg <- OFC.compile nib1 tbl
       case Map.toList cfg of
-        [(0, NIB.Switch _ tbl)] ->
+        [(0, NIB.Switch _ tbl _)] ->
           assertEqual "should resv flowHttp1" 
             [(65535, Flows.toMatch' flowHttp1, [OF.Enqueue 0 0], 15)]
             (S.toList tbl)
@@ -242,7 +242,7 @@ testDeny2Switch = TestLabel "compile deny to 2 switches" $ TestCase $ do
       nib2 <- mkNib2
       cfg <- OFC.compile nib2 tbl
       case Map.toList cfg of
-        [(0, NIB.Switch _ tbl0), (1, NIB.Switch _ tbl1)] -> do
+        [(0, NIB.Switch _ tbl0 _), (1, NIB.Switch _ tbl1 _)] -> do
           assertEqual "should have empty table at switch 0" [] (S.toList tbl0)
           assertEqual "should have 1 deny in switch 1"
             [(65535, Flows.toMatch' flowHttp1, [], 15)]
@@ -259,7 +259,7 @@ testResv2Switch = TestLabel "compile Resv to 2 switches" $ TestCase $ do
       nib2 <- mkNib2
       cfg <- OFC.compile nib2 tbl
       case Map.toList cfg of
-        [(0, NIB.Switch _ tbl0), (1, NIB.Switch _ tbl1)] -> do
+        [(0, NIB.Switch _ tbl0 _), (1, NIB.Switch _ tbl1 _)] -> do
           assertEqual "should have queue on switch 0"
             [(65535, Flows.toMatch' flowHttp1, [OF.Enqueue 0 0], 15)]
             (S.toList tbl0)
