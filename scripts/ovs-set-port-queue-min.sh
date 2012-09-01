@@ -9,7 +9,7 @@ queue_name="q$queue_id"
 
 if [ "$min_rate" == "000000" ]; then
 	echo "Error: requires <dpid> <port_num> <queue_id> <min_rate>"
-	exit
+	exit 1
 fi
 
 ##
@@ -24,7 +24,7 @@ done
 
 if [ ! "$tmp_dpid" -eq "$dpid" ]; then
     echo "Error: could not find switch name in `ovs-vsctl | list-br` !"
-    exit
+    exit 1
 fi
 
 switch_name=$name

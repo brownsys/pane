@@ -4,7 +4,7 @@ dpid=$1
 
 if [ "$dpid" == "" ]; then
 	echo "Error: requires <dpid>"
-	exit
+	exit 1
 fi
 
 ##
@@ -19,7 +19,7 @@ done
 
 if [ ! "$tmp_dpid" -eq "$dpid" ]; then
     echo "Error: could not find switch name in `ovs-vsctl | list-br` !"
-    exit
+    exit 1
 fi
 
 switch_name=$name

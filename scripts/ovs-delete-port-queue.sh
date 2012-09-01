@@ -6,12 +6,12 @@ queue_id=$3
 
 if [ "$queue_id" == "" ]; then
 	echo "Error: requires <dpid> <port_num> <queue_id>"
-	exit
+	exit 1
 fi
 
 if [ "$queue_id" == "0" ]; then
 	echo "Will not delete default queue"
-	exit
+	exit 1
 fi
 
 ##
@@ -26,7 +26,7 @@ done
 
 if [ ! "$tmp_dpid" -eq "$dpid" ]; then
     echo "Error: could not find switch name in `ovs-vsctl | list-br` !"
-    exit
+    exit 1
 fi
 
 switch_name=$name
@@ -40,7 +40,7 @@ queue_uuid=`ovs-vsctl list QoS $port_dev | grep "^queues" | awk -F{ '{ print $2 
 
 if [ "$queue_uuid" == "" ]; then
 	echo "Port $port_num, Queue $queue_id does not exist"
-	exit
+	exit 1
 fi
 
 ovs-vsctl -- remove QoS $port_dev queues $queue_id=$queue_uuid
