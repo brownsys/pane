@@ -227,7 +227,7 @@ testResv1Switch = TestLabel "compile Resv to 1 switch" $ TestCase $ do
       case Map.toList cfg of
         [(0, NIB.Switch _ tbl _)] ->
           assertEqual "should resv flowHttp1" 
-            [(65535, Flows.toMatch' flowHttp1, [OF.Enqueue 0 0], 15)]
+            [(65535, Flows.toMatch' flowHttp1, [OF.Enqueue 0 1], 15)]
             (S.toList tbl)
         x -> assertFailure $ "should see a single switch, got " ++ show x
 
@@ -261,10 +261,10 @@ testResv2Switch = TestLabel "compile Resv to 2 switches" $ TestCase $ do
       case Map.toList cfg of
         [(0, NIB.Switch _ tbl0 _), (1, NIB.Switch _ tbl1 _)] -> do
           assertEqual "should have queue on switch 0"
-            [(65535, Flows.toMatch' flowHttp1, [OF.Enqueue 0 0], 15)]
+            [(65535, Flows.toMatch' flowHttp1, [OF.Enqueue 0 1], 15)]
             (S.toList tbl0)
           assertEqual "should have queue on switch 1"
-            [(65535, Flows.toMatch' flowHttp1, [OF.Enqueue 1 0], 15)]
+            [(65535, Flows.toMatch' flowHttp1, [OF.Enqueue 1 1], 15)]
             (S.toList tbl1)
         x -> assertFailure $ "should see two switches, got " ++ show x
 
