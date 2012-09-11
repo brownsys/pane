@@ -6,6 +6,7 @@ module HFT
   , compileShareTree
   , emptyTable
   , unionTable
+  , concatTable
   , condense
   ) where
 
@@ -73,6 +74,9 @@ unionTable :: (Action -> Action -> Action)
 unionTable cmb mt1@(MatchTable tbl1) mt2@(MatchTable tbl2) = 
   MatchTable (tbl' ++ tbl1 ++ tbl2)
     where (MatchTable tbl') = intersectTable cmb mt1 mt2
+
+concatTable mt1@(MatchTable tbl1) mt2@(MatchTable tbl2) =
+  MatchTable (tbl1 ++ tbl2)
 
 shareToTable :: Integer
              -> Share

@@ -25,6 +25,6 @@ combinedPaneMac switch packetIn paneReq tickChan = do
   (macLearnedTbl, pktOutChan) <- macLearning switch packetIn
   let cmb pt mt = do
         now <- readIORef sysTime
-        return $ condense now (unionTable (\p _ -> p) pt mt)
+        return $ condense now (pt `concatTable` mt)
   combinedTbl <- liftChan cmb (emptyTable, paneTbl) (emptyTable, macLearnedTbl)
   return (combinedTbl, paneResp, pktOutChan)
