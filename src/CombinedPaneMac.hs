@@ -17,9 +17,9 @@ import qualified Flows
 -- OpenFlow packetOut messages
 combinedPaneMac :: Chan (OF.SwitchID, Bool) 
                 -> Chan (OF.TransactionID, Integer, OF.SwitchID, OF.PacketInfo)
-                -> Chan (Speaker, String)
+                -> Chan (Speaker, Integer, String)
                 -> Chan Integer
-                -> IO (Chan MatchTable, Chan (Speaker, String), PacketOutChan)
+                -> IO (Chan MatchTable, Chan (Speaker, Integer, String), PacketOutChan)
 combinedPaneMac switch packetIn paneReq tickChan = do
   (paneTbl, paneResp) <- paneMgr paneReq tickChan
   (macLearnedTbl, pktOutChan) <- macLearning switch packetIn

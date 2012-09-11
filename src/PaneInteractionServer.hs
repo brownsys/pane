@@ -12,19 +12,22 @@ import Nettle.OpenFlow
 import System.Time
 
 interactions :: Word16
-             -> Chan (Speaker, String)
-             -> Chan (Speaker, String)
+             -> Chan (Speaker, Integer, String)
+             -> Chan (Speaker, Integer, String)
              -> IO ()
 interactions port toClient fromClient = do
   sock <- listenOn (PortNumber $ fromIntegral port)
+  clientIdCounter <- newMVar 0
   forkIO $ forever $ do
     (h, _, _) <- accept sock
+    clientId <- takeMVar clientIdCounter
+    putMVar clientIdCounter (clientId + 1)
     hSetBuffering h LineBuffering
     toClient <- dupChan toClient
-    forkIO (handleUser h fromClient toClient)
+    forkIO (handleUser h clientId fromClient toClient)
   return ()
     
-handleUser conn fromClient toClient = do
+handleUser conn clientId fromClient toClient = do
 --  logo (hPutStrLn conn)
   hPutStr conn "Login: "
   hFlush conn
@@ -32,11 +35,11 @@ handleUser conn fromClient toClient = do
   let (tmp1, _) = span (/='.') msg
   let (tmp2, _) = span (/='\r') tmp1
   let (spk, _) = span (/='\n') tmp2
-  writeChan toClient (spk, "logged in")
+  writeChan toClient (spk, clientId, "logged in")
   -- monitor the toClient bus for messages to this client
   forkIO $ forever $ do
-    (spk', msg) <- readChan toClient
-    when (spk == spk') $ do
+    (spk', id', msg) <- readChan toClient
+    when (spk == spk' && clientId == id') $ do
       hPutStrLn conn msg
       hPutStr conn (spk ++ "> ")
       hFlush conn
@@ -45,4 +48,4 @@ handleUser conn fromClient toClient = do
   forever $ do
     msg <- hGetLine conn
     putStrLn $ spk ++ ": " ++ show msg
-    writeChan fromClient (spk, msg)
+    writeChan fromClient (spk, clientId, msg)

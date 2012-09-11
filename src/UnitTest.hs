@@ -367,60 +367,60 @@ assertReadChanEqual msg val chan = do
 testAdmComm1 = TestLabel "overlapping non-strict admission control decisions \
   \ should succeed" $ TestCase $ do
   (tbl, resp, req, _) <- mkPaneMan
-  writeChan req ("root", "allow(user=adf) on rootShare.")
-  assertReadChanEqual "allow should succeed" ("root", "True") resp
-  writeChan req ("root", "deny(user=adf, dstHost=10.200.0.1) on rootShare.")
-  assertReadChanEqual "deny should also succeed" ("root", "True") resp
+  writeChan req ("root", 0, "allow(user=adf) on rootShare.")
+  assertReadChanEqual "allow should succeed" ("root", 0, "True") resp
+  writeChan req ("root", 0, "deny(user=adf, dstHost=10.200.0.1) on rootShare.")
+  assertReadChanEqual "deny should also succeed" ("root", 0, "True") resp
   -- Flip order of requests
   (tbl, resp', req, _) <- mkPaneMan
-  writeChan req ("root", "deny(user=adf, dstHost=10.200.0.1) on rootShare.")
-  assertReadChanEqual "deny also succeed" ("root", "True") resp
-  writeChan req ("root", "allow(user=adf) on rootShare.")
-  assertReadChanEqual "allow should also succeed" ("root", "True") resp
+  writeChan req ("root", 0, "deny(user=adf, dstHost=10.200.0.1) on rootShare.")
+  assertReadChanEqual "deny also succeed" ("root", 0, "True") resp
+  writeChan req ("root", 0, "allow(user=adf) on rootShare.")
+  assertReadChanEqual "allow should also succeed" ("root", 0, "True") resp
 
 testAdmComm2 = TestLabel "strict should comm" $ TestCase $ do
   (tbl, resp, req, time) <- mkPaneMan
-  writeChan req ("root", "deny(user=adf, dstHost=10.200.0.1) on rootShare.")
-  assertReadChanEqual "deny should succeed" ("root", "True") resp
-  writeChan req ("root", "allow(user=adf) strict on rootShare.")
-  assertReadChanEqual "strict allow should fail" ("root", "True") resp -- TODO(adf): should be "False" ???
+  writeChan req ("root", 0, "deny(user=adf, dstHost=10.200.0.1) on rootShare.")
+  assertReadChanEqual "deny should succeed" ("root", 0, "True") resp
+  writeChan req ("root", 0, "allow(user=adf) strict on rootShare.")
+  assertReadChanEqual "strict allow should fail" ("root",  0,"True") resp -- TODO(adf): should be "False" ???
   -- Flip order of requests
   (tbl, resp, req, time) <- mkPaneMan
-  writeChan req ("root", "allow(user=adf) strict on rootShare.")
-  assertReadChanEqual "allow should succeed" ("root", "True") resp
-  writeChan req ("root", "deny(user=adf, dstHost=10.200.0.1) on rootShare.")
-  assertReadChanEqual "deny should fail (breaks allow)" ("root", "False") resp
+  writeChan req ("root", 0, "allow(user=adf) strict on rootShare.")
+  assertReadChanEqual "allow should succeed" ("root", 0, "True") resp
+  writeChan req ("root", 0, "deny(user=adf, dstHost=10.200.0.1) on rootShare.")
+  assertReadChanEqual "deny should fail (breaks allow)" ("root", 0, "False") resp
 
 
 testPane10 = TestLabel "root should be able to create sub-share" $ TestCase $ do
   (tbl, resp, req, time) <- mkPaneMan
-  writeChan req ("root", "NewShare net0 for (*) [reserve <= 200] on rootShare.")
+  writeChan req ("root", 0, "NewShare net0 for (*) [reserve <= 200] on rootShare.")
   assertReadChanEqual "root should be able create sub-share" 
-    ("root", "True") resp
+    ("root", 0, "True") resp
 
 testPane24 = TestLabel "token graphs should work" $ TestCase $ do
   (tbl, resp, req, time) <- mkPaneMan
-  writeChan req ("root", "NewShare net0 for (*) [reserve <= 200] on rootShare.")
-  assertReadChanEqual "root should be able to create net0" ("root", "True") resp
-  writeChan req ("root", "reserve(*) = 10 on net0 from 0 to 10.")
-  assertReadChanEqual "root should be able to reserve" ("root", "True") resp
+  writeChan req ("root", 0, "NewShare net0 for (*) [reserve <= 200] on rootShare.")
+  assertReadChanEqual "root should be able to create net0" ("root", 0, "True") resp
+  writeChan req ("root", 0, "reserve(*) = 10 on net0 from 0 to 10.")
+  assertReadChanEqual "root should be able to reserve" ("root", 0, "True") resp
   writeChan time 0
   let resvTbl = MatchTable [(Flows.all, Just (ReqResv 10, 10))]
   assertReadChanEqual "compiled table should have a reservation" resvTbl tbl
-  writeChan req ("root", "reserve(*) = 191 on net0.")
-  assertReadChanEqual "root should be able to reserve" ("root", "False") resp
+  writeChan req ("root", 0, "reserve(*) = 191 on net0.")
+  assertReadChanEqual "root should be able to reserve" ("root", 0, "False") resp
   -- Tell root no, and ensure that table is empty!
   writeChan time 5
-  writeChan req ("root", "reserve(*) = 191 on net0.")
-  assertReadChanEqual "reservation should fail at t=5" ("root", "False") resp
+  writeChan req ("root", 0, "reserve(*) = 191 on net0.")
+  assertReadChanEqual "reservation should fail at t=5" ("root", 0, "False") resp
   assertReadChanEqual "compiled table should be the same" resvTbl tbl
   writeChan time 7
-  writeChan req ("root", "reserve(*) = 191 on net0.")
-  assertReadChanEqual "reservation should fail at t=7" ("root", "False") resp
+  writeChan req ("root", 0, "reserve(*) = 191 on net0.")
+  assertReadChanEqual "reservation should fail at t=7" ("root", 0, "False") resp
   assertReadChanEqual "compiled table should be the same" resvTbl tbl
   writeChan time 11
-  writeChan req ("root", "reserve(*) = 200 on net0.")
-  assertReadChanEqual "reservation should pass at t=11" ("root", "True") resp
+  writeChan req ("root", 0, "reserve(*) = 200 on net0.")
+  assertReadChanEqual "reservation should pass at t=11" ("root", 0, "True") resp
   assertReadChanEqual "table should be empty until next tick" emptyTable tbl
   writeChan time 11
   assertReadChanEqual "compiled table should have resv of 200"
@@ -456,8 +456,8 @@ testPaneMac0 = TestLabel "test PANE overriding MAC learning" $ TestCase $ do
     (MatchTable [ML.rule 0 34 (ethernetAddress64 0xbb) (Just (1, 60)), 
                  ML.rule 0 34 (ethernetAddress64 0xfe) (Just (2, 60))])
     tbl 
-  writeChan req ("root", "deny(dstEth=00:00:00:00:00:bb) on rootShare.")
-  assertReadChanEqual "root should be able to deny" ("root", "True") resp
+  writeChan req ("root", 0, "deny(dstEth=00:00:00:00:00:bb) on rootShare.")
+  assertReadChanEqual "root should be able to deny" ("root", 0, "True") resp
   writeChan time 0 -- TODO(arjun): paneMgr only writes on ticks. problem?
   assertReadChanEqual "deny should override MAC learning"
     (MatchTable [
