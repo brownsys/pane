@@ -25,6 +25,7 @@ import CombinedPaneMac
 import PaneInteractionServer (interactions)
 import Data.ConfigFile
 import Control.Monad.Error
+import Control.Exception
 
 data Argument
   = Test String
@@ -67,10 +68,7 @@ timeService = do
 readConfig file = do
   putStrLn $ "Reading config file: " ++ file
   rv <- runErrorT $ do
-      cp <- join $ liftIO $ readfile (emptyCP { optionxform = id }) file -- `catch`
-                          {-    (\e -> do let err = show (e :: IOException)
-                                        putStrLn $ ("Warning: Couldn't open " ++ file ++ ": " ++ err)
-                                        return (Left emptyCP)) -}
+      cp <- join $ liftIO $ readfile (emptyCP { optionxform = id }) file
       return cp
   case rv of
     Left x ->  do putStrLn $ "Invalid config file; using built-in defaults. " ++ show(x)
@@ -103,7 +101,11 @@ action [Config file, NewServer port] = do
   putStrLn "Starting PANE  ..."
   (initTime, tickChan) <- timeService
 
-  settings <- readConfig file
+  settings <- readConfig file `catch`
+                              (\e -> do let err = show (e :: IOException)
+                                        putStrLn $ ("Warning: Couldn't open " ++ file ++ ": " ++ err)
+                                        return emptyCP)
+
   config <- parseConfig settings defaultControllerConfig
 
   putStrLn "Creating empty NIB..."
