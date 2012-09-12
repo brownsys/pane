@@ -330,6 +330,10 @@ packet srcMAC dstMAC inPort =
     in OF.PacketInfo Nothing 1500 inPort OF.NotMatched BS.empty (Right frame)
 
 
+-- Setup is:
+-- ... 2 switches: 34 and 55
+-- ... node with MAC 0x44 attached to port 1 of switch 34
+-- ... node with MAC 0x99 attached to port 2 of switch 34
 testMacLearn1 = TestLabel "should learn route " $ TestCase $ do
   swChan <- newChan
   pktChan <- newChan
@@ -341,12 +345,17 @@ testMacLearn1 = TestLabel "should learn route " $ TestCase $ do
   writeChan pktChan (99 {- txID -}, 0, 34, packet 0x44 0x99 1)
   tbl <- readChan tblChan
   assertEqual "should learn a flood"
-    (MatchTable [ML.rule 0 34 (ethernetAddress64 0x99) Nothing]) tbl 
+    (MatchTable [ML.rule 0 34 0x1 (ethernetAddress64 0x99) Nothing]) tbl
   writeChan pktChan (98 {- txID -}, 0, 34, packet 0x99 0x44 2)
   tbl <- readChan tblChan
+  assertEqual "should learn new route"
+    (MatchTable [ML.rule 0 34 0x1 (ethernetAddress64 0x99) Nothing,
+                 ML.rule 0 34 0x2 (ethernetAddress64 0x44) (Just (1, 0))]) tbl
+  writeChan pktChan (97 {- txID -}, 3, 34, packet 0x44 0x99 1)
+  tbl <- readChan tblChan
   assertEqual "should learn two routes"
-    (MatchTable [ML.rule 0 34 (ethernetAddress64 0x44) (Just (1, 60)), 
-                 ML.rule 0 34 (ethernetAddress64 0x99) (Just (2, 60))]) tbl 
+    (MatchTable [ML.rule 0 34 0x1 (ethernetAddress64 0x99) (Just (2, 0)),
+                 ML.rule 0 34 0x2 (ethernetAddress64 0x44) (Just (1, 0))]) tbl
 
 
 
@@ -366,13 +375,14 @@ assertReadChanEqual msg val chan = do
 
 testAdmComm1 = TestLabel "overlapping non-strict admission control decisions \
   \ should succeed" $ TestCase $ do
+  putStrLn $ "at start"
   (tbl, resp, req, _) <- mkPaneMan
   writeChan req ("root", 0, "allow(user=adf) on rootShare.")
   assertReadChanEqual "allow should succeed" ("root", 0, "True") resp
   writeChan req ("root", 0, "deny(user=adf, dstHost=10.200.0.1) on rootShare.")
   assertReadChanEqual "deny should also succeed" ("root", 0, "True") resp
   -- Flip order of requests
-  (tbl, resp', req, _) <- mkPaneMan
+  (tbl, resp, req, _) <- mkPaneMan
   writeChan req ("root", 0, "deny(user=adf, dstHost=10.200.0.1) on rootShare.")
   assertReadChanEqual "deny also succeed" ("root", 0, "True") resp
   writeChan req ("root", 0, "allow(user=adf) on rootShare.")
@@ -441,32 +451,33 @@ mkPaneWithMacLearning = do
   (tbl, paneResp, _) <- combinedPaneMac switch packet paneReq time
   return (tbl, paneResp, switch, packet, paneReq, time)
 
+-- Setup
+-- ... 2 switches: 34 and 55
+-- ... Mac Address 0xbb attached to port 1, switch 34
+-- ... Mac Address 0xfe attached to port 2, switch 34
 testPaneMac0 = TestLabel "test PANE overriding MAC learning" $ TestCase $ do
   (tbl, resp, switch, pkt, req, time) <- mkPaneWithMacLearning
   writeChan switch (55, True)
   writeChan switch (34, True)
   writeChan pkt (977 {- txID -}, 0, 34, packet 0xbb 0xfe 1)
   let ethbb = ethernetAddress64 0xbb
-  assertReadChanEqual "should learn a flood and 1 route"
-    (MatchTable [ML.rule 0 34 ethbb (Just (1, 60)), 
-                 ML.rule 0 34 (ethernetAddress64 0xfe) Nothing]) 
-    tbl 
+  assertReadChanEqual "should learn a flood"
+    (MatchTable [ML.rule 0 34 0x1 (ethernetAddress64 0xfe) Nothing])
+    tbl
   writeChan pkt (988 {- txID -}, 0, 34, packet 0xfe 0xbb 2)
-  assertReadChanEqual "should learn two routes"
-    (MatchTable [ML.rule 0 34 (ethernetAddress64 0xbb) (Just (1, 60)), 
-                 ML.rule 0 34 (ethernetAddress64 0xfe) (Just (2, 60))])
-    tbl 
+  assertReadChanEqual "should learn a flood and one route"
+    (MatchTable [ML.rule 0 34 0x1 (ethernetAddress64 0xfe) Nothing,
+                 ML.rule 0 34 0x2 (ethernetAddress64 0xbb) (Just (1, 0))])
+    tbl
   writeChan req ("root", 0, "deny(dstEth=00:00:00:00:00:bb) on rootShare.")
   assertReadChanEqual "root should be able to deny" ("root", 0, "True") resp
   writeChan time 0 -- TODO(arjun): paneMgr only writes on ticks. problem?
   assertReadChanEqual "deny should override MAC learning"
     (MatchTable [
-      (Flows.fromSwitchMatch 34 (OF.matchAny { OF.dstEthAddress = Just ethbb }),
-       Just (ReqDeny, NoLimit)),
       (Flows.fromMatch (OF.matchAny { OF.dstEthAddress = Just ethbb }),
        Just (ReqDeny, NoLimit)),
-      ML.rule 0 34 (ethernetAddress64 0xfe) (Just (2, 60))])
-    tbl 
+      ML.rule 0 34 0x1 (ethernetAddress64 0xfe) Nothing])
+    tbl
   
   
 

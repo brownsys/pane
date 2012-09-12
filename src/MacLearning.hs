@@ -21,12 +21,13 @@ getPacketMac pkt = case OF.enclosedFrame pkt of
 
 rule :: Integer                       -- ^current time
      -> OF.SwitchID                   -- ^switch
+     -> OF.PortID
      -> OF.EthernetAddress            -- ^destination Eth addr
      -> Maybe (OF.PortID, Integer)    -- ^output port, timeout
      -> (Flows.FlowGroup, Action)     -- ^(switch, match rule), action
-rule now sw eth port = (match, action) where
-  match = Flows.fromSwitchMatch sw (OF.matchAny { OF.dstEthAddress = Just eth })
-  action = case port of
+rule now sw srcPort eth dstPort = (match, action) where
+  match = Flows.fromSwitchMatch sw (OF.matchAny { OF.inPort = Just srcPort, OF.dstEthAddress = Just eth })
+  action = case dstPort of
      Nothing -> Just (ReqOutPort (Just sw) OF.Flood, fromInteger $ now + 5)
      Just (portID, t) -> Just (ReqOutPort (Just sw) (OF.PhysicalPort portID), 
                                fromInteger $ t + 60)
@@ -77,7 +78,7 @@ macLearning switchChan packetInChan = do
               -- establish forwarding rule
               maybeDstPortTime <- Ht.lookup fwdTbl dstMac
               let singleTbl = MatchTable 
-                    [ rule now switchID dstMac maybeDstPortTime ]
+                    [ rule now switchID srcPort dstMac maybeDstPortTime ]
 
               case OF.bufferID packet of
                 Nothing -> return ()

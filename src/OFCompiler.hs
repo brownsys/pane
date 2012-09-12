@@ -92,6 +92,10 @@ compile nib (MatchTable tbl) = do
             where upd (ports, flows, swtype) = (ports, flows ++ [rule], swtype)
                   rule = (match, [OF.SendOutPort pseudoPort], end)
       loop switches (flow, Just (ReqDeny, end)) = case Flows.toMatch flow of
+        -- TODO(adf): if the flow has an IP src or dst, we should try looking
+        -- for that IP in the NIB and instead of updating all of the switches,
+        -- as the code below does, install the deny only on the closest switch.
+        -- This corresponds to the unit test: testDeny2Switch
         Just match -> 
           return (Map.map upd switches)
             where upd (ports, flows, swtype) = (ports, flows ++ [rule], swtype)
