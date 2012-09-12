@@ -194,8 +194,9 @@ mkPortModsExt now portsNow portsNext sendCmd = (addActions, delTimers, addMsgs)
                     (sendCmd (0, OF.ExtQueueDelete pid [OF.QueueConfig qid []]))
           return ()
 
+        qCmpLeft ql qr = if ql == qr then Nothing else (Just ql)
         newQueues = Map.toList $
-          flatten portsNext `Map.difference` flatten portsNow
+          Map.differenceWith qCmpLeft (flatten portsNext) (flatten portsNow)
         flatten portMap = Map.fromList $
           concatMap (\(pid, NIB.PortCfg qMap) ->
                       map (\(qid, q) -> ((pid, qid), q)) (Map.toList qMap))
@@ -226,8 +227,9 @@ mkPortModsOVS now portsNow portsNext swid = (addActions, delTimers, addMsgs)
             return()
           return ()
 
+        qCmpLeft ql qr = if ql == qr then Nothing else (Just ql)
         newQueues = Map.toList $
-          flatten portsNext `Map.difference` flatten portsNow
+          Map.differenceWith qCmpLeft (flatten portsNext) (flatten portsNow)
         flatten portMap = Map.fromList $
           concatMap (\(pid, NIB.PortCfg qMap) ->
                       map (\(qid, q) -> ((pid, qid), q)) (Map.toList qMap))
