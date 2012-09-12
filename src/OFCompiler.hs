@@ -65,7 +65,8 @@ compile nib (MatchTable tbl) = do
               (Just s, Just d) -> 
                   k flow s d
               otherwise -> do
-                putStrLn $ "compiler could not find flow in NIB " ++ show flow
+                -- TODO(adf): awaiting logging code...
+                -- putStrLn $ "compiler could not find flow in NIB " ++ show flow
                 default_
           otherwise -> do
             putStrLn $ "compiler needs IP for src and dst " ++ show flow

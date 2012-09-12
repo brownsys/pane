@@ -130,12 +130,14 @@ configureSwitch nibSnapshot switchHandle oldSw@(NIB.Switch oldPorts oldTbl _) = 
              otherwise           -> -- putStrLn $ "Don't know how to create queues for " ++ show swType
                                     (return(), return(), [])
       let msgs = msgs' ++ mkFlowMods now newTbl oldTbl
+{- TODO(adf): re-enable this code when we have propper logging
       unless (null msgs) $ do
          putStrLn $ "Controller modifying tables on " ++ showSwID switchID
          putStrLn $ "sending " ++ show (length msgs) ++ " messages; oldTbl size = " ++ show (Set.size oldTbl) ++ " newTbl size = " ++ show (Set.size newTbl)
          mapM_ (\x -> putStrLn $ "   " ++ show x) msgs
          putStrLn "-------------------------------------------------"
          return ()
+-}
       -- TODO(adf): should do something smarter here than silently ignoring
       -- exceptions while writing config to switch...
       portActions
@@ -189,7 +191,8 @@ mkPortModsExt now portsNow portsNext sendCmd = (addActions, delTimers, addMsgs)
         delQueueAction ((pid, qid), NIB.Queue _ (DiscreteLimit end)) = do
           forkIO $ do
             threadDelay (10^6 * (fromIntegral $ end - now))
-            putStrLn $ "Deleting queue " ++ show qid ++ " on port " ++ show pid
+            -- TODO(adf): awaiting logging code...
+            -- putStrLn $ "Deleting queue " ++ show qid ++ " on port " ++ show pid
             ignoreExns ("deleting queue " ++ show qid)
                     (sendCmd (0, OF.ExtQueueDelete pid [OF.QueueConfig qid []]))
           return ()
@@ -215,14 +218,16 @@ mkPortModsOVS now portsNow portsNext swid = (addActions, delTimers, addMsgs)
         delTimers = sequence_ (map delQueueAction newQueues)
 
         newQueueAction ((pid, qid), NIB.Queue resv _) = do
-                  putStrLn $ "Creating queue " ++ show qid ++ " on port " ++ show pid ++ " switch " ++ show swid
+                  -- TODO(adf): awaiting logging code...
+                  -- putStrLn $ "Creating queue " ++ show qid ++ " on port " ++ show pid ++ " switch " ++ show swid
                   rawSystem "./scripts/ovs-set-port-queue-min.sh" [show swid, show pid, show qid, show resv]
 
         delQueueAction ((_, _), NIB.Queue _ NoLimit) = return ()
         delQueueAction ((pid, qid), NIB.Queue _ (DiscreteLimit end)) = do
           forkIO $ do
             threadDelay (10^6 * (fromIntegral $ end - now))
-            putStrLn $ "Deleting queue " ++ show qid ++ " on port " ++ show pid
+            -- TODO(adf): awaiting logging code...
+            -- putStrLn $ "Deleting queue " ++ show qid ++ " on port " ++ show pid
             rawSystem "./scripts/ovs-delete-port-queue.sh" [show swid, show pid, show qid]
             return()
           return ()
