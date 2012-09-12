@@ -42,8 +42,8 @@ argSpec =
 
 defaultControllerConfig = ControllerConfig
   { controllerPort = 6633
-  , ovsSetPortQ    = "./scripts/ovs-set-port-queue-min.sh"
-  , ovsDeletePortQ = "./scripts/ovs-delete-port-queue.sh"
+  , ovsSetQueue    = "./scripts/ovs-set-port-queue-min.sh"
+  , ovsDeleteQueue = "./scripts/ovs-delete-port-queue.sh"
   }
 
 runTestFile f = do
@@ -80,14 +80,14 @@ parseConfig settings config = do
               Left e  -> do putStrLn $ "Invalid controller port setting; using default. " ++ show(e)
                             return config
               Right x -> return (config { controllerPort = x })
-  config <- case get settings "Open vSwitch" "setPortScript" of
+  config <- case get settings "Open vSwitch" "setQueueScript" of
               Left e  -> do putStrLn $ "Invalid OVS set port script; using default. " ++ show(e)
                             return config
-              Right x -> return (config { ovsSetPortQ = x })
-  config <- case get settings "Open vSwitch" "deletePortScript" of
+              Right x -> return (config { ovsSetQueue = x })
+  config <- case get settings "Open vSwitch" "deleteQueueScript" of
               Left e  -> do putStrLn $ "Invalid OVS delete port script; using default. " ++ show(e)
                             return config
-              Right x -> return (config { ovsDeletePortQ = x })
+              Right x -> return (config { ovsDeleteQueue = x })
   return config
 
 --

@@ -22,8 +22,8 @@ type PacketIn = (OF.TransactionID, Integer, OF.SwitchID, OF.PacketInfo)
 
 data ControllerConfig = ControllerConfig
   { controllerPort  :: Word16
-  , ovsSetPortQ     :: String
-  , ovsDeletePortQ  :: String
+  , ovsSetQueue     :: String
+  , ovsDeleteQueue  :: String
   }
 
 retryOnExns :: String -> IO a -> IO a
@@ -230,7 +230,7 @@ mkPortModsOVS now portsNow portsNext swid config = (addActions, delTimers, addMs
         newQueueAction ((pid, qid), NIB.Queue resv _) = do
             -- TODO(adf): awaiting logging code...
             -- putStrLn $ "Creating queue " ++ show qid ++ " on port " ++ show pid ++ " switch " ++ show swid
-          exitcode <- rawSystem (ovsSetPortQ config) [show swid, show pid, show qid, show resv]
+          exitcode <- rawSystem (ovsSetQueue config) [show swid, show pid, show qid, show resv]
           case exitcode of
             ExitSuccess   -> return ()
             ExitFailure n -> putStrLn $ "Exception (ignoring): " ++
@@ -242,7 +242,7 @@ mkPortModsOVS now portsNow portsNext swid config = (addActions, delTimers, addMs
             threadDelay (10^6 * (fromIntegral $ end - now))
             -- TODO(adf): awaiting logging code...
             -- putStrLn $ "Deleting queue " ++ show qid ++ " on port " ++ show pid
-            exitcode <- rawSystem (ovsDeletePortQ config) [show swid, show pid, show qid]
+            exitcode <- rawSystem (ovsDeleteQueue config) [show swid, show pid, show qid]
             case exitcode of
               ExitSuccess   -> return ()
               ExitFailure n -> putStrLn $ "Exception (ignoring): " ++
