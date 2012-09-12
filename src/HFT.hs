@@ -63,7 +63,9 @@ intersectTable :: (Action -> Action -> Action)
 intersectTable cmb (MatchTable tbl1) (MatchTable tbl2) = MatchTable tbl'
   where tbl' = [ (f1 ∩ f2, cmb a1 a2) | (f1, a1) <- tbl1,
                                         (f2, a2) <- tbl2,
-                                        not (Flows.null (f1 ∩ f2)) ]
+                                        not (Flows.null (f1 ∩ f2)),
+                                 -- skip intersection as an optimization:
+                                        not (a1 == a2) ]
         (∩) = Flows.intersection
 
 -- Note: this is a left-biased union.
