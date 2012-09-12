@@ -48,6 +48,7 @@ Executable pane
     nettle-openflow,
     old-time,
     HList,
-    process
+    process,
+    ConfigFile
   ghc-options:
     -fwarn-incomplete-patterns

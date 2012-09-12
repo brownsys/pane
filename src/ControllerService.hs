@@ -1,6 +1,7 @@
 module ControllerService
   ( controller
   , PacketIn
+  , ControllerConfig (..)
   ) where
 
 import Prelude hiding (catch)
@@ -17,6 +18,12 @@ import qualified Data.List as List
 import System.Process
 
 type PacketIn = (OF.TransactionID, Integer, OF.SwitchID, OF.PacketInfo)
+
+data ControllerConfig = ControllerConfig
+  { controllerPort  :: Word16
+  , ovsSetPortQ     :: String
+  , ovsDeletePortQ  :: String
+  }
 
 retryOnExns :: String -> IO a -> IO a
 retryOnExns msg action = action `catch` handle
@@ -37,10 +44,10 @@ controller :: Chan NIB.Snapshot  -- ^input channel (from Compiler)
            -> Chan (OF.SwitchID, Bool) -- ^output channel (for MAC Learning;
                                        -- switches connecting & disconnecting)
            -> PacketOutChan      -- ^input channel (from MAC Learning)
-           -> Word16 
+           -> ControllerConfig
            -> IO ()
-controller nibSnapshot toNIB packets switches pktOut port = do
-  server <- OFS.startOpenFlowServer Nothing port
+controller nibSnapshot toNIB packets switches pktOut config = do
+  server <- OFS.startOpenFlowServer Nothing (controllerPort config)
   -- actually send packets sent by MAC learning module
   forkIO $ forever $ do
     (swID, xid, pktOut) <- readChan pktOut
@@ -56,7 +63,7 @@ controller nibSnapshot toNIB packets switches pktOut port = do
     writeChan switches (OFS.handle2SwitchID switch, True)
     nibSnapshot <- dupChan nibSnapshot
     forkIO (handleSwitch packets toNIB switches switch)
-    forkIO (configureSwitch nibSnapshot switch NIB.emptySwitch)
+    forkIO (configureSwitch nibSnapshot switch NIB.emptySwitch config)
     OFS.sendToSwitch switch (0, OF.StatsRequest OF.DescriptionRequest)
   OFS.closeServer server
 
@@ -111,22 +118,23 @@ messageHandler packets toNIB switch (xid, msg) = case msg of
 configureSwitch :: Chan NIB.Snapshot -- ^input channel (from the Compiler)
                 -> OFS.SwitchHandle
                 -> NIB.Switch
+                -> ControllerConfig
                 -> IO ()
-configureSwitch nibSnapshot switchHandle oldSw@(NIB.Switch oldPorts oldTbl _) = do
+configureSwitch nibSnapshot switchHandle oldSw@(NIB.Switch oldPorts oldTbl _) config = do
   let switchID = OFS.handle2SwitchID switchHandle
   snapshot <- readChan nibSnapshot
   case Map.lookup switchID snapshot of
     Nothing -> do
       putStrLn $ "configureSwitch did not find " ++ showSwID switchID ++
                  " in the NIB snapshot."
-      configureSwitch nibSnapshot switchHandle oldSw
+      configureSwitch nibSnapshot switchHandle oldSw config
     Just sw@(NIB.Switch newPorts newTbl swType) -> do
       now <- readIORef sysTime
       let (portActions, deleteQueueTimers, msgs') =
            case swType of
              NIB.ReferenceSwitch -> mkPortModsExt now oldPorts newPorts
                                       (OFS.sendToSwitch switchHandle)
-             NIB.OpenVSwitch     -> mkPortModsOVS now oldPorts newPorts switchID
+             NIB.OpenVSwitch     -> mkPortModsOVS now oldPorts newPorts switchID config
              otherwise           -> -- putStrLn $ "Don't know how to create queues for " ++ show swType
                                     (return(), return(), [])
       let msgs = msgs' ++ mkFlowMods now newTbl oldTbl
@@ -144,7 +152,7 @@ configureSwitch nibSnapshot switchHandle oldSw@(NIB.Switch oldPorts oldTbl _) = 
       ignoreExns ("configuring switch with ID: " ++ showSwID switchID)
                  (mapM_ (OFS.sendToSwitch switchHandle) (zip [0 ..] msgs))
       deleteQueueTimers
-      configureSwitch nibSnapshot switchHandle sw
+      configureSwitch nibSnapshot switchHandle sw config
 
 mkFlowMods :: Integer
            -> NIB.FlowTbl
@@ -211,8 +219,9 @@ mkPortModsOVS :: Integer
               -> Map OF.PortID NIB.PortCfg
               -> Map OF.PortID NIB.PortCfg
               -> OF.SwitchID
+              -> ControllerConfig
               -> (IO (), IO (), [OF.CSMessage])
-mkPortModsOVS now portsNow portsNext swid = (addActions, delTimers, addMsgs)
+mkPortModsOVS now portsNow portsNext swid config = (addActions, delTimers, addMsgs)
   where addMsgs = [] -- No OpenFlow messages needed
         addActions = sequence_ (map newQueueAction newQueues)
         delTimers = sequence_ (map delQueueAction newQueues)
@@ -220,7 +229,7 @@ mkPortModsOVS now portsNow portsNext swid = (addActions, delTimers, addMsgs)
         newQueueAction ((pid, qid), NIB.Queue resv _) = do
                   -- TODO(adf): awaiting logging code...
                   -- putStrLn $ "Creating queue " ++ show qid ++ " on port " ++ show pid ++ " switch " ++ show swid
-                  rawSystem "./scripts/ovs-set-port-queue-min.sh" [show swid, show pid, show qid, show resv]
+                  rawSystem (ovsSetPortQ config) [show swid, show pid, show qid, show resv]
 
         delQueueAction ((_, _), NIB.Queue _ NoLimit) = return ()
         delQueueAction ((pid, qid), NIB.Queue _ (DiscreteLimit end)) = do
@@ -228,7 +237,7 @@ mkPortModsOVS now portsNow portsNext swid = (addActions, delTimers, addMsgs)
             threadDelay (10^6 * (fromIntegral $ end - now))
             -- TODO(adf): awaiting logging code...
             -- putStrLn $ "Deleting queue " ++ show qid ++ " on port " ++ show pid
-            rawSystem "./scripts/ovs-delete-port-queue.sh" [show swid, show pid, show qid]
+            rawSystem (ovsDeletePortQ config) [show swid, show pid, show qid]
             return()
           return ()
 
