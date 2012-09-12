@@ -16,6 +16,7 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.List as List
 import System.Process
+import System.Exit
 
 type PacketIn = (OF.TransactionID, Integer, OF.SwitchID, OF.PacketInfo)
 
@@ -227,9 +228,13 @@ mkPortModsOVS now portsNow portsNext swid config = (addActions, delTimers, addMs
         delTimers = sequence_ (map delQueueAction newQueues)
 
         newQueueAction ((pid, qid), NIB.Queue resv _) = do
-                  -- TODO(adf): awaiting logging code...
-                  -- putStrLn $ "Creating queue " ++ show qid ++ " on port " ++ show pid ++ " switch " ++ show swid
-                  rawSystem (ovsSetPortQ config) [show swid, show pid, show qid, show resv]
+            -- TODO(adf): awaiting logging code...
+            -- putStrLn $ "Creating queue " ++ show qid ++ " on port " ++ show pid ++ " switch " ++ show swid
+          exitcode <- rawSystem (ovsSetPortQ config) [show swid, show pid, show qid, show resv]
+          case exitcode of
+            ExitSuccess   -> return ()
+            ExitFailure n -> putStrLn $ "Exception (ignoring): " ++
+                                        "failed to create OVS queues. ExitFailure: " ++ show n
 
         delQueueAction ((_, _), NIB.Queue _ NoLimit) = return ()
         delQueueAction ((pid, qid), NIB.Queue _ (DiscreteLimit end)) = do
@@ -237,7 +242,11 @@ mkPortModsOVS now portsNow portsNext swid config = (addActions, delTimers, addMs
             threadDelay (10^6 * (fromIntegral $ end - now))
             -- TODO(adf): awaiting logging code...
             -- putStrLn $ "Deleting queue " ++ show qid ++ " on port " ++ show pid
-            rawSystem (ovsDeletePortQ config) [show swid, show pid, show qid]
+            exitcode <- rawSystem (ovsDeletePortQ config) [show swid, show pid, show qid]
+            case exitcode of
+              ExitSuccess   -> return ()
+              ExitFailure n -> putStrLn $ "Exception (ignoring): " ++
+                                          "failed to delete OVS queues; ExitFailure: " ++ show n
             return()
           return ()
 

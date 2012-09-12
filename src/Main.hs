@@ -105,7 +105,6 @@ action [Config file, NewServer port] = do
                               (\e -> do let err = show (e :: IOException)
                                         putStrLn $ ("Warning: Couldn't open " ++ file ++ ": " ++ err)
                                         return emptyCP)
-
   config <- parseConfig settings defaultControllerConfig
 
   putStrLn "Creating empty NIB..."
