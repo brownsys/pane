@@ -34,7 +34,7 @@ public class PaneClientImpl implements PaneClient {
 		if (response.trim().equals("True")) {
 			return user;
 		} else {
-			throw new PaneException.InvalidUserException(user.toString());
+			throw new PaneException.InvalidUserException(user.toString() + " -- response: " + response);
 		}
 		
 	}
@@ -66,7 +66,7 @@ public class PaneClientImpl implements PaneClient {
 		if (response.trim().equals("logged in")) {	
 			return new PaneUser(username, this);
 		} else {
-			throw new PaneException.InvalidAuthenticateException(username);
+			throw new PaneException.InvalidAuthenticateException(username + " -- response: " + response);
 		}
 		
 	}

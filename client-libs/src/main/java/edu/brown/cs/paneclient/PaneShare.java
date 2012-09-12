@@ -122,7 +122,7 @@ public class PaneShare {
 		if(response.trim().equals("True")) {
 			return;
 		} else {
-			throw new PaneException.InvalidGrantException("grant failed on " + cmd);
+			throw new PaneException.InvalidGrantException("grant failed on " + cmd + " -- response: " + response);
 		}
 	}	
 
@@ -136,7 +136,7 @@ public class PaneShare {
 		if(response.trim().equals("True")) {
 			return;
 		} else {
-			throw new PaneException.InvalidNewShareException(share.toString());
+			throw new PaneException.InvalidNewShareException(share.toString() + " -- response: " + response);
 		}
 	}
 	
@@ -149,7 +149,7 @@ public class PaneShare {
 		if(response.trim().equals("True")) {
 			return;
 		} else {
-			throw new PaneException.InvalidResvException(resv.toString());
+			throw new PaneException.InvalidResvException(resv.toString() + " -- response: " + response);
 		}
 	}
 	
@@ -162,7 +162,7 @@ public class PaneShare {
 		if(response.trim().equals("True")) {
 			return;
 		} else {
-			throw new PaneException.InvalidAllowException(allow.toString());
+			throw new PaneException.InvalidAllowException(allow.toString() + " -- response: " + response);
 		}
 	}
 	
@@ -175,7 +175,7 @@ public class PaneShare {
 		if(response.trim().equals("True")) {
 			return;
 		} else {
-			throw new PaneException.InvalidDenyException(deny.toString());
+			throw new PaneException.InvalidDenyException(deny.toString() + " -- response: " + response);
 		}
 	}
 	
