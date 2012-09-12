@@ -16,7 +16,7 @@ public class PaneReservation extends PaneVerb {
 	@Override
 	public String generateCmd() {
 		String fg;
-		if(_flowgroup == null)
+		if (_flowgroup == null)
 			fg = "*";
 		else 
 			fg = _flowgroup.generateConfig();

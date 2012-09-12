@@ -89,7 +89,7 @@ public class PaneClientImpl implements PaneClient {
 		 */
 		is.read(ret);
 		String response = new String(ret);
-		if(!new String(ret).contains(">")){
+		if (!new String(ret).contains(">")) {
 			//eliminate prompt for this cmd, if prompt is
 			//not in this response, it would be in the next read,
 			//therefore, read one more time(but just discard the prompt)
@@ -99,8 +99,8 @@ public class PaneClientImpl implements PaneClient {
 			//the prompt is in this read, just remove it
 			
 			String[] substrings = response.split(" |\n");
-			for(String s : substrings) {
-				if(s.contains(">"))
+			for (String s : substrings) {
+				if (s.contains(">"))
 					response = response.replace(s, "");
 			}
 		}

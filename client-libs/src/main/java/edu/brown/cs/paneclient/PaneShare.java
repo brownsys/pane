@@ -119,7 +119,7 @@ public class PaneShare {
 		String cmd = "Grant " + getShareName() + " to " + user.getName() + ".\n";
 		String response = _client.sendAndWait(cmd);
 		
-		if(response.trim().equals("True")) {
+		if (response.trim().equals("True")) {
 			return;
 		} else {
 			throw new PaneException.InvalidGrantException("grant failed on " + cmd + " -- response: " + response);
@@ -133,7 +133,7 @@ public class PaneShare {
 		share.setClient(_client);
 		String response = _client.sendAndWait(cmd);
 		
-		if(response.trim().equals("True")) {
+		if (response.trim().equals("True")) {
 			return;
 		} else {
 			throw new PaneException.InvalidNewShareException(share.toString() + " -- response: " + response);
@@ -146,7 +146,7 @@ public class PaneShare {
 		String cmd = resv.generateCmd();
 		String response = _client.sendAndWait(cmd);
 		
-		if(response.trim().equals("True")) {
+		if (response.trim().equals("True")) {
 			return;
 		} else {
 			throw new PaneException.InvalidResvException(resv.toString() + " -- response: " + response);
@@ -159,7 +159,7 @@ public class PaneShare {
 		String cmd = allow.generateCmd();
 		String response = _client.sendAndWait(cmd);
 		
-		if(response.trim().equals("True")) {
+		if (response.trim().equals("True")) {
 			return;
 		} else {
 			throw new PaneException.InvalidAllowException(allow.toString() + " -- response: " + response);
@@ -172,7 +172,7 @@ public class PaneShare {
 		String cmd = deny.generateCmd();
 		String response = _client.sendAndWait(cmd);	
 		
-		if(response.trim().equals("True")) {
+		if (response.trim().equals("True")) {
 			return;
 		} else {
 			throw new PaneException.InvalidDenyException(deny.toString() + " -- response: " + response);
@@ -198,7 +198,7 @@ public class PaneShare {
 		if (_reserveTBCapacity != -1) {
 			cmd += " reserveTBCapacity = "+ _reserveTBCapacity;
 		}
-		if(_reserveTBFill != -1) {
+		if (_reserveTBFill != -1) {
 			cmd += " reserveTBFill = " + _reserveTBFill;
 		}
 		cmd += "] on "+ _parent.getShareName();
