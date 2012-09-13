@@ -59,13 +59,15 @@ emptyTable = MatchTable []
 intersectTable :: (Action -> Action -> Action) 
                -> MatchTable 
                -> MatchTable
+               -> Bool        -- Set to true iff used in unionTable
                -> MatchTable
-intersectTable cmb (MatchTable tbl1) (MatchTable tbl2) = MatchTable tbl'
+intersectTable cmb (MatchTable tbl1) (MatchTable tbl2) optForUnion =
+  MatchTable tbl'
   where tbl' = [ (f1 ∩ f2, cmb a1 a2) | (f1, a1) <- tbl1,
                                         (f2, a2) <- tbl2,
                                         not (Flows.null (f1 ∩ f2)),
-                                 -- skip intersection as an optimization:
-                                        not (a1 == a2) ]
+                          -- skip unnecessary intersection as an optimization:
+                                        not (optForUnion && (a1 == a2)) ]
         (∩) = Flows.intersection
 
 -- Note: this is a left-biased union.
@@ -75,7 +77,7 @@ unionTable :: (Action -> Action -> Action)
            -> MatchTable
 unionTable cmb mt1@(MatchTable tbl1) mt2@(MatchTable tbl2) = 
   MatchTable (tbl' ++ tbl1 ++ tbl2)
-    where (MatchTable tbl') = intersectTable cmb mt1 mt2
+    where (MatchTable tbl') = intersectTable cmb mt1 mt2 True
 
 concatTable mt1@(MatchTable tbl1) mt2@(MatchTable tbl2) =
   MatchTable (tbl1 ++ tbl2)
