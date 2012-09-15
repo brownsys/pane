@@ -161,19 +161,21 @@ mkFlowMods :: Integer
            -> [OF.CSMessage]
 mkFlowMods now newTbl oldTbl = map OF.FlowMod (delMsgs ++ addMsgs)
   where delMsgs = mapMaybe mkDelFlow (Set.toList oldRules)
-        addMsgs = map mkAddFlow (Set.toList newRules) 
-        mkAddFlow (prio, match, acts, expiry) = 
-          OF.AddFlow {
-            OF.match = match,
-            OF.priority = prio,
-            OF.actions = acts,
-            OF.cookie = 0,
-            OF.idleTimeOut = OF.Permanent,
-            OF.hardTimeOut = toTimeout now expiry ,
-            OF.notifyWhenRemoved = False,
-            OF.applyToPacket = Nothing,
-            OF.overlapAllowed = True
-          }
+        addMsgs = mapMaybe mkAddFlow (Set.toList newRules)
+        mkAddFlow (prio, match, acts, expiry) = case expiry <= fromInteger now of
+          True -> Nothing -- rule is expiring
+          False ->
+            Just (OF.AddFlow {
+              OF.match = match,
+              OF.priority = prio,
+              OF.actions = acts,
+              OF.cookie = 0,
+              OF.idleTimeOut = OF.Permanent,
+              OF.hardTimeOut = toTimeout now expiry ,
+              OF.notifyWhenRemoved = False,
+              OF.applyToPacket = Nothing,
+              OF.overlapAllowed = True
+            })
         mkDelFlow (prio, match, _, expiry) = case expiry <= fromInteger now of
           True -> Nothing -- rule would've been automatically deleted by switch
           False -> Just (OF.DeleteExactFlow match Nothing prio)
@@ -234,7 +236,8 @@ mkPortModsOVS now portsNow portsNext swid config = (addActions, delTimers, addMs
           case exitcode of
             ExitSuccess   -> return ()
             ExitFailure n -> putStrLn $ "Exception (ignoring): " ++
-                                        "failed to create OVS queues. ExitFailure: " ++ show n
+                                        "failed to create OVS queue: " ++ show swid ++ " " ++
+                                        show pid ++ " " ++ show qid ++ "; ExitFailure: " ++ show n
 
         delQueueAction ((_, _), NIB.Queue _ NoLimit) = return ()
         delQueueAction ((pid, qid), NIB.Queue _ (DiscreteLimit end)) = do
@@ -246,7 +249,8 @@ mkPortModsOVS now portsNow portsNext swid config = (addActions, delTimers, addMs
             case exitcode of
               ExitSuccess   -> return ()
               ExitFailure n -> putStrLn $ "Exception (ignoring): " ++
-                                          "failed to delete OVS queues; ExitFailure: " ++ show n
+                                          "failed to delete OVS queue: " ++ show swid ++ " " ++
+                                          show pid ++ " " ++ show qid ++ "; ExitFailure: " ++ show n
             return()
           return ()
 
