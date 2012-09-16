@@ -26,6 +26,7 @@ import PaneInteractionServer (interactions)
 import Data.ConfigFile
 import Control.Monad.Error
 import Control.Exception
+import Management
 
 data Argument
   = Test String
@@ -117,8 +118,16 @@ action [Config file, NewServer port] = do
   paneReq <- newChan
   (tbl, paneResp, pktOut) <- combinedPaneMac switches packetIn paneReq tickChan
 
-  putStrLn $ "Starting PANE console on port " ++ show port ++ " ..."
+  putStrLn $ "Starting PANE interaction console on port " ++ show port ++ " ..."
   interactions port paneResp paneReq
+
+  putStrLn $ "Launching management server..."
+  mgmtReq <- newChan
+  mgmtResp <- mgmtServer mgmtReq nibMsg
+
+  let mgmtPort = port + 1
+  putStrLn $ "Starting PANE management console on port " ++ show (mgmtPort) ++  " ..."
+  interactions mgmtPort mgmtResp mgmtReq
 
   putStrLn "Starting compiler ..."
   nibUpdates <- newChan -- TODO(arjun): write into this

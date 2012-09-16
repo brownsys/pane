@@ -73,6 +73,12 @@ data EndpointData = EndpointData {
   endpointPort        :: PortData
 }
 
+instance Show EndpointData where
+  show (EndpointData ea ip port) =
+    "Ethernet Addr: " ++ show(ea) ++
+    "\n    IP: " ++ show(ip) ++
+    "\n    Port: " ++ show(port)
+
 data SwitchData = SwitchData {
   switchSwitchID                 :: OF.SwitchID,
   switchType                     :: SwitchType,
@@ -80,6 +86,11 @@ data SwitchData = SwitchData {
   switchPorts                    :: HashTable OF.PortID PortData,
   switchFlowTableUpdateListener  :: IORef (FlowTbl -> IO ())
 }
+
+instance Show SwitchData where
+  show (SwitchData sid stype ft ports listener) =
+    "SwitchID: " ++ show(sid) ++
+    "\n    Type: " ++ show(stype)
 
 data SwitchType
   = ReferenceSwitch
@@ -119,6 +130,7 @@ data Msg
   = NewSwitch OFS.SwitchHandle OF.SwitchFeatures
   | PacketIn OF.SwitchID OF.PacketInfo
   | StatsReply OF.SwitchID OF.StatsReply
+  | DisplayNIB (String -> IO ())
 
 newEmptyNIB :: Chan Msg -> IO NIB
 newEmptyNIB msg = do
@@ -154,6 +166,18 @@ nibMutator nib (StatsReply swid reply) = case reply of
       otherwise -> setSwitchType swid (OtherSwitch (OF.hardwareDesc desc)) nib
   otherwise -> putStrLn $ "unhandled statistics reply from switch " ++
                  (OF.showSwID swid) ++ "\n" ++ show reply
+nibMutator nib (DisplayNIB putter) = do
+  sw  <- Ht.toList (nibSwitches nib)
+  e   <- Ht.toList (nibEndpoints nib)
+  eip <- Ht.toList (nibEndpointsByIP nib)
+  let str = "Displaying the NIB...\n" ++
+            "Switches:\n" ++ show sw ++
+            "\n-------------------------------------\n" ++
+            "Endpoints:\n" ++ show e ++
+            "\n-------------------------------------\n" ++
+            "EndpointsByIP:\n" ++ show eip ++
+            "\n-------------------------------------\n"
+  putter $ str
 -- TODO: the code below should be broken-up somehow
 nibMutator nib (PacketIn tS pkt) = case OF.enclosedFrame pkt of
   Right (HL.HCons _ (HL.HCons (OF.PaneDPInEthernet fS fP) HL.HNil)) -> do
@@ -198,7 +222,7 @@ nibMutator nib (PacketIn tS pkt) = case OF.enclosedFrame pkt of
         maybe <- Ht.lookup (switchPorts switch) srcPort
         case maybe of
           Nothing -> do
-            putStrLn $ "NIB cannot find switch for " ++ hostStr
+            putStrLn $ "NIB cannot find port for " ++ hostStr
             return ()
           Just port -> do
             connectedTo <- readIORef (portConnectedTo port)
@@ -231,7 +255,7 @@ nibMutator nib (PacketIn tS pkt) = case OF.enclosedFrame pkt of
         maybe <- Ht.lookup (switchPorts switch) srcPort
         case maybe of
           Nothing -> do
-            putStrLn $ "NIB cannot find switch for " ++ hostStr
+            putStrLn $ "NIB cannot find port for " ++ hostStr
             return ()
           Just port -> do
             connectedTo <- readIORef (portConnectedTo port)
