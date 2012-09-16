@@ -75,7 +75,7 @@ data EndpointData = EndpointData {
 
 instance Show EndpointData where
   show (EndpointData ea ip port) =
-    "Ethernet Addr: " ++ show(ea) ++
+    "\nEthernet Addr: " ++ show(ea) ++
     "\n    IP: " ++ show(ip) ++
     "\n    Port: " ++ show(port)
 
@@ -89,7 +89,7 @@ data SwitchData = SwitchData {
 
 instance Show SwitchData where
   show (SwitchData sid stype ft ports listener) =
-    "SwitchID: " ++ show(sid) ++
+    "\nSwitchID: " ++ show(sid) ++
     "\n    Type: " ++ show(stype)
 
 data SwitchType
@@ -121,10 +121,21 @@ data Element
 instance Show Element where
   show ToNone = "<nothing>"
   show (ToEndpoint ep) = show (endpointIP ep)
-  show (ToSwitch sw _) = show (switchSwitchID sw)
+  show (ToSwitch sw pd) = show (switchSwitchID sw) ++
+                          ":" ++ show(portPortID pd)
+
+
+class ShowIO a where
+  showIO :: a -> IO String
+
+instance Show Element => ShowIO Element where
+  showIO = return . show
+instance ShowIO a => ShowIO (IORef a) where
+  showIO a = readIORef a >>= showIO
 
 instance Show PortData where
-  show p = show (portDevice p) ++ ":" ++ show (portPortID p)
+  show p = show (portDevice p) ++ ":" ++ show (portPortID p) ++
+             " -> " ++ (unsafePerformIO $ showIO (portConnectedTo p))
 
 data Msg
   = NewSwitch OFS.SwitchHandle OF.SwitchFeatures
@@ -170,13 +181,16 @@ nibMutator nib (DisplayNIB putter) = do
   sw  <- Ht.toList (nibSwitches nib)
   e   <- Ht.toList (nibEndpoints nib)
   eip <- Ht.toList (nibEndpointsByIP nib)
-  let str = "Displaying the NIB...\n" ++
-            "Switches:\n" ++ show sw ++
-            "\n-------------------------------------\n" ++
-            "Endpoints:\n" ++ show e ++
-            "\n-------------------------------------\n" ++
-            "EndpointsByIP:\n" ++ show eip ++
-            "\n-------------------------------------\n"
+  let sw'  = map (\(k,v) -> v) sw
+      e'   = map (\(k,v) -> v) e
+      eip' = map (\(k,v) -> v) eip
+      str  = "Displaying the NIB...\n" ++
+             "Switches:\n" ++ show sw' ++
+             "\n-------------------------------------\n" ++
+             "Endpoints:\n" ++ show e' ++
+             "\n-------------------------------------\n" ++
+             "EndpointsByIP:\n" ++ show eip' ++
+             "\n-------------------------------------\n"
   putter $ str
 -- TODO: the code below should be broken-up somehow
 nibMutator nib (PacketIn tS pkt) = case OF.enclosedFrame pkt of

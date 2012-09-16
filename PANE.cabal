@@ -34,6 +34,8 @@ Executable pane
     NoMonomorphismRestriction
     OverloadedStrings
     ScopedTypeVariables
+    FlexibleInstances
+    UndecidableInstances
   Build-Depends:
     base >= 4 && < 5,
     mtl >= 1.1.0.1,
