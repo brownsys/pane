@@ -217,6 +217,36 @@ nibMutator nib (PacketIn tS pkt) = case OF.enclosedFrame pkt of
                 putStrLn $ "NIB already connects " ++ hostStr ++ " to " ++ 
                            show conn
                 return ()
+  Right (HL.HCons hdr (HL.HCons (OF.IPInEthernet (HL.HCons ipHdr (HL.HCons _ HL.HNil))) HL.HNil)) -> do
+    let srcEth = OF.sourceMACAddress hdr
+    let srcIP = OF.ipSrcAddress ipHdr
+    let srcPort = OF.receivedOnPort pkt
+    ySwitch <- Ht.lookup (nibSwitches nib) tS
+    let hostStr = show (srcEth, srcIP)
+    case ySwitch of
+      Nothing -> do
+        putStrLn $ "NIB cannot find switch for " ++ hostStr
+        return ()
+      Just switch -> do
+        maybe <- Ht.lookup (switchPorts switch) srcPort
+        case maybe of
+          Nothing -> do
+            putStrLn $ "NIB cannot find switch for " ++ hostStr
+            return ()
+          Just port -> do
+            connectedTo <- readIORef (portConnectedTo port)
+            case connectedTo of
+              ToNone -> do
+                maybe <- addEndpoint srcEth srcIP nib
+                case maybe of
+                  Nothing -> do
+                    return ()
+                  Just endpoint -> do
+                    b <- linkPorts port (endpointPort endpoint)
+                    putStrLn $ "NIB discovered host " ++ (show (srcEth, srcIP)) ++ " " ++ show b
+                    return ()
+              conn -> do
+                return ()
 
   otherwise -> return ()
  
