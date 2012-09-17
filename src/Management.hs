@@ -5,6 +5,7 @@ module Management
 import Data.Char (isSpace)
 import Base
 import qualified NIB
+import Debug.Trace
 
 mgmtServer :: Chan (Speaker, Integer, String) -- ^commands from manager
            -> Chan NIB.Msg           -- ^ channel for sending messages to the NIB
@@ -16,8 +17,8 @@ mgmtServer reqChan nibChan  = do
         let req' = trim req
         case req' of
           "nib" -> do
-            let putter = (\ output -> writeChan respChan (spk, clientId, output))
-            writeChan nibChan (NIB.DisplayNIB putter)
+            let putter = traceShow "mgmt handling request" $ (\ output -> writeChan respChan (spk, clientId, output))
+            traceShow "mgmt writing to NIB channel" $ writeChan nibChan (NIB.DisplayNIB putter)
           otherwise -> do
             writeChan respChan (spk, clientId, "unknown command!")
   forkIO (forever handleReq)

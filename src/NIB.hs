@@ -178,18 +178,18 @@ nibMutator nib (StatsReply swid reply) = case reply of
   otherwise -> putStrLn $ "unhandled statistics reply from switch " ++
                  (OF.showSwID swid) ++ "\n" ++ show reply
 nibMutator nib (DisplayNIB putter) = do
-  sw  <- Ht.toList (nibSwitches nib)
+  sw  <- traceShow "received a NIB display request" $ Ht.toList (nibSwitches nib)
   e   <- Ht.toList (nibEndpoints nib)
   eip <- Ht.toList (nibEndpointsByIP nib)
-  let sw'  = map (\(k,v) -> v) sw
+  let sw'  = traceShow "NIB display request into the maps" $ map (\(k,v) -> v) sw
       e'   = map (\(k,v) -> v) e
       eip' = map (\(k,v) -> v) eip
-      str  = "Displaying the NIB...\n" ++
-             "Switches:\n" ++ show sw' ++
+      str  = traceShow "NIB display request building string" $ "Displaying the NIB...\n" ++
+             "Switches:\n" ++ (traceShow "NIB display request show sw'" $ show sw') ++
              "\n-------------------------------------\n" ++
-             "Endpoints:\n" ++ show e' ++
+             "Endpoints:\n" ++ (traceShow "NIB display request show e'" $ show e') ++
              "\n-------------------------------------\n" ++
-             "EndpointsByIP:\n" ++ show eip' ++
+             "EndpointsByIP:\n" ++ (traceShow "NIB display request show eip'" $ show eip') ++
              "\n-------------------------------------\n"
   putter $ str
 -- TODO: the code below should be broken-up somehow
