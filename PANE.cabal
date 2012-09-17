@@ -23,6 +23,8 @@ Test-Suite unittest
     NoMonomorphismRestriction
     OverloadedStrings
     ScopedTypeVariables
+    FlexibleInstances
+    UndecidableInstances
   ghc-options:
     -fwarn-incomplete-patterns
 
