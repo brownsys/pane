@@ -231,7 +231,7 @@ mkPortModsOVS now portsNow portsNext swid config = (addActions, delTimers, addMs
 
         newQueueAction ((pid, qid), NIB.Queue resv _) = do
             -- TODO(adf): awaiting logging code...
-            -- putStrLn $ "Creating queue " ++ show qid ++ " on port " ++ show pid ++ " switch " ++ show swid
+          putStrLn $ "Creating queue " ++ show qid ++ " on port " ++ show pid ++ " switch " ++ show swid
           exitcode <- rawSystem (ovsSetQueue config) [show swid, show pid, show qid, show resv]
           case exitcode of
             ExitSuccess   -> return ()

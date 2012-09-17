@@ -16,6 +16,7 @@ import qualified NIB
 import Flows (toMatch)
 import Control.Monad
 import qualified Flows
+import Debug.Trace
 
 -- | Calls compile when either NIB or network flow table changes
 -- TODO(adf): actually, the NIB changes do not casue a re-compile as the
@@ -66,7 +67,7 @@ compile nib (MatchTable tbl) = do
                   k flow s d
               otherwise -> do
                 -- TODO(adf): awaiting logging code...
-                -- putStrLn $ "compiler could not find flow in NIB " ++ show flow
+                putStrLn $ "compiler could not find flow in NIB " ++ show flow
                 default_
           otherwise -> do
             putStrLn $ "compiler needs IP for src and dst " ++ show flow
