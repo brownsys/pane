@@ -95,6 +95,7 @@ instance Show SwitchData where
 data SwitchType
   = ReferenceSwitch
   | OpenVSwitch
+  | ProntoSwitch
   | OtherSwitch String
   | UnknownSwitch
   deriving Eq
@@ -102,6 +103,7 @@ data SwitchType
 instance Show SwitchType where
   show ReferenceSwitch = "Reference Switch"
   show OpenVSwitch = "Open vSwitch"
+  show ProntoSwitch = "Pronto Switch"
   show (OtherSwitch t) = show t
   show UnknownSwitch = "(Unknown)"
 
@@ -174,6 +176,7 @@ nibMutator nib (StatsReply swid reply) = case reply of
   OF.DescriptionReply desc -> case OF.hardwareDesc desc of
       "Reference Userspace Switch" -> setSwitchType swid ReferenceSwitch nib
       "Open vSwitch" -> setSwitchType swid OpenVSwitch nib
+      "Pronto 3290" -> setSwitchType swid ProntoSwitch nib
       otherwise -> setSwitchType swid (OtherSwitch (OF.hardwareDesc desc)) nib
   otherwise -> putStrLn $ "unhandled statistics reply from switch " ++
                  (OF.showSwID swid) ++ "\n" ++ show reply

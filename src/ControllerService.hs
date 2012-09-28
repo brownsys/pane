@@ -136,6 +136,8 @@ configureSwitch nibSnapshot switchHandle oldSw@(NIB.Switch oldPorts oldTbl _) co
              NIB.ReferenceSwitch -> mkPortModsExt now oldPorts newPorts
                                       (OFS.sendToSwitch switchHandle)
              NIB.OpenVSwitch     -> mkPortModsOVS now oldPorts newPorts switchID config
+             NIB.ProntoSwitch    -> mkPortModsExt now oldPorts newPorts
+                                      (OFS.sendToSwitch switchHandle)
              otherwise           -> -- putStrLn $ "Don't know how to create queues for " ++ show swType
                                     (return(), return(), [])
       let msgs = msgs' ++ mkFlowMods now newTbl oldTbl
