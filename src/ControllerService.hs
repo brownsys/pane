@@ -17,6 +17,7 @@ import qualified Data.Set as Set
 import qualified Data.List as List
 import System.Process
 import System.Exit
+import Control.Exception
 
 type PacketIn = (OF.TransactionID, Integer, OF.SwitchID, OF.PacketInfo)
 
@@ -27,8 +28,10 @@ data ControllerConfig = ControllerConfig
   }
 
 retryOnExns :: String -> IO a -> IO a
-retryOnExns msg action = action `catch` handle
-  where handle (e :: SomeException) = do
+retryOnExns msg action = action `catches`
+          [ Handler (\(e :: AsyncException) -> throw e),
+            Handler exnHandler ]
+  where exnHandler (e :: SomeException) = do
           putStrLn $ "Exception (retrying): " ++ show e
           putStrLn $ "Exception log message: " ++ msg
           retryOnExns msg action
