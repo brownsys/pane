@@ -174,7 +174,7 @@ flowGroupAll = do
   parens (reservedOp "*")
   return Flows.all
 
-flowGroup = (try flowGroupAll) <|> flowGroupSet
+flowGroup = (Text.Parsec.try flowGroupAll) <|> flowGroupSet
 
 -----------------------------
 -- Share Permissions
