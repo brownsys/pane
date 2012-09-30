@@ -25,6 +25,8 @@ module Base
   , mapMaybe
   , sysTime
   , logo
+  , retryOnExns
+  , ignoreExns
   ) where
 
 import Data.Maybe
@@ -41,10 +43,27 @@ import Data.Word
 import Nettle.OpenFlow hiding (Port)
 import Flows
 import qualified Nettle.OpenFlow as OF
-import Control.Exception (catch, SomeException)
+import Control.Exception
 
 sysTime :: IORef Integer -- ^ system time, updated by timeService
 sysTime = unsafePerformIO (newIORef 0)
+
+retryOnExns :: String -> IO a -> IO a
+retryOnExns msg action = action `catches`
+          [ Handler (\(e :: AsyncException) -> throw e),
+            Handler exnHandler ]
+  where exnHandler (e :: SomeException) = do
+          putStrLn $ "Exception (retrying): " ++ show e
+          putStrLn $ "Exception log message: " ++ msg
+          retryOnExns msg action
+
+ignoreExns :: String -> IO () -> IO ()
+ignoreExns msg action = action `catches`
+          [ Handler (\(e :: AsyncException) -> throw e),
+            Handler exnHandler ]
+  where exnHandler (e :: SomeException) = do
+          putStrLn $ "Exception (ignoring): " ++ show e
+          putStrLn $ "Exception log message: " ++ msg
 
 liftChanIO3 :: (a -> b -> c -> IO d) 
              -> (a, Chan a)

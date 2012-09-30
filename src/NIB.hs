@@ -171,7 +171,8 @@ nibMutator nib (NewSwitch handle features) = do
                 --           " on switch " ++ show swID
                 sendDP handle (OF.portID p)
                 return ()
-      mapM_ addPort' (OF.ports features)
+      ignoreExns ("sending PaneDP on switch " ++ show swID) $
+                 mapM_ addPort' (OF.ports features)
 nibMutator nib (StatsReply swid reply) = case reply of
   OF.DescriptionReply desc -> case OF.hardwareDesc desc of
       "Reference Userspace Switch" -> setSwitchType swid ReferenceSwitch nib

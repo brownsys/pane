@@ -17,7 +17,6 @@ import qualified Data.Set as Set
 import qualified Data.List as List
 import System.Process
 import System.Exit
-import Control.Exception
 
 type PacketIn = (OF.TransactionID, Integer, OF.SwitchID, OF.PacketInfo)
 
@@ -26,21 +25,6 @@ data ControllerConfig = ControllerConfig
   , ovsSetQueue     :: String
   , ovsDeleteQueue  :: String
   }
-
-retryOnExns :: String -> IO a -> IO a
-retryOnExns msg action = action `catches`
-          [ Handler (\(e :: AsyncException) -> throw e),
-            Handler exnHandler ]
-  where exnHandler (e :: SomeException) = do
-          putStrLn $ "Exception (retrying): " ++ show e
-          putStrLn $ "Exception log message: " ++ msg
-          retryOnExns msg action
-
-ignoreExns :: String -> IO () -> IO ()
-ignoreExns msg action = action `catch` handle
-  where handle (e :: SomeException) = do
-          putStrLn $ "Exception (ignoring): " ++ show e
-          putStrLn $ "Exception log message: " ++ msg
 
 controller :: Chan NIB.Snapshot  -- ^input channel (from Compiler)
            -> Chan NIB.Msg       -- ^output channel (headed to NIB module)
@@ -68,7 +52,8 @@ controller nibSnapshot toNIB packets switches pktOut config = do
     nibSnapshot <- dupChan nibSnapshot
     forkIO (handleSwitch packets toNIB switches switch)
     forkIO (configureSwitch nibSnapshot switch NIB.emptySwitch config)
-    OFS.sendToSwitch switch (0, OF.StatsRequest OF.DescriptionRequest)
+    ignoreExns "stats request" $
+        OFS.sendToSwitch switch (0, OF.StatsRequest OF.DescriptionRequest)
   OFS.closeServer server
 
 --
