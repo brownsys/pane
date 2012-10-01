@@ -126,14 +126,11 @@ instance Show Element where
   show (ToSwitch sw pd) = show (switchSwitchID sw) ++
                           ":" ++ show(portPortID pd)
 
-
 class ShowIO a where
   showIO :: a -> IO String
 
-instance Show Element => ShowIO Element where
-  showIO = return . show
-instance ShowIO a => ShowIO (IORef a) where
-  showIO a = readIORef a >>= showIO
+instance Show a => ShowIO (IORef a) where
+  showIO a = readIORef a >>= return . show
 
 instance Show PortData where
   show p = show (portDevice p) ++ ":" ++ show (portPortID p) ++
