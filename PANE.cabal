@@ -22,7 +22,6 @@ Test-Suite unittest
   Extensions:
     NoMonomorphismRestriction
     OverloadedStrings
-    ScopedTypeVariables
   ghc-options:
     -fwarn-incomplete-patterns
 
@@ -33,7 +32,6 @@ Executable pane
   Extensions:
     NoMonomorphismRestriction
     OverloadedStrings
-    ScopedTypeVariables
   Build-Depends:
     base >= 4 && < 5,
     mtl >= 1.1.0.1,

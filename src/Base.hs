@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Base 
   ( Flow (..)
   , FlowGroup
