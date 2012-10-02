@@ -41,7 +41,7 @@ import qualified Nettle.OpenFlow as OF
 
 type User = String
 
-type Port = Word16 -- Transport port (UDP,TCP)
+type Port = Word16
 
 type Host = IPAddress
 
