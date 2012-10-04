@@ -25,6 +25,7 @@ import qualified Data.ByteString as BS
 import Data.HList
 import Data.Word
 import CombinedPaneMac
+import SpanningTree
 
 putStrLn = hPutStrLn stderr
 
@@ -488,6 +489,7 @@ paneMacTests = TestLabel "Test PANE with Mac learning" $ TestList
 
 allTests = TestList
   [ tokenGraphTests
+  , spanningTreeTests
   , shareSemanticsTests
   , compileWithNIBTests
   , nibTests

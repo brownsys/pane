@@ -13,7 +13,8 @@ import Base hiding (Port)
 
 data NIB = NIB {
   nibSwitches   :: Map.Map OF.SwitchID Switch,
-  nibEndpoints  :: Map.Map OF.EthernetAddress Endpoint
+  nibEndpoints  :: Map.Map OF.EthernetAddress Endpoint,
+  nibGatewayIP  :: Maybe OF.IPAddress
 }
 
 data NodeLink
@@ -31,10 +32,18 @@ data Switch = Switch {
     switchPorts     :: [ Port ]
 } deriving (Eq,Ord)
 
+data PortSpeed
+    = Speed10Mb  -- ^10 Mb rate support
+    | Speed100Mb -- ^100 Mb rate support
+    | Speed1Gb   -- ^1 Gb rate support
+    | Speed10G  -- ^10 Gb rate support
+    deriving (Eq,Ord)
+
 data Port = Port {
     portID      :: OF.PortID, -- not globally unique
     portLinks   :: [ NodeLink ],
-    portQueues  :: [ Queue ]
+    portQueues  :: [ Queue ],
+    portSpeed   :: PortSpeed -- highest speed port supports TODO(adf): should become property of a link instead?
     -- portNoFlood ... controller disables with OFPPC_NO_FLOOD
     -- portDown? ... controller can disable with OFPPC_PORT_DOWN
     -- portSpeed
@@ -92,7 +101,7 @@ data OutgoingMsg
 
 runNIB :: Chan Msg -> Chan OutgoingMsg -> IO ()
 runNIB chan outgoingChan = do
-  let newNIB = NIB Map.empty Map.empty
+  let newNIB = NIB Map.empty Map.empty Nothing
 
       nibProcessor nib = do
         msg <- readChan chan
@@ -146,3 +155,10 @@ addMsg msg = do
 
 logMsg :: Priority -> String -> NIBState ()
 logMsg pri str = addMsg (LogMsg pri str)
+
+
+-- one day, there will be a caching layer for this
+lookupIP :: NIB -> OF.IPAddress -> [ Endpoint ]
+lookupIP nib ip =
+    let hasIP = elem ip . endpointEtherIPs in
+    filter hasIP (Map.elems (nibEndpoints nib))

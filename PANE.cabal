@@ -47,6 +47,7 @@ Executable pane
     old-time,
     HList,
     process,
-    ConfigFile
+    ConfigFile,
+    hslogger
   ghc-options:
     -fwarn-incomplete-patterns
