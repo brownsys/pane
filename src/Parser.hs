@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Parser
   ( parseFromString
   , parseFromTestFile
