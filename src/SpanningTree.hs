@@ -71,18 +71,18 @@ instance (Ord w, Ord a) => Ord (WeightedPath a w) where
 
 -- first argument: root
 -- second argument: given a node, return a list of its neighbors and their weights
--- returns a minimum spanning tree
-findMST :: (Ord a, Ord w) => a -> (a -> [(a, w)]) -> SpanningTree a
-findMST root neighbors =
+-- returns a spanning tree
+findSpanningTree :: (Ord a, Ord w, Num w) => a -> (a -> [(a, w)]) -> SpanningTree a
+findSpanningTree root neighbors =
     recFind (singletonTree root) startPaths (Set.singleton root) where
     recFind tree frontier explored =
         case Set.minView frontier of
             Nothing -> tree
-            Just (WeightedPath path _, frontier) ->
+            Just (WeightedPath path weight, frontier) ->
                 if Set.member (last path) explored
                 then recFind tree frontier explored
                 else let explored' = Set.insert (last path) explored
-                         frontier' = Set.union frontier (nextPaths path)
+                         frontier' = Set.union frontier (nextPaths path weight)
                          tree' = extendTree tree path in
                      recFind tree' frontier' explored'
     -- given a tree and a path, build a new tree that includes the path
@@ -92,10 +92,10 @@ findMST root neighbors =
             children' = Map.insertWith (\_ tree -> extendTree tree xs) x pathAsTree children
         in SpanningTree root children'
     -- given a path, find the paths that include it but are one edge longer
-    nextPaths [x] =
-        Set.fromList $ map (\(y, w) -> WeightedPath [x, y] w)  (neighbors x)
-    nextPaths (x:xs) =
-        Set.map (\(WeightedPath path w) -> WeightedPath (x:path) w) (nextPaths xs)
+    nextPaths [x] orig_w =
+        Set.fromList $ map (\(y, w) -> WeightedPath [x, y] (orig_w+w))  (neighbors x)
+    nextPaths (x:xs) orig_w =
+        Set.map (\(WeightedPath path w) -> WeightedPath (x:path) w) (nextPaths xs orig_w)
     -- construct start paths by hand as paths do not include root
     startPaths = Set.fromList $ map (\(x, w) -> WeightedPath [x] w) (neighbors root)
 
@@ -110,35 +110,50 @@ testNeighbors graph node =
 testTree root childTrees =
     SpanningTree root (Map.fromList (map (\ tree@(SpanningTree child _) -> (child, tree)) childTrees))
 
-testGraph desc graph expMST = do
-    assertEqual desc (findMST 0 (testNeighbors graph)) expMST
+testGraph desc graph expST =
+    assertEqual desc expST (findSpanningTree 0 (testNeighbors graph))
 
-testMST0 = TestLabel "Basic MST functionality" $ TestCase $
-    testGraph "two node MST"
+testST0 = TestLabel "Basic ST functionality" $ TestCase $ do
+    testGraph "two node ST"
         [(0, 2, 1)]
         (testTree 0 [testTree 1 []])
 
-testMST1 = TestLabel "MST in graph with cycle" $ TestCase $
-    testGraph "three node MST"
+testST1 = TestLabel "ST in graph with cycle" $ TestCase $ do
+    testGraph "three node ST"
         [(0, 10, 1), (1, 20, 2), (2, 30, 0)]
         (testTree 0 [testTree 1 [testTree 2 []]])
 
-testMST2 = TestLabel "actual MST" $ TestCase $
-    testGraph "actual MST"
+testST2 = TestLabel "actual ST" $ TestCase $
+    testGraph "actual ST"
         [(0, 50, 1), (0, 20, 2), (2, 20, 1)]
         (testTree 0 [testTree 2 [testTree 1 []]])
 
-testMST3 = TestLabel "convoluted MST" $ TestCase $
-    testGraph "convoluted MST"
+testST3 = TestLabel "convoluted ST" $ TestCase $ do
+    testGraph "convoluted ST"
         [(1, 10, 4), (4, 10, 1),
          (0, 10, 6), (6, 10, 6),
          (6, 40, 2), (2, 10, 0), (0, 20, 2),
          (2, 10, 3), (3, 10, 2), (0, 50, 3)]
         (testTree 0 [testTree 6 [], testTree 2 [testTree 3 []]])
 
+-- Test that we didn't implement an MST. we want a tree with the
+-- least cost path to each edge
+testST4 = TestLabel "don't use Prim's algorithm" $ TestCase $ do
+    testGraph "don't give MST"
+        [(0, 10, 1), (0, 30, 2),
+         (1, 20, 3),
+         (2, 10, 3)]
+        (testTree 0 [testTree 1 [testTree 3 []], testTree 2 []])
+    testGraph "again, don't give the MST"
+        [(0, 20, 1), (0, 10, 2),
+         (1, 20, 3),
+         (2, 25, 3)]
+        (testTree 0 [testTree 2 [testTree 3 []], testTree 1 []])
+
 spanningTreeTests = TestList
-  [ testMST0
-  , testMST1
-  , testMST2
-  , testMST3
+  [ testST0
+  , testST1
+  , testST2
+  , testST3
+  , testST4
   ]
