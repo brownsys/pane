@@ -100,18 +100,33 @@ findSpanningTree root neighbors =
     startPaths = Set.fromList $ map (\(x, w) -> WeightedPath [x] w) (neighbors root)
 
 
+------------------------------------------------------------------------------
 --
 -- UnitTests
 --
+-- Directed graphs for unit tests are represented by lists of triples of
+-- the form: (vertex src, edge weight, vertex dest)
+--
+------------------------------------------------------------------------------
 
+-- Requisite neighbor function. Returns the neighbors and their weights
+-- for a given node in a unit test graph.
 testNeighbors graph node =
     map (\ (x, w, y) -> (y, w)) (filter (\ (x, w, y) -> x == node) graph)
 
+-- Helper to crete spanning tree from minimal syntax of the form:
+-- "testTree <root node> [ <child testTree> ]"
 testTree root childTrees =
-    SpanningTree root (Map.fromList (map (\ tree@(SpanningTree child _) -> (child, tree)) childTrees))
+    SpanningTree root (Map.fromList
+        (map (\ tree@(SpanningTree child _) -> (child, tree)) childTrees))
 
+-- Wrapper to test findSpanningTree
 testGraph desc graph expST =
     assertEqual desc expST (findSpanningTree 0 (testNeighbors graph))
+
+--
+-- Actual unit test cases
+--
 
 testST0 = TestLabel "Basic ST functionality" $ TestCase $ do
     testGraph "two node ST"
@@ -136,8 +151,8 @@ testST3 = TestLabel "convoluted ST" $ TestCase $ do
          (2, 10, 3), (3, 10, 2), (0, 50, 3)]
         (testTree 0 [testTree 6 [], testTree 2 [testTree 3 []]])
 
--- Test that we didn't implement an MST. we want a tree with the
--- least cost path to each edge
+-- Test that we didn't implement an MST algorithm. We want a tree with the
+-- least cost path to each edge.
 testST4 = TestLabel "don't use Prim's algorithm" $ TestCase $ do
     testGraph "don't give MST"
         [(0, 10, 1), (0, 30, 2),
