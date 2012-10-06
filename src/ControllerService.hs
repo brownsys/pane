@@ -1,7 +1,6 @@
 module ControllerService
   ( controller
   , PacketIn
-  , ControllerConfig (..)
   ) where
 
 import Prelude hiding (catch)
@@ -20,19 +19,13 @@ import System.Exit
 
 type PacketIn = (OF.TransactionID, Integer, OF.SwitchID, OF.PacketInfo)
 
-data ControllerConfig = ControllerConfig
-  { controllerPort  :: Word16
-  , ovsSetQueue     :: String
-  , ovsDeleteQueue  :: String
-  }
-
 controller :: Chan NIB.Snapshot  -- ^input channel (from Compiler)
            -> Chan NIB.Msg       -- ^output channel (headed to NIB module)
            -> Chan PacketIn      -- ^output channel (headed to MAC Learning)
            -> Chan (OF.SwitchID, Bool) -- ^output channel (for MAC Learning;
                                        -- switches connecting & disconnecting)
            -> PacketOutChan      -- ^input channel (from MAC Learning)
-           -> ControllerConfig
+           -> PaneConfig
            -> IO ()
 controller nibSnapshot toNIB packets switches pktOut config = do
   server <- OFS.startOpenFlowServer Nothing (controllerPort config)
@@ -107,7 +100,7 @@ messageHandler packets toNIB switch (xid, msg) = case msg of
 configureSwitch :: Chan NIB.Snapshot -- ^input channel (from the Compiler)
                 -> OFS.SwitchHandle
                 -> NIB.Switch
-                -> ControllerConfig
+                -> PaneConfig
                 -> IO ()
 configureSwitch nibSnapshot switchHandle oldSw@(NIB.Switch oldPorts oldTbl _) config = do
   let switchID = OFS.handle2SwitchID switchHandle
@@ -212,7 +205,7 @@ mkPortModsOVS :: Integer
               -> Map OF.PortID NIB.PortCfg
               -> Map OF.PortID NIB.PortCfg
               -> OF.SwitchID
-              -> ControllerConfig
+              -> PaneConfig
               -> (IO (), IO (), [OF.CSMessage])
 mkPortModsOVS now portsNow portsNext swid config = (addActions, delTimers, addMsgs)
   where addMsgs = [] -- No OpenFlow messages needed

@@ -9,6 +9,7 @@ import System.IO.Unsafe
 import Control.Monad
 import System.Environment
 import System.IO
+import System.Log.Logger
 import Data.Word
 import Parser
 import ShareTreeLang
@@ -27,6 +28,7 @@ import Data.ConfigFile
 import Control.Monad.Error
 import Control.Exception
 import Management
+import SetupLogging
 
 data Argument
   = Test String
@@ -37,15 +39,158 @@ data Argument
 argSpec =
   [ Option ['t'] ["test"] (ReqArg Test "FILE") "run test case"
   , Option ['c'] ["config"] (ReqArg Config "FILE") "config file"
-  , Option ['p'] ["port"] (ReqArg (NewServer . read) "PORT") "port number for interaction server"
+  , Option ['p'] ["port"] (ReqArg (NewServer . read) "PORT")
+                          "port number for interaction server"
   , Option ['h'] ["help"] (NoArg Help) "print this help message"
   ]
 
-defaultControllerConfig = ControllerConfig
+defaultPaneConfig = PaneConfig
   { controllerPort = 6633
   , ovsSetQueue    = "./scripts/ovs-set-port-queue-min.sh"
   , ovsDeleteQueue = "./scripts/ovs-delete-port-queue.sh"
+  , logScreenPrio  = NOTICE
+  , logFilePath    = ""
+  , logFilePrio    = DEBUG
   }
+
+------------------------------------------------------------------------------
+--
+-- Where the action is...
+--
+------------------------------------------------------------------------------
+
+startup :: String -> Word16 -> IO ()
+startup filename port = do
+  logo putStrLn
+  (initTime, tickChan) <- timeService
+
+  --
+  -- Load & parse config file
+  --
+
+  settings <- readConfig filename `catch`
+                              (\e -> do let err = show (e :: IOException)
+                                        warningM "Main.startup" $
+                                              ("Warning: Couldn't open " ++
+                                               filename ++ ": " ++ err)
+                                        return emptyCP)
+  config <- parseConfig settings defaultPaneConfig
+
+  setupLogging config
+
+  --
+  -- Start services
+  --
+
+  noticeM "Main.startup" $ "Starting PANE's component services ..."
+
+  noticeM "Main.startup" $ "Creating empty NIB ..."
+  nibMsg <- newChan
+  nib <- NIB.newEmptyNIB nibMsg
+
+  noticeM "Main.startup" $ "Creating PANE + MAC Learning system..."
+  packetIn <- newChan
+  switches <- newChan
+  paneReq <- newChan
+  (tbl, paneResp, pktOut) <- combinedPaneMac switches packetIn paneReq tickChan
+
+  noticeM "Main.startup" $ "Starting PANE interaction console on port " ++
+                           show port ++ " ..."
+  interactions port paneResp paneReq
+
+  noticeM "Main.startup" $ "Launching management server..."
+  mgmtReq <- newChan
+  mgmtResp <- mgmtServer mgmtReq nibMsg config
+
+  let mgmtPort = port + 1
+  noticeM "Main.startup" $ "Starting PANE management console on port " ++
+                           show (mgmtPort) ++  " ..."
+  interactions mgmtPort mgmtResp mgmtReq
+
+  noticeM "Main.startup" $ "Starting compiler ..."
+  nibUpdates <- newChan -- TODO(arjun): write into this
+  nibSnapshot <- compilerService (nib, nibUpdates) tbl
+
+  noticeM "Main.startup" $ "Starting OpenFlow controller ..."
+  controller nibSnapshot nibMsg packetIn switches pktOut config
+
+
+------------------------------------------------------------------------------
+--
+-- Command-line argument processing
+--
+------------------------------------------------------------------------------
+
+action [Test file] = runTestFile file
+action [NewServer port] = startup "pane.cfg" port
+action [Config file, NewServer port] = startup file port
+action [Help] = do
+  logo putStrLn
+  putStrLn $ usageInfo "Usage Info" argSpec
+action [] = do
+  logo putStrLn
+  putStrLn $ usageInfo "Usage Info" argSpec
+  fail "too few args"
+action _ = do
+  logo putStrLn
+  putStrLn $ usageInfo "Usage Info" argSpec
+  fail "too many args"
+
+------------------------------------------------------------------------------
+--
+-- Functions for handling the config file
+--
+------------------------------------------------------------------------------
+
+readConfig file = do
+  noticeM "Main.readConfig" $ "Reading config file: " ++ file
+  rv <- runErrorT $ do
+      cp <- join $ liftIO $ readfile (emptyCP { optionxform = id }) file
+      return cp
+  case rv of
+    Left x ->  do errorM "Main.readConfig" $ "Invalid config file; " ++
+                         "using built-in defaults. " ++ show(x)
+                  return emptyCP
+    Right x -> return x
+
+parseConfig settings config = do
+  config <- case get settings "DEFAULT" "ControllerPort" of
+              Left e  -> do putStrLn $ "Invalid controller port setting; " ++
+                                       "using default. " ++ show(e)
+                            return config
+              Right x -> return (config { controllerPort = x })
+  config <- case get settings "Open vSwitch" "setQueueScript" of
+              Left e  -> do putStrLn $ "Invalid OVS set port script; " ++
+                                       "using default. " ++ show(e)
+                            return config
+              Right x -> return (config { ovsSetQueue = x })
+  config <- case get settings "Open vSwitch" "deleteQueueScript" of
+              Left e  -> do putStrLn $ "Invalid OVS delete port script; " ++
+                                       "using default. " ++ show(e)
+                            return config
+              Right x -> return (config { ovsDeleteQueue = x })
+  config <- case get settings "Logging" "logScreenPriority" of
+              Left e  -> do putStrLn $ "Invalid logScreenPriority; " ++
+                                       "using default. " ++ show(e)
+                            return config
+              Right x -> return (config { logScreenPrio = str2logPriority x })
+  config <- case get settings "Logging" "logFilePath" of
+              Left e  -> do putStrLn $ "Invalid logFilePath; using default. "
+                                       ++ show(e)
+                            return config
+              Right x -> return (config { logFilePath = x })
+  config <- case get settings "Logging" "logFilePriority" of
+              Left e  -> do putStrLn $ "Invalid logFilePriority; " ++
+                                       "using default. " ++ show(e)
+                            return config
+              Right x -> return (config { logFilePrio = str2logPriority x })
+  return config
+
+------------------------------------------------------------------------------
+--
+-- Helper functions
+--
+------------------------------------------------------------------------------
 
 runTestFile f = do
   runTests <- parseFromTestFile f
@@ -61,91 +206,6 @@ timeService = do
   (TOD initNow _) <- getClockTime
   writeIORef sysTime initNow
   return (initNow, tickChan)
-
---
--- Functions for handling the config file
---
-
-readConfig file = do
-  putStrLn $ "Reading config file: " ++ file
-  rv <- runErrorT $ do
-      cp <- join $ liftIO $ readfile (emptyCP { optionxform = id }) file
-      return cp
-  case rv of
-    Left x ->  do putStrLn $ "Invalid config file; using built-in defaults. " ++ show(x)
-                  return emptyCP
-    Right x -> return x
-
-parseConfig settings config = do
-  config <- case get settings "DEFAULT" "ControllerPort" of
-              Left e  -> do putStrLn $ "Invalid controller port setting; using default. " ++ show(e)
-                            return config
-              Right x -> return (config { controllerPort = x })
-  config <- case get settings "Open vSwitch" "setQueueScript" of
-              Left e  -> do putStrLn $ "Invalid OVS set port script; using default. " ++ show(e)
-                            return config
-              Right x -> return (config { ovsSetQueue = x })
-  config <- case get settings "Open vSwitch" "deleteQueueScript" of
-              Left e  -> do putStrLn $ "Invalid OVS delete port script; using default. " ++ show(e)
-                            return config
-              Right x -> return (config { ovsDeleteQueue = x })
-  return config
-
---
--- Where the action is: command-line argument processing
---
-
-action [Test file] = runTestFile file
-action [NewServer port] = action [Config "pane.cfg", NewServer port]
-action [Config file, NewServer port] = do
-  logo putStrLn
-  putStrLn "Starting PANE  ..."
-  (initTime, tickChan) <- timeService
-
-  settings <- readConfig file `catch`
-                              (\e -> do let err = show (e :: IOException)
-                                        putStrLn $ ("Warning: Couldn't open " ++ file ++ ": " ++ err)
-                                        return emptyCP)
-  config <- parseConfig settings defaultControllerConfig
-
-  putStrLn "Creating empty NIB..."
-  nibMsg <- newChan
-  nib <- NIB.newEmptyNIB nibMsg
-
-  putStrLn "Creating PANE + MAC Learning system..."
-  packetIn <- newChan
-  switches <- newChan
-  paneReq <- newChan
-  (tbl, paneResp, pktOut) <- combinedPaneMac switches packetIn paneReq tickChan
-
-  putStrLn $ "Starting PANE interaction console on port " ++ show port ++ " ..."
-  interactions port paneResp paneReq
-
-  putStrLn $ "Launching management server..."
-  mgmtReq <- newChan
-  mgmtResp <- mgmtServer mgmtReq nibMsg
-
-  let mgmtPort = port + 1
-  putStrLn $ "Starting PANE management console on port " ++ show (mgmtPort) ++  " ..."
-  interactions mgmtPort mgmtResp mgmtReq
-
-  putStrLn "Starting compiler ..."
-  nibUpdates <- newChan -- TODO(arjun): write into this
-  nibSnapshot <- compilerService (nib, nibUpdates) tbl
-
-  putStrLn "Starting OpenFlow controller ..."
-  controller nibSnapshot nibMsg packetIn switches pktOut config
-action [Help] = do
-  logo putStrLn
-  putStrLn $ usageInfo "Usage Info" argSpec
-action [] = do
-  logo putStrLn
-  putStrLn $ usageInfo "Usage Info" argSpec
-  fail "too few args"
-action _ = do
-  logo putStrLn
-  putStrLn $ usageInfo "Usage Info" argSpec
-  fail "too many args"
 
 mainBody = do
   rawArgs <- getArgs

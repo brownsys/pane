@@ -29,6 +29,7 @@ module Base
   , logo
   , retryOnExns
   , ignoreExns
+  , PaneConfig (..)
   ) where
 
 import Data.Maybe
@@ -46,6 +47,7 @@ import Nettle.OpenFlow hiding (Port)
 import Flows
 import qualified Nettle.OpenFlow as OF
 import Control.Exception
+import System.Log.Logger as Logger
 
 sysTime :: IORef Integer -- ^ system time, updated by timeService
 sysTime = unsafePerformIO (newIORef 0)
@@ -236,3 +238,13 @@ logo putter = do
   putter ""
   putter "    A PROTOTYPE PARTICIPATORY NETWORK"
   putter ""
+
+
+data PaneConfig = PaneConfig
+  { controllerPort    :: Word16
+  , ovsSetQueue       :: String
+  , ovsDeleteQueue    :: String
+  , logScreenPrio     :: Logger.Priority
+  , logFilePath       :: String
+  , logFilePrio       :: Logger.Priority
+  }
