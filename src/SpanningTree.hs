@@ -92,6 +92,8 @@ findSpanningTree root neighbors =
             children' = Map.insertWith (\_ tree -> extendTree tree xs) x pathAsTree children
         in SpanningTree root children'
     -- given a path, find the paths that include it but are one edge longer
+    nextPaths [] _ = error ("internal error: findSpanningTree: " ++
+                           "should not reach this case")
     nextPaths [x] orig_w =
         Set.fromList $ map (\(y, w) -> WeightedPath [x, y] (orig_w+w))  (neighbors x)
     nextPaths (x:xs) orig_w =

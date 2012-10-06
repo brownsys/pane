@@ -7,6 +7,7 @@ import qualified Data.Map as Map
 import Data.Word (Word16)
 import System.Log.Logger
 import Control.Monad.State
+import Data.Either (partitionEithers)
 
 import Base hiding (Port)
 
@@ -43,19 +44,20 @@ data Node
 data Switch = Switch {
     switchID        :: OF.SwitchID, -- ^ the datapath ID of the switch
     switchType      :: SwitchType,
-    switchPorts     :: [ Port ]
+    switchPorts     :: Map.Map OF.PortID Port
 } deriving (Eq,Ord)
 
 instance Show Switch where
   show (Switch sid stype ports) =
     "SwitchID: " ++ show(sid) ++
     "\n    Type: " ++ show(stype) ++
-    "\n    Num ports: " ++ show(length ports)
+    "\n    Num ports: " ++ show(Map.size ports)
 
 data Port = Port {
     portID      :: OF.PortID, -- not globally unique; only unique per switch
+    portName    :: String,
     portLinks   :: [ NodeLink ],
-    portQueues  :: [ Queue ],
+    portQueues  :: Map.Map OF.QueueID Queue,
     portSpeed   :: PortSpeed -- highest speed port supports TODO(adf): should become property of a link instead?
     -- portNoFlood ... controller disables with OFPPC_NO_FLOOD
     -- portDown? ... controller can disable with OFPPC_PORT_DOWN
@@ -65,13 +67,14 @@ data Port = Port {
 } deriving (Eq,Ord)
 
 instance Show Port where
-  show (Port pid links queues speed) =
+  show (Port pid name links queues speed) =
     "PortID: " ++ show(pid) ++
+    "\n    Name: " ++ show(name) ++
     "\n    Speed: " ++ show(speed) ++
     "\n    Num links: " ++ show(length links) ++
 --    "\n    Links:\n" ++ map show links ++
-    "\n    Num queues: " ++ show(length queues)
---    "\n    Queues:\n" ++ map show queues
+    "\n    Num queues: " ++ show(Map.size queues)
+--    "\n    Queues:\n" ++ show queues
 
 data Queue = Queue {
     queueID         :: OF.QueueID, -- not globally unique; only unique per port
@@ -119,6 +122,7 @@ data PortSpeed
     | Speed100Mb -- ^100 Mb rate support
     | Speed1Gb   -- ^1 Gb rate support
     | Speed10Gb  -- ^10 Gb rate support
+    | SpeedUnknown
     deriving (Eq,Ord)
 
 instance Show PortSpeed where
@@ -126,6 +130,7 @@ instance Show PortSpeed where
   show Speed100Mb = "100 Mbps"
   show Speed1Gb = "1 Gbps"
   show Speed10Gb = "10 Gbps"
+  show SpeedUnknown = "(unknown speed)"
 
 ------------------------------------------------------------------------------
 --
@@ -180,7 +185,9 @@ data Msg
 
 data OutgoingMsg
   = DiscoveryMsg OFS.SwitchHandle
-  | LogMsg Priority String
+ -- maybe also a "DiscoveryPortMsg" for when a port is added to existing switch?
+ 
+data LogMsg = LogMsg Priority String
 
 ------------------------------------------------------------------------------
 --
@@ -195,8 +202,9 @@ runNIB chan outgoingChan = do
 
       nibProcessor nib = do
         msg <- readChan chan
-        let (nib, outgoing) = execState (processMsg msg) (nib, [])
-        -- TODO(adf): handle logging messages ourselves, send the rest out
+        let (nib, msgs) = execState (processMsg msg) (nib, [])
+            (logs, outgoing) = partitionEithers msgs
+        mapM_ (\(LogMsg p s) -> logM "NIB.processor" p s) logs
         writeList2Chan outgoingChan outgoing
         nibProcessor nib
 
@@ -205,6 +213,14 @@ runNIB chan outgoingChan = do
 
 
 processMsg :: Msg -> NIBState ()
+
+processMsg (NewSwitch handle features) =
+  let swid = OF.switchID features in do
+      newSwitch <- addSwitch swid handle
+      if newSwitch
+        then mapM_ (addPort swid) (OF.ports features)
+        else return()
+
 processMsg (StatsReply swid reply) = case reply of
   OF.DescriptionReply desc ->
         let hardwareDesc = OF.hardwareDesc desc in
@@ -240,6 +256,41 @@ lookupIP nib ip =
 -- Updating the NIB
 --
 
+addSwitch :: OF.SwitchID -> OFS.SwitchHandle -> NIBState Bool
+addSwitch swid handle = do
+  nib <- getNIB
+  case Map.lookup swid (nibSwitches nib) of
+    Nothing -> let sw = Switch swid UnknownSwitch Map.empty
+                   sws = Map.insert swid sw (nibSwitches nib) in do
+               logMsg NOTICE $ "NIB added switch: " ++ OF.showSwID swid
+               addMsg (DiscoveryMsg handle)
+               putNIB (nib { nibSwitches = sws })
+               return True
+
+    -- TODO(adf): will need to adjust this if we give switches a grace period
+    Just sw -> do logMsg WARNING $ "switch " ++ OF.showSwID swid ++
+                                " already in NIB"
+                  return False
+
+addPort :: OF.SwitchID -> OF.Port -> NIBState ()
+addPort swid ofport = do
+  nib <- getNIB
+  case Map.lookup swid (nibSwitches nib) of
+    Just sw -> let pid = OF.portID ofport
+                   name = OF.portName ofport
+                   speed = SpeedUnknown
+                   port = Port pid name [] Map.empty speed
+                   ports = Map.insert pid port (switchPorts sw)
+                   sw' = sw { switchPorts = ports }
+                   sws = Map.insert swid sw' (nibSwitches nib) in do
+                   logMsg DEBUG $ "NIB added port: " ++ show pid ++
+                                  " to switch: " ++ OF.showSwID swid
+--                   addMsg (PortAddedMsg swid pid)
+                   putNIB (nib { nibSwitches = sws })
+    Nothing -> logMsg ERROR $ "switch " ++ OF.showSwID swid ++ " not in NIB."
+                        ++ " cannot add OF port: " ++ show ofport
+
+
 setSwitchType :: OF.SwitchID -> SwitchType -> NIBState ()
 setSwitchType swid stype = do
   nib <- getNIB
@@ -250,11 +301,12 @@ setSwitchType swid stype = do
     Nothing -> logMsg ERROR $ "switch " ++ OF.showSwID swid ++ " not in NIB."
                           ++ " cannot add its type."
 
+
 --
 -- Tracking and updating the state of the NIB
 --
 
-type NIBState a = State (NIB, [OutgoingMsg]) a
+type NIBState a = State (NIB, [Either LogMsg OutgoingMsg]) a
 
 getNIB :: NIBState NIB
 getNIB = get >>= return . fst
@@ -270,7 +322,9 @@ modifyNIB f = getNIB >>= return . f >>= putNIB
 addMsg :: OutgoingMsg -> NIBState ()
 addMsg msg = do
     (nib, msgs) <- get
-    put (nib, msgs ++ [msg])
+    put (nib, msgs ++ [Right msg])
 
 logMsg :: Priority -> String -> NIBState ()
-logMsg pri str = addMsg (LogMsg pri str)
+logMsg pri str = do
+    (nib, msgs) <- get
+    put (nib, msgs ++ [Left (LogMsg pri str)])
