@@ -11,40 +11,27 @@ import qualified Data.Ord as Ord
 import Test.HUnit
 import Data.List (intercalate)
 
--- thoughts:
--- root of spanning tree:
--- 1) switch attahed to gateway enedpoing
--- 2) lowest numbered switch
---
--- disconnected graph:
--- - needs multiple spanning trees
-
 
 -- two parts:
 -- find spaning trees
--- implement spanning trees in network
+-- implement spanning trees in network TODO(adf)
+--
+-- disconnected graph:
+-- - needs multiple spanning trees  TODO(adf)
 
-getRootSwitch :: NIB -> Maybe Switch
-getRootSwitch nib@(NIB sws _ gwip) =
-  let firstSwitch = case Map.keys sws of
-        []     -> Nothing
-        (x:xs) -> Map.lookup x sws
-  in case gwip of
-    Nothing -> firstSwitch
-    Just gwip -> case lookupIP nib gwip of
-        [] -> firstSwitch
-        (gw : _) -> case endpointLink gw of
-            EndpointLink _ -> firstSwitch
-            SwitchLink swid _ -> case Map.lookup swid sws of
-                Nothing -> firstSwitch
-                Just sw -> Just sw -- common case
+------------------------------------------------------------------------------
+--
+-- | Support types to return spanning trees and handle weighted paths.
+--
+------------------------------------------------------------------------------
 
--- Spanning tree with: root, and map from children to their trees
+--
+-- Spanning tree with a root node, and a map from child nodes to their trees
+--
+
 data SpanningTree a = SpanningTree a (Map a (SpanningTree a))
 
 singletonTree x = SpanningTree x Map.empty
-
-data WeightedPath a w = WeightedPath [a] w
 
 instance Eq a => Eq (SpanningTree a) where
     SpanningTree root children == SpanningTree root' children' =
@@ -55,8 +42,14 @@ instance Ord a => Ord (SpanningTree a) where
         (root, children) `Ord.compare` (root', children')
 
 instance Show a => Show (SpanningTree a) where
-    show (SpanningTree root children) =
-        "(" ++ (intercalate " " (show root : map show (Map.elems children))) ++ ")"
+    show (SpanningTree root children) = "(" ++
+            (intercalate " " (show root : map show (Map.elems children))) ++ ")"
+
+--
+-- Weighted paths
+--
+
+data WeightedPath a w = WeightedPath [a] w
 
 instance (Eq w, Eq a) => Eq (WeightedPath a w) where
     WeightedPath path weight == WeightedPath path' weight' =
@@ -67,12 +60,17 @@ instance (Ord w, Ord a) => Ord (WeightedPath a w) where
     WeightedPath path weight `compare` WeightedPath path' weight' =
         (weight, path) `Ord.compare` (weight', path')
 
-----
+------------------------------------------------------------------------------
+--
+-- | Returns a graph's spanning tree where each node in the tree is on the
+-- minimum-cost path from the root node. Note that this is not the minimum
+-- spanning tree; rather the one constructed by the Spanning Tree Protocol.
+--
+------------------------------------------------------------------------------
 
--- first argument: root
--- second argument: given a node, return a list of its neighbors and their weights
--- returns a spanning tree
-findSpanningTree :: (Ord a, Ord w, Num w) => a -> (a -> [(a, w)]) -> SpanningTree a
+findSpanningTree :: (Ord a, Ord w, Num w) => a -- ^ Spanning tree's root node
+                    -> (a -> [(a, w)]) -- ^ returns a node's neighbors & weights
+                    -> SpanningTree a
 findSpanningTree root neighbors =
     recFind (singletonTree root) startPaths (Set.singleton root) where
     recFind tree frontier explored =
@@ -89,18 +87,47 @@ findSpanningTree root neighbors =
     extendTree tree [] = tree
     extendTree tree@(SpanningTree root children) (x:xs) =
         let pathAsTree = extendTree (singletonTree x) xs
-            children' = Map.insertWith (\_ tree -> extendTree tree xs) x pathAsTree children
+            children' = Map.insertWith (\_ tree -> extendTree tree xs)
+                                       x pathAsTree children
         in SpanningTree root children'
     -- given a path, find the paths that include it but are one edge longer
     nextPaths [] _ = error ("internal error: findSpanningTree: " ++
                            "should not reach this case")
     nextPaths [x] orig_w =
-        Set.fromList $ map (\(y, w) -> WeightedPath [x, y] (orig_w+w))  (neighbors x)
+        Set.fromList $ map (\(y, w) -> WeightedPath [x, y] (orig_w+w))
+                           (neighbors x)
     nextPaths (x:xs) orig_w =
-        Set.map (\(WeightedPath path w) -> WeightedPath (x:path) w) (nextPaths xs orig_w)
+        Set.map (\(WeightedPath path w) -> WeightedPath (x:path) w)
+                (nextPaths xs orig_w)
     -- construct start paths by hand as paths do not include root
-    startPaths = Set.fromList $ map (\(x, w) -> WeightedPath [x] w) (neighbors root)
+    startPaths = Set.fromList $ map (\(x, w) -> WeightedPath [x] w)
+                                    (neighbors root)
 
+------------------------------------------------------------------------------
+--
+-- Helper functions to run spanning tree over our NIB
+--
+------------------------------------------------------------------------------
+
+--
+-- | Returns a switch to serve as the root of the spanning tree. We first
+-- look for the switch attached to the gateway endpoint. If that search is
+-- not successful, we return the lowest numbered switch.
+--
+getRootSwitch :: NIB -> Maybe Switch
+getRootSwitch nib@(NIB sws _ gwip) =
+  let firstSwitch = case Map.keys sws of
+        []     -> Nothing
+        (x:xs) -> Map.lookup x sws
+  in case gwip of
+    Nothing -> firstSwitch
+    Just gwip -> case lookupIP nib gwip of
+        [] -> firstSwitch
+        (gw : _) -> case endpointLink gw of
+            EndpointLink _ -> firstSwitch
+            SwitchLink swid _ -> case Map.lookup swid sws of
+                Nothing -> firstSwitch
+                Just sw -> Just sw -- common case
 
 ------------------------------------------------------------------------------
 --
