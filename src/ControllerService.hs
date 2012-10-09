@@ -16,6 +16,11 @@ import qualified Data.Set as Set
 import qualified Data.List as List
 import System.Process
 import System.Exit
+import qualified System.Log.Logger as Logger
+import System.Log.Logger.TH (deriveLoggers)
+
+$(deriveLoggers "Logger" [Logger.DEBUG, Logger.NOTICE, Logger.WARNING,
+                          Logger.ERROR])
 
 type PacketIn = (OF.TransactionID, Integer, OF.SwitchID, OF.PacketInfo)
 
@@ -32,14 +37,14 @@ controller nibSnapshot toNIB packets switches pktOut config = do
   -- actually send packets sent by MAC learning module
   forkIO $ forever $ do
     (swID, xid, pktOut) <- readChan pktOut
-    -- putStrLn $ "SEND packet-out" ++ show (OF.bufferIDData pktOut)
+    debugM $ "SEND packet-out" ++ show (OF.bufferIDData pktOut)
     ignoreExns "send pkt from controller"
                (OFS.sendToSwitchWithID server swID (xid, OF.PacketOut pktOut))
   -- process new switches
   forever $ do
     (switch, switchFeatures) <- retryOnExns "accept switch"
                                             (OFS.acceptSwitch server)
-    putStrLn $ "OpenFlow controller connected to new switch."
+    noticeM $ "OpenFlow controller connected to new switch."
     writeChan toNIB (NIB.NewSwitch switch switchFeatures)
     writeChan switches (OFS.handle2SwitchID switch, True)
     nibSnapshot <- dupChan nibSnapshot
@@ -72,7 +77,7 @@ handleSwitch packets toNIB switches switch = do
              (OFS.closeSwitchHandle switch)
   writeChan switches (swID, False)
   -- TODO(adf): also inform NIB that switch is gone? could be transient...
-  putStrLn $ "Connection to switch " ++ showSwID swID ++ " closed."
+  noticeM $ "Connection to switch " ++ showSwID swID ++ " closed."
 
 messageHandler :: Chan PacketIn -- ^output channel (headed to MAC Learning)
                -> Chan NIB.Msg  -- ^output channel (headed to NIB module)
@@ -87,8 +92,8 @@ messageHandler packets toNIB switch (xid, msg) = case msg of
   OF.StatsReply pkt -> do
     writeChan toNIB (NIB.StatsReply (OFS.handle2SwitchID switch) pkt)
   otherwise -> do
-    putStrLn $ "unhandled message from switch " ++ 
-                (showSwID $ OFS.handle2SwitchID switch) ++ "\n" ++ show msg
+    warningM $ "unhandled message from switch " ++
+               (showSwID $ OFS.handle2SwitchID switch) ++ "\n" ++ show msg
     return ()
 
 --
@@ -102,13 +107,14 @@ configureSwitch :: Chan NIB.Snapshot -- ^input channel (from the Compiler)
                 -> NIB.Switch
                 -> PaneConfig
                 -> IO ()
-configureSwitch nibSnapshot switchHandle oldSw@(NIB.Switch oldPorts oldTbl _) config = do
+configureSwitch nibSnapshot switchHandle oldSw@(NIB.Switch oldPorts oldTbl _)
+                config = do
   let switchID = OFS.handle2SwitchID switchHandle
   snapshot <- readChan nibSnapshot
   case Map.lookup switchID snapshot of
     Nothing -> do
-      putStrLn $ "configureSwitch did not find " ++ showSwID switchID ++
-                 " in the NIB snapshot."
+      errorM $ "configureSwitch did not find " ++ showSwID switchID ++
+               " in the NIB snapshot."
       configureSwitch nibSnapshot switchHandle oldSw config
     Just sw@(NIB.Switch newPorts newTbl swType) -> do
       now <- readIORef sysTime
@@ -116,20 +122,22 @@ configureSwitch nibSnapshot switchHandle oldSw@(NIB.Switch oldPorts oldTbl _) co
            case swType of
              NIB.ReferenceSwitch -> mkPortModsExt now oldPorts newPorts
                                       (OFS.sendToSwitch switchHandle)
-             NIB.OpenVSwitch     -> mkPortModsOVS now oldPorts newPorts switchID config
+             NIB.OpenVSwitch     -> mkPortModsOVS now oldPorts newPorts
+                                      switchID config
              NIB.ProntoSwitch    -> mkPortModsExt now oldPorts newPorts
                                       (OFS.sendToSwitch switchHandle)
-             otherwise           -> -- putStrLn $ "Don't know how to create queues for " ++ show swType
-                                    (return(), return(), [])
+             otherwise           -> (errorM $ "Don't know how to create "
+                                              ++ "queues for " ++ show swType,
+                                     return(), [])
       let msgs = msgs' ++ mkFlowMods now newTbl oldTbl
-{- TODO(adf): re-enable this code when we have propper logging
       unless (null msgs) $ do
-         putStrLn $ "Controller modifying tables on " ++ showSwID switchID
-         putStrLn $ "sending " ++ show (length msgs) ++ " messages; oldTbl size = " ++ show (Set.size oldTbl) ++ " newTbl size = " ++ show (Set.size newTbl)
-         mapM_ (\x -> putStrLn $ "   " ++ show x) msgs
-         putStrLn "-------------------------------------------------"
+         debugM $ "Controller modifying tables on " ++ showSwID switchID
+         debugM $ "sending " ++ show (length msgs) ++ " messages; "
+                  ++ "oldTbl size = " ++ show (Set.size oldTbl) ++
+                  " newTbl size = " ++ show (Set.size newTbl)
+         mapM_ (\x -> debugM $ "   " ++ show x) msgs
+         debugM "-------------------------------------------------"
          return ()
--}
       -- TODO(adf): should do something smarter here than silently ignoring
       -- exceptions while writing config to switch...
       portActions
@@ -185,8 +193,7 @@ mkPortModsExt now portsNow portsNext sendCmd = (addActions, delTimers, addMsgs)
         delQueueAction ((pid, qid), NIB.Queue _ (DiscreteLimit end)) = do
           forkIO $ do
             threadDelay (10^6 * (fromIntegral $ end - now))
-            -- TODO(adf): awaiting logging code...
-            -- putStrLn $ "Deleting queue " ++ show qid ++ " on port " ++ show pid
+            debugM $ "Deleting queue " ++ show qid ++ " on port " ++ show pid
             ignoreExns ("deleting queue " ++ show qid)
                     (sendCmd (0, OF.ExtQueueDelete pid [OF.QueueConfig qid []]))
           return ()
@@ -207,33 +214,37 @@ mkPortModsOVS :: Integer
               -> OF.SwitchID
               -> PaneConfig
               -> (IO (), IO (), [OF.CSMessage])
-mkPortModsOVS now portsNow portsNext swid config = (addActions, delTimers, addMsgs)
+mkPortModsOVS now portsNow portsNext swid config =
+  (addActions, delTimers, addMsgs)
   where addMsgs = [] -- No OpenFlow messages needed
         addActions = sequence_ (map newQueueAction newQueues)
         delTimers = sequence_ (map delQueueAction newQueues)
 
         newQueueAction ((pid, qid), NIB.Queue resv _) = do
-            -- TODO(adf): awaiting logging code...
-            -- putStrLn $ "Creating queue " ++ show qid ++ " on port " ++ show pid ++ " switch " ++ show swid
-          exitcode <- rawSystem (ovsSetQueue config) [show swid, show pid, show qid, show resv]
+          debugM $ "Creating queue " ++ show qid ++ " on port " ++ show pid
+                   ++ " switch " ++ show swid
+          exitcode <- rawSystem (ovsSetQueue config) [show swid, show pid,
+                                                      show qid, show resv]
           case exitcode of
             ExitSuccess   -> return ()
-            ExitFailure n -> putStrLn $ "Exception (ignoring): " ++
-                                        "failed to create OVS queue: " ++ show swid ++ " " ++
-                                        show pid ++ " " ++ show qid ++ "; ExitFailure: " ++ show n
+            ExitFailure n -> noticeM $ "Exception (ignoring): failed to create"
+                                     ++ " OVS queue: " ++ show swid ++ " " ++
+                                     show pid ++ " " ++ show qid ++
+                                     "; ExitFailure: " ++ show n
 
         delQueueAction ((_, _), NIB.Queue _ NoLimit) = return ()
         delQueueAction ((pid, qid), NIB.Queue _ (DiscreteLimit end)) = do
           forkIO $ do
             threadDelay (10^6 * (fromIntegral $ end - now))
-            -- TODO(adf): awaiting logging code...
-            -- putStrLn $ "Deleting queue " ++ show qid ++ " on port " ++ show pid
-            exitcode <- rawSystem (ovsDeleteQueue config) [show swid, show pid, show qid]
+            debugM $ "Deleting queue " ++ show qid ++ " on port " ++ show pid
+            exitcode <- rawSystem (ovsDeleteQueue config) [show swid, show pid,
+                                                           show qid]
             case exitcode of
               ExitSuccess   -> return ()
-              ExitFailure n -> putStrLn $ "Exception (ignoring): " ++
-                                          "failed to delete OVS queue: " ++ show swid ++ " " ++
-                                          show pid ++ " " ++ show qid ++ "; ExitFailure: " ++ show n
+              ExitFailure n -> noticeM $ "Exception (ignoring): failed to " ++
+                                       "delete OVS queue: " ++ show swid ++ " "
+                                       ++ show pid ++ " " ++ show qid ++
+                                       "; ExitFailure: " ++ show n
             return()
           return ()
 

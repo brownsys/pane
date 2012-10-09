@@ -23,6 +23,10 @@ import Data.Word
 import qualified Flows as Flows
 import Control.Monad.State
 import qualified Data.List as List
+import System.Log.Logger.TH (deriveLoggers)
+import qualified System.Log.Logger as Logger
+
+$(deriveLoggers "Logger" [Logger.ERROR])
 
 nat = T.natural lex
 
@@ -430,7 +434,7 @@ parseFromString :: String -> String -> IO (PANE Result)
 parseFromString spk str = do
   case parse (parseCompleteString spk) "<string>" str of
     Left err -> do
-      putStrLn ("Parse failed: " ++ show err)
+      errorM $ "Parse failed: " ++ show err
       return (return (BoolResult False))
     Right cmd -> do
       return cmd

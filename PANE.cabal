@@ -22,6 +22,7 @@ Test-Suite unittest
   Extensions:
     NoMonomorphismRestriction
     OverloadedStrings
+    TemplateHaskell
   ghc-options:
     -fwarn-incomplete-patterns
 
@@ -32,6 +33,7 @@ Executable pane
   Extensions:
     NoMonomorphismRestriction
     OverloadedStrings
+    TemplateHaskell
   Build-Depends:
     base >= 4 && < 5,
     mtl >= 1.1.0.1,
@@ -48,6 +50,7 @@ Executable pane
     HList,
     process,
     ConfigFile,
-    hslogger
+    hslogger >= 1.2.0,
+    hslogger-template >= 2.0.1
   ghc-options:
     -fwarn-incomplete-patterns

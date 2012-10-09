@@ -10,6 +10,10 @@ import Parser
 import Base
 import Nettle.OpenFlow
 import System.Time
+import System.Log.Logger.TH (deriveLoggers)
+import qualified System.Log.Logger as Logger
+
+$(deriveLoggers "Logger" [Logger.INFO])
 
 interactions :: Word16
              -> Chan (Speaker, Integer, String)
@@ -47,5 +51,5 @@ handleUser conn clientId fromClient toClient = do
   -- read commands from user and place on fromClient bus
   forever $ do
     msg <- hGetLine conn
-    putStrLn $ spk ++ ": " ++ show msg
+    infoM $ spk ++ ": " ++ show msg
     writeChan fromClient (spk, clientId, msg)

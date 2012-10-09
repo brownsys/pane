@@ -9,7 +9,8 @@ import System.IO.Unsafe
 import Control.Monad
 import System.Environment
 import System.IO
-import System.Log.Logger
+import System.Log.Logger.TH (deriveLoggers)
+import qualified System.Log.Logger as Logger
 import Data.Word
 import Parser
 import ShareTreeLang
@@ -30,6 +31,8 @@ import Control.Exception
 import Management
 import SetupLogging
 
+$(deriveLoggers "Logger" [Logger.WARNING, Logger.NOTICE, Logger.ERROR])
+
 data Argument
   = Test String
   | NewServer Word16
@@ -48,9 +51,9 @@ defaultPaneConfig = PaneConfig
   { controllerPort = 6633
   , ovsSetQueue    = "./scripts/ovs-set-port-queue-min.sh"
   , ovsDeleteQueue = "./scripts/ovs-delete-port-queue.sh"
-  , logScreenPrio  = NOTICE
+  , logScreenPrio  = Logger.NOTICE
   , logFilePath    = ""
-  , logFilePrio    = DEBUG
+  , logFilePrio    = Logger.DEBUG
   }
 
 ------------------------------------------------------------------------------
@@ -70,9 +73,8 @@ startup filename port = do
 
   settings <- readConfig filename `catch`
                               (\e -> do let err = show (e :: IOException)
-                                        warningM "Main.startup" $
-                                              ("Warning: Couldn't open " ++
-                                               filename ++ ": " ++ err)
+                                        warningM $ "Warning: Couldn't open " ++
+                                                   filename ++ ": " ++ err
                                         return emptyCP)
   config <- parseConfig settings defaultPaneConfig
 
@@ -82,36 +84,35 @@ startup filename port = do
   -- Start services
   --
 
-  noticeM "Main.startup" $ "Starting PANE's component services ..."
+  noticeM $ "Starting PANE's component services ..."
 
-  noticeM "Main.startup" $ "Creating empty NIB ..."
+  noticeM $ "Creating empty NIB ..."
   nibMsg <- newChan
   nib <- NIB.newEmptyNIB nibMsg
 
-  noticeM "Main.startup" $ "Creating PANE + MAC Learning system..."
+  noticeM $ "Creating PANE + MAC Learning system..."
   packetIn <- newChan
   switches <- newChan
   paneReq <- newChan
   (tbl, paneResp, pktOut) <- combinedPaneMac switches packetIn paneReq tickChan
 
-  noticeM "Main.startup" $ "Starting PANE interaction console on port " ++
-                           show port ++ " ..."
+  noticeM $ "Starting PANE interaction console on port " ++ show port ++ " ..."
   interactions port paneResp paneReq
 
-  noticeM "Main.startup" $ "Launching management server..."
+  noticeM $ "Launching management server..."
   mgmtReq <- newChan
   mgmtResp <- mgmtServer mgmtReq nibMsg config
 
   let mgmtPort = port + 1
-  noticeM "Main.startup" $ "Starting PANE management console on port " ++
-                           show (mgmtPort) ++  " ..."
+  noticeM $ "Starting PANE management console on port " ++ show (mgmtPort)
+            ++  " ..."
   interactions mgmtPort mgmtResp mgmtReq
 
-  noticeM "Main.startup" $ "Starting compiler ..."
+  noticeM $ "Starting compiler ..."
   nibUpdates <- newChan -- TODO(arjun): write into this
   nibSnapshot <- compilerService (nib, nibUpdates) tbl
 
-  noticeM "Main.startup" $ "Starting OpenFlow controller ..."
+  noticeM $ "Starting OpenFlow controller ..."
   controller nibSnapshot nibMsg packetIn switches pktOut config
 
 
@@ -143,13 +144,13 @@ action _ = do
 ------------------------------------------------------------------------------
 
 readConfig file = do
-  noticeM "Main.readConfig" $ "Reading config file: " ++ file
+  noticeM $ "Reading config file: " ++ file
   rv <- runErrorT $ do
       cp <- join $ liftIO $ readfile (emptyCP { optionxform = id }) file
       return cp
   case rv of
-    Left x ->  do errorM "Main.readConfig" $ "Invalid config file; " ++
-                         "using built-in defaults. " ++ show(x)
+    Left x ->  do errorM $ "Invalid config file; using built-in defaults. "
+                           ++ show(x)
                   return emptyCP
     Right x -> return x
 

@@ -43,6 +43,11 @@ import qualified Data.HashTable as Ht
 import Data.Maybe (isJust, fromJust, catMaybes)
 import System.IO.Unsafe (unsafePerformIO)
 import qualified Data.HList as HL
+import System.Log.Logger.TH (deriveLoggers)
+import qualified System.Log.Logger as Logger
+
+$(deriveLoggers "Logger" [Logger.DEBUG, Logger.INFO, Logger.WARNING,
+                          Logger.ERROR])
 
 type FlowTblEntry = (Word16, OF.Match, [OF.Action], Limit)
 
@@ -156,16 +161,16 @@ nibMutator nib (NewSwitch handle features) = do
   let swID = OF.switchID features
   maybe <- addSwitch swID nib
   case maybe of
-    Nothing -> putStrLn $ "nibMutator: switch already exists " ++ show swID
+    Nothing -> warningM $ "nibMutator: switch already exists " ++ show swID
     Just sw -> do
-      putStrLn $ "NIB added switch " ++ show swID ++ "."
+      infoM$ "NIB added switch " ++ show swID ++ "."
       let addPort' p = do
             maybe <- addPort (OF.portID p) sw
             case maybe of
-              Nothing -> putStrLn $ "nibMutator: port already exists"
+              Nothing -> warningM $ "nibMutator: port already exists"
               Just _ -> do
-                -- putStrLn $ "NIB added port " ++ show (OF.portID p) ++ 
-                --           " on switch " ++ show swID
+                debugM $ "NIB added port " ++ show (OF.portID p) ++
+                         " on switch " ++ show swID
                 sendDP handle (OF.portID p)
                 return ()
       ignoreExns ("sending PaneDP on switch " ++ show swID) $
@@ -176,7 +181,7 @@ nibMutator nib (StatsReply swid reply) = case reply of
       "Open vSwitch" -> setSwitchType swid OpenVSwitch nib
       "Pronto 3290" -> setSwitchType swid ProntoSwitch nib
       otherwise -> setSwitchType swid (OtherSwitch (OF.hardwareDesc desc)) nib
-  otherwise -> putStrLn $ "unhandled statistics reply from switch " ++
+  otherwise -> infoM $ "unhandled statistics reply from switch " ++
                  (OF.showSwID swid) ++ "\n" ++ show reply
 nibMutator nib (DisplayNIB putter) = do
   sw  <- Ht.toList (nibSwitches nib)
@@ -218,9 +223,9 @@ nibMutator nib (PacketIn tS pkt) = case OF.enclosedFrame pkt of
                 linkPorts fromPort toPort
                 return ()
               ToSwitch _ _ -> do
-                putStrLn "NIB already linked to a switch"
-          otherwise -> putStrLn "NIB failed to find port(s)"
-      otherwise -> putStrLn "NIB failed to find switch(s)"
+                errorM $ "NIB already linked to a switch"
+          otherwise -> errorM $ "NIB failed to find port(s)"
+      otherwise -> errorM $ "NIB failed to find switch(s)"
   Right (HL.HCons hdr (HL.HCons (OF.ARPInEthernet arp) HL.HNil)) -> do
     let srcEth = OF.sourceMACAddress hdr
     let srcIP = case arp of
@@ -231,13 +236,13 @@ nibMutator nib (PacketIn tS pkt) = case OF.enclosedFrame pkt of
     let hostStr = show (srcEth, srcIP)
     case ySwitch of
       Nothing -> do
-        putStrLn $ "NIB cannot find switch for " ++ hostStr
+        errorM $ "NIB cannot find switch for " ++ hostStr
         return ()
       Just switch -> do
         maybe <- Ht.lookup (switchPorts switch) srcPort
         case maybe of
           Nothing -> do
-            putStrLn $ "NIB cannot find port for " ++ hostStr
+            errorM $ "NIB cannot find port for " ++ hostStr
             return ()
           Just port -> do
             connectedTo <- readIORef (portConnectedTo port)
@@ -246,14 +251,14 @@ nibMutator nib (PacketIn tS pkt) = case OF.enclosedFrame pkt of
                 maybe <- addEndpoint srcEth srcIP nib
                 case maybe of
                   Nothing -> do
-                    putStrLn $ "NIB already knows " ++ hostStr
+                    infoM $ "NIB already knows " ++ hostStr
                     return ()
                   Just endpoint -> do
                     b <- linkPorts port (endpointPort endpoint)
-                    putStrLn $ "NIB discovered host " ++ (show (srcEth, srcIP)) ++ " " ++ show b
+                    infoM $ "NIB discovered host " ++ (show (srcEth, srcIP)) ++ " " ++ show b
                     return ()
               conn -> do
-                putStrLn $ "NIB already connects " ++ hostStr ++ " to " ++ 
+                warningM $ "NIB already connects " ++ hostStr ++ " to " ++
                            show conn
                 return ()
   Right (HL.HCons hdr (HL.HCons (OF.IPInEthernet (HL.HCons ipHdr (HL.HCons _ HL.HNil))) HL.HNil)) -> do
@@ -264,13 +269,13 @@ nibMutator nib (PacketIn tS pkt) = case OF.enclosedFrame pkt of
     let hostStr = show (srcEth, srcIP)
     case ySwitch of
       Nothing -> do
-        putStrLn $ "NIB cannot find switch for " ++ hostStr
+        errorM $ "NIB cannot find switch for " ++ hostStr
         return ()
       Just switch -> do
         maybe <- Ht.lookup (switchPorts switch) srcPort
         case maybe of
           Nothing -> do
-            putStrLn $ "NIB cannot find port for " ++ hostStr
+            errorM $ "NIB cannot find port for " ++ hostStr
             return ()
           Just port -> do
             connectedTo <- readIORef (portConnectedTo port)
@@ -282,7 +287,7 @@ nibMutator nib (PacketIn tS pkt) = case OF.enclosedFrame pkt of
                     return ()
                   Just endpoint -> do
                     b <- linkPorts port (endpointPort endpoint)
-                    putStrLn $ "NIB discovered host " ++ (show (srcEth, srcIP)) ++ " " ++ show b
+                    infoM $ "NIB discovered host " ++ (show (srcEth, srcIP)) ++ " " ++ show b
                     return ()
               conn -> do
                 return ()
@@ -318,14 +323,14 @@ setSwitchType swid stype nib = do
   maybe <- Ht.lookup (nibSwitches nib) swid
   case maybe of
    Nothing -> do
-     putStrLn $ "switch " ++ OF.showSwID swid ++ " not yet in NIB."
-                          ++ " cannot add its type."
+     errorM $ "switch " ++ OF.showSwID swid ++ " not yet in NIB."
+                        ++ " cannot add its type."
      return()
    Just sd ->
      let sd' = sd { switchType = stype }
      in do Ht.update (nibSwitches nib) swid sd'
-           -- putStrLn $ "set switch " ++ OF.showSwID swid ++
-           --            " to have type: " ++ show stype #DEBUG
+           debugM $ "set switch " ++ OF.showSwID swid ++ " to have type: "
+                    ++ show stype
            return()
 
 addPort :: OF.PortID -> SwitchData -> IO (Maybe PortData)

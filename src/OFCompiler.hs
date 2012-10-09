@@ -16,6 +16,10 @@ import qualified NIB
 import Flows (toMatch)
 import Control.Monad
 import qualified Flows
+import System.Log.Logger.TH (deriveLoggers)
+import qualified System.Log.Logger as Logger
+
+$(deriveLoggers "Logger" [Logger.DEBUG, Logger.INFO, Logger.ERROR])
 
 -- | Calls compile when either NIB or network flow table changes
 -- TODO(adf): actually, the NIB changes do not casue a re-compile as the
@@ -65,21 +69,20 @@ compile nib (MatchTable tbl) = do
               (Just s, Just d) -> 
                   k flow s d
               otherwise -> do
-                -- TODO(adf): awaiting logging code...
-                -- putStrLn $ "compiler could not find flow in NIB " ++ show flow
+                infoM $ "compiler could not find flow in NIB " ++ show flow
                 default_
           otherwise -> do
-            putStrLn $ "compiler needs IP for src and dst " ++ show flow
+            errorM $ "compiler needs IP for src and dst " ++ show flow
             default_
         Nothing -> do
-          putStrLn $ "compiler cannot realize " ++ show flow ++ " (default)"
+          infoM $ "compiler cannot realize " ++ show flow ++ " (default)"
           default_
       loop switches (_, Nothing) = do
         return switches -- TODO(arjun): Maybe is silly here
       loop switches (fl, Just (ReqOutPort Nothing pseudoPort, end)) =
         case Flows.flowSwitchMatch fl of
           Nothing -> do
-            putStrLn "compile error: ReqOutPort does not match a switch"
+            errorM $ "compile error: ReqOutPort does not match a switch"
             return switches
           Just (_, match) -> return (Map.map upd switches)
             where upd (ports, flows, swtype) = (ports, flows ++ [rule], swtype)
@@ -87,7 +90,7 @@ compile nib (MatchTable tbl) = do
       loop switches (fl, Just (ReqOutPort (Just switchID) pseudoPort, end)) =
         case Flows.flowSwitchMatch fl of
           Nothing -> do
-            putStrLn "compile error: ReqOutPort does not match a switch"
+            errorM $ "compile error: ReqOutPort does not match a switch"
             return switches
           Just (_, match) -> return (Map.adjust upd switchID switches)
             where upd (ports, flows, swtype) = (ports, flows ++ [rule], swtype)
@@ -102,7 +105,7 @@ compile nib (MatchTable tbl) = do
             where upd (ports, flows, swtype) = (ports, flows ++ [rule], swtype)
                   rule = (match, [], end)
         Nothing -> do
-          putStrLn $ "compile deny cannot realize " ++ show flow
+          errorM $ "compile deny cannot realize " ++ show flow
           return switches -- TODO(arjun): error?
       loop switches (fl, Just (ReqAllow, end)) = 
         -- TODO(arjun): error?
@@ -130,11 +133,12 @@ compile nib (MatchTable tbl) = do
   -- Recompile switches' flow tables from scratch, but remember port cfgs and types
   let cfgs = Map.map (\(NIB.Switch p _ t) -> (p, [], t)) snap
   cfgs' <- foldM loop cfgs tbl
-  -- putStrLn "Policy:"
-  -- mapM_ (\x -> putStrLn $ "    " ++ (show x)) tbl
-  -- putStrLn "Compiled to :"
-  -- mapM_ (\(_, (_, v)) -> putStrLn $ "  " ++ show v) (Map.toList cfgs')
-  --
+
+  debugM $ "Policy:"
+  mapM_ (\x -> debugM $ "    " ++ (show x)) tbl
+  debugM "Compiled to :"
+  mapM_ (\(_, (_, v, _)) -> debugM $ "  " ++ show v) (Map.toList cfgs')
+
   -- Produce output snapshot
   let f (ports, flows, swtype) = NIB.Switch ports (toFlowTbl flows) swtype
   return (Map.map f cfgs')

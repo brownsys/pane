@@ -10,6 +10,10 @@ import qualified Nettle.OpenFlow as OF
 import HFT
 import qualified Data.HashTable as Ht
 import qualified Data.HList as HList
+import System.Log.Logger.TH (deriveLoggers)
+import qualified System.Log.Logger as Logger
+
+$(deriveLoggers "Logger" [Logger.DEBUG, Logger.ERROR])
 
 getPacketMac pkt = case OF.enclosedFrame pkt of
   Right (HList.HCons ethHdr _ ) -> 
@@ -56,12 +60,12 @@ macLearning switchChan packetInChan = do
         Just (srcPort, srcMac, dstMac) -> do
           maybeFwdTbl <- Ht.lookup learned switchID
           case maybeFwdTbl of
-            Nothing -> putStrLn "MAC learning error: no table"
+            Nothing -> errorM $ "MAC learning error: no table"
             Just fwdTbl -> do
-              {- putStrLn $ "RECV t=" ++ show now ++ " srcEth=" ++ 
+              debugM $ "RECV t=" ++ show now ++ " srcEth=" ++ 
                               show srcMac ++ " dstEth=" ++ show dstMac ++
-                             " switch=" ++ show switchID ++ " port=" ++ 
-                             show srcPort  -}
+                             " switch=" ++ show switchID ++ " port=" ++
+                             show srcPort
 
               maybePortTime <- Ht.lookup fwdTbl srcMac
               -- now' avoid refreshing MAC learned rules on switches when
