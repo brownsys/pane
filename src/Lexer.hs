@@ -1,3 +1,5 @@
+{-# LANGUAGE NoMonomorphismRestriction #-}
+
 module Lexer where
 
 import Prelude hiding (lex)

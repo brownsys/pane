@@ -10,3 +10,6 @@ test: filetest
 
 clientlibs:
 	cd client-libs; mvn package; mvn install
+
+clean:
+	cabal clean
