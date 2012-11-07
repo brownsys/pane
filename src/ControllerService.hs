@@ -187,7 +187,7 @@ mkPortModsExt now portsNow portsNext sendCmd = (addActions, delTimers, addMsgs)
 
         newQueueMsg ((pid, qid), NIB.Queue resv _) =
           OF.ExtQueueModify pid 
-            [OF.QueueConfig qid [OF.MinRateQueue (OF.Enabled resv)]]
+            [OF.QueueConfig qid [OF.MinRateQueue (OF.Enabled (NIB.translateRate resv))]]
 
         delQueueAction ((_, _), NIB.Queue _ NoLimit) = return ()
         delQueueAction ((pid, qid), NIB.Queue _ (DiscreteLimit end)) = do
