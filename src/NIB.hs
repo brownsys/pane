@@ -21,7 +21,6 @@ module NIB
   , NIB
   , Snapshot
   , emptySwitch
-  , translateRate
   ) where
 
 import Debug.Trace
@@ -530,9 +529,3 @@ newQueue ports portID gmb end = (queueID, ports')
 switchWithNPorts :: Word16 -> Switch
 switchWithNPorts n = 
   Switch (Map.fromList [(k, PortCfg Map.empty) | k <- [0 .. n-1]]) Set.empty UnknownSwitch
-
----------------------------------------------------
--- assuming the total bandwidth is 1000Mbps, r is the rate in Mbps
-translateRate :: Word16 -> Word16
-translateRate r =
-  truncate $ ((toRational r)/1000)*1000 -- translate into tenths of a percent, (r/1000 Mbps)*1000

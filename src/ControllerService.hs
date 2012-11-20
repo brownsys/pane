@@ -187,7 +187,8 @@ mkPortModsExt now portsNow portsNext sendCmd = (addActions, delTimers, addMsgs)
 
         newQueueMsg ((pid, qid), NIB.Queue resv _) =
           OF.ExtQueueModify pid 
-            [OF.QueueConfig qid [OF.MinRateQueue (OF.Enabled (NIB.translateRate resv))]]
+            [OF.QueueConfig qid [OF.MinRateQueue (OF.Enabled (
+                                                  translateRate resv))]]
 
         delQueueAction ((_, _), NIB.Queue _ NoLimit) = return ()
         delQueueAction ((pid, qid), NIB.Queue _ (DiscreteLimit end)) = do
@@ -263,3 +264,13 @@ toTimeout _   NoLimit =
   OF.Permanent
 toTimeout now (DiscreteLimit end) = 
   OF.ExpireAfter (fromInteger (end - fromInteger now))
+
+-- assuming the total bandwidth is 1000Mbps, r is the rate in Mbps
+-- returns the rate in tenths of a percent, which the Reference switch
+-- uses as the guaranteed minimum bandwidth for a queue.
+--
+-- TODO(adf): should pull link speed from NIB, rather than assume 1000Mbps
+translateRate :: Word16 -> Word16
+translateRate r =
+  let linkSpeed = 1000
+  in  truncate $ ((toRational r) / linkSpeed) * 1000
