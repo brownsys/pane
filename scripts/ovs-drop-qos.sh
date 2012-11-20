@@ -12,12 +12,13 @@ fi
 
 for name in `ovs-vsctl list-br`; do
     tmp_dpid=`ovs-ofctl show $name | grep dpid | awk -F"dpid:" '{ print $2 }'`
-    if [ "$tmp_dpid" -eq "$dpid" ]; then
+    dec_dpid=$((0x$tmp_dpid))
+    if [ "$dec_dpid" -eq "$dpid" ]; then
         break
     fi
 done
 
-if [ ! "$tmp_dpid" -eq "$dpid" ]; then
+if [ ! "$dec_dpid" -eq "$dpid" ]; then
     echo "Error: could not find switch name in `ovs-vsctl | list-br` !"
     exit 1
 fi
