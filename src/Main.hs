@@ -27,6 +27,9 @@ import Data.ConfigFile
 import Control.Monad.Error
 import Control.Exception
 import Management
+import qualified System.Remote.Monitoring as EKG
+import qualified Data.ByteString.Char8 as B
+
 
 data Argument
   = Test String
@@ -151,7 +154,7 @@ mainBody = do
   rawArgs <- getArgs
   let (args, options, errors) = getOpt RequireOrder argSpec rawArgs
   unless (null errors) $ do { mapM_ putStrLn errors; fail "bad args" }
-  action args
+  EKG.forkServer (B.pack "localhost") 8000 >> action args
 
 shutdown = do
   return ()
