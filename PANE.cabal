@@ -24,6 +24,7 @@ Test-Suite unittest
     OverloadedStrings
   ghc-options:
     -fwarn-incomplete-patterns
+    -with-rtsopts=-T
 
 Executable pane
   Main-Is: Main.hs
@@ -47,6 +48,8 @@ Executable pane
     old-time,
     HList,
     process,
-    ConfigFile
+    ConfigFile,
+    ekg
   ghc-options:
     -fwarn-incomplete-patterns
+    -with-rtsopts=-T
