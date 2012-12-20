@@ -23,6 +23,7 @@ Test-Suite unittest
     TemplateHaskell
   ghc-options:
     -fwarn-incomplete-patterns
+    -with-rtsopts=-T
 
 Executable pane
   Main-Is: Main.hs
@@ -47,6 +48,8 @@ Executable pane
     process,
     ConfigFile,
     hslogger >= 1.2.0,
-    hslogger-template >= 2.0.1
+    hslogger-template >= 2.0.1,
+    ekg
   ghc-options:
     -fwarn-incomplete-patterns
+    -with-rtsopts=-T
