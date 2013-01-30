@@ -18,7 +18,7 @@ import Base
 --
 setupLogging :: PaneConfig -> IO ()
 setupLogging config = do
-  let fmt = simpleLogFormatter "$time - $prio - $loggername: $msg"
+  let fmt = tfLogFormatter "%F %X.%q %Z" "$time - $prio - $loggername: $msg"
   s <- streamHandler stderr (logScreenPrio config)
   updateGlobalLogger rootLoggerName
         (setLevel DEBUG . setHandlers [ setFormatter s fmt ] )
