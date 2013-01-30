@@ -141,7 +141,7 @@ configureSwitch nibSnapshot switchHandle oldSw@(NIB.Switch oldPorts oldTbl _)
       -- TODO(adf): should do something smarter here than silently ignoring
       -- exceptions while writing config to switch...
       portActions
-      ignoreExns ("configuring switch with ID: " ++ showSwID switchID)
+      killOnExns ("configuring switch with ID: " ++ showSwID switchID)
                  (mapM_ (OFS.sendToSwitch switchHandle) (zip [0 ..] msgs))
       deleteQueueTimers
       configureSwitch nibSnapshot switchHandle sw config

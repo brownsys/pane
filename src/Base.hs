@@ -29,6 +29,7 @@ module Base
   , logo
   , retryOnExns
   , ignoreExns
+  , killOnExns
   , PaneConfig (..)
   ) where
 
@@ -71,6 +72,15 @@ ignoreExns msg action = action `catches`
   where exnHandler (e :: SomeException) = do
           warningM $ "Exception (ignoring): " ++ show e
           warningM $ "Exception log message: " ++ msg
+
+killOnExns :: String -> IO () -> IO ()
+killOnExns msg action = action `catches`
+          [ Handler (\(e :: AsyncException) -> throw e),
+            Handler exnHandler ]
+  where exnHandler (e :: SomeException) = do
+          warningM $ "Exception (killing thread): " ++ show e
+          warningM $ "Exception log message: " ++ msg
+          myThreadId >>= killThread
 
 liftChanIO3 :: (a -> b -> c -> IO d) 
              -> (a, Chan a)
