@@ -38,7 +38,7 @@ controller nibSnapshot toNIB packets switches pktOut config = do
   forkIO $ forever $ do
     (swID, xid, pktOut) <- readChan pktOut
     debugM $ "SEND packet-out" ++ show (OF.bufferIDData pktOut)
-    ignoreExns "send pkt from controller"
+    killOnExns "send pkt from controller"
                (OFS.sendToSwitchWithID server swID (xid, OF.PacketOut pktOut))
   -- process new switches
   forever $ do
@@ -66,7 +66,7 @@ handleSwitch :: Chan PacketIn  -- ^output channel (headed to MAC Learning)
              -> IO ()
 handleSwitch packets toNIB switches switch = do
   let swID = OFS.handle2SwitchID switch
-  ignoreExns ("clear flowtable on switch with ID: " ++ showSwID swID)
+  killOnExns ("clear flowtable on switch with ID: " ++ showSwID swID)
              (OFS.sendToSwitch switch
                   (0, OF.FlowMod $ OF.DeleteFlows OF.matchAny Nothing))
   OFS.untilNothing 
