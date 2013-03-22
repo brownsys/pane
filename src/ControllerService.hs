@@ -192,11 +192,11 @@ mkPortModsExt now portsNow portsNext sendCmd = (addActions, delTimers, addMsgs)
 
         delQueueAction ((_, _), NIB.Queue _ NoLimit) = return ()
         delQueueAction ((pid, qid), NIB.Queue _ (DiscreteLimit end)) = do
-          forkIO $ do
-            threadDelay (10^6 * (fromIntegral $ end - now))
-            debugM $ "Deleting queue " ++ show qid ++ " on port " ++ show pid
-            ignoreExns ("deleting queue " ++ show qid)
-                    (sendCmd (0, OF.ExtQueueDelete pid [OF.QueueConfig qid []]))
+--          forkIO $ do
+--            threadDelay (10^6 * (fromIntegral $ end - now))
+--            debugM $ "Deleting queue " ++ show qid ++ " on port " ++ show pid
+--            ignoreExns ("deleting queue " ++ show qid)
+--                    (sendCmd (0, OF.ExtQueueDelete pid [OF.QueueConfig qid []]))
           return ()
 
         qCmpLeft ql qr = if ql == qr then Nothing else (Just ql)

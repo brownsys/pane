@@ -34,7 +34,7 @@ rule now sw srcPort eth dstPort = (match, action) where
   action = case dstPort of
      Nothing -> Just (ReqOutPort (Just sw) OF.Flood, fromInteger $ now + 5)
      Just (portID, t) -> Just (ReqOutPort (Just sw) (OF.PhysicalPort portID), 
-                               fromInteger $ t + 60)
+                               fromInteger $ t + 600)
 
 type PacketOutChan = Chan (OF.SwitchID, OF.TransactionID, OF.PacketOut)
 

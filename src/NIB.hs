@@ -516,12 +516,14 @@ newQueue :: Map OF.PortID PortCfg -- ^ports
          -> Limit                 -- ^queue ending time
          -> (OF.QueueID, Map OF.PortID PortCfg) -- ^new configuration
 newQueue ports portID gmb end = (queueID, ports')
-  -- Queue IDs start with 1 for Open vSwitch and go up, so let's follow that
-  where queueID = unusedNumWithFloor 1 (Map.keys queues)
+  -- Queue IDs start with 1 for Open vSwitch and go up
+  -- on the Prontos, qid 1 is the default queue, so let's follow that
+  where -- queueID = unusedNumWithFloor 2 (Map.keys queues)
+        queueID = 2
         queues  = case Map.lookup portID ports of
                     Just (PortCfg q)  -> q
                     Nothing -> error "newQueue: bad portID"
-        queues' = Map.insert queueID (Queue gmb end) queues
+        queues' = Map.insert queueID (Queue 500 end) queues
         ports'  = Map.adjust (\(PortCfg queues) -> PortCfg queues') portID ports
 
 
