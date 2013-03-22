@@ -24,6 +24,9 @@ Test-Suite unittest
   ghc-options:
     -fwarn-incomplete-patterns
     -with-rtsopts=-T
+    -threaded
+    -feager-blackholing
+    -O2
 
 Executable pane
   Main-Is: Main.hs
@@ -53,3 +56,6 @@ Executable pane
   ghc-options:
     -fwarn-incomplete-patterns
     -with-rtsopts=-T
+    -threaded
+    -feager-blackholing
+    -O2
