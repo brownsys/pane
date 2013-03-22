@@ -58,10 +58,9 @@ data Port = Port {
     portName    :: String,
     portLinks   :: [ NodeLink ],
     portQueues  :: Map.Map OF.QueueID Queue,
-    portSpeed   :: PortSpeed -- highest speed port supports TODO(adf): should become property of a link instead?
+    portSpeed   :: PortSpeed -- highest speed port supports TODO(adf): should become property of a link instead? well, the msgs we get are about ports
     -- portNoFlood ... controller disables with OFPPC_NO_FLOOD
     -- portDown? ... controller can disable with OFPPC_PORT_DOWN
-    -- portSpeed
     -- portMedium? (copper, fiber)
     -- portPause?
 } deriving (Eq,Ord)
