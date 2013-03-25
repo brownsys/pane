@@ -48,8 +48,8 @@ controller nibSnapshot toNIB packets switches pktOut config = do
     writeChan toNIB (NIB.NewSwitch switch switchFeatures)
     writeChan switches (OFS.handle2SwitchID switch, True)
     nibSnapshot <- dupChan nibSnapshot
-    forkIO (handleSwitch packets toNIB switches switch)
-    forkIO (configureSwitch nibSnapshot switch NIB.emptySwitch config)
+    configThreadId <- forkIO (configureSwitch nibSnapshot switch NIB.emptySwitch config)
+    forkIO (handleSwitch packets toNIB switches switch configThreadId)
     ignoreExns "stats request" $
         OFS.sendToSwitch switch (0, OF.StatsRequest OF.DescriptionRequest)
   OFS.closeServer server
@@ -63,8 +63,9 @@ handleSwitch :: Chan PacketIn  -- ^output channel (headed to MAC Learning)
              -> Chan (OF.SwitchID, Bool) -- ^output channel (for MAC Learning;
                                          -- switches connecting & disconnecting)
              -> OFS.SwitchHandle
+             -> ThreadId -- ^ ThreadId of the configuration thread
              -> IO ()
-handleSwitch packets toNIB switches switch = do
+handleSwitch packets toNIB switches switch configThreadId = do
   let swID = OFS.handle2SwitchID switch
   killOnExns ("clear flowtable on switch with ID: " ++ showSwID swID)
              (OFS.sendToSwitch switch
@@ -77,7 +78,8 @@ handleSwitch packets toNIB switches switch = do
              (OFS.closeSwitchHandle switch)
   writeChan switches (swID, False)
   -- TODO(adf): also inform NIB that switch is gone? could be transient...
-  noticeM $ "Connection to switch " ++ showSwID swID ++ " closed."
+  noticeM $ "Connection to switch " ++ showSwID swID ++ " closed. Killing config thread."
+  killThread configThreadId
 
 messageHandler :: Chan PacketIn -- ^output channel (headed to MAC Learning)
                -> Chan NIB.Msg  -- ^output channel (headed to NIB module)
