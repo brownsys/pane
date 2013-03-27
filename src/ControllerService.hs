@@ -40,6 +40,9 @@ controller nibSnapshot toNIB packets switches pktOut config = do
     debugM $ "SEND packet-out" ++ show (OF.bufferIDData pktOut)
     killOnExns "send pkt from controller"
                (OFS.sendToSwitchWithID server swID (xid, OF.PacketOut pktOut))
+  -- no-op reader of the original copy of the nibSnapshot channel
+  forkIO $ forever $ do
+    readChan nibSnapshot
   -- process new switches
   forever $ do
     (switch, switchFeatures) <- retryOnExns "accept switch"

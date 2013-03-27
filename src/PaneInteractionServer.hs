@@ -22,6 +22,10 @@ interactions :: Word16
 interactions port toClient fromClient = do
   sock <- listenOn (PortNumber $ fromIntegral port)
   clientIdCounter <- newMVar 0
+  -- no-op reader of the original copy of the toClient channel
+  forkIO $ forever $ do
+    readChan toClient
+  -- accept new clients
   forkIO $ forever $ do
     (h, _, _) <- accept sock
     clientId <- takeMVar clientIdCounter
