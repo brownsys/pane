@@ -55,7 +55,11 @@ type FlowTbl = Set FlowTblEntry
 
 type Snapshot = Map OF.SwitchID Switch
 
-data Queue = Queue Word16 Limit deriving (Show, Eq)
+data Queue = Queue {
+    queueMinRate    :: OF.QueueRate,
+    queueMaxRate    :: OF.QueueRate,
+    queueExpiry     :: Limit
+} deriving (Show,Eq)
 
 
 data NIB = NIB {
@@ -512,16 +516,17 @@ unusedNumWithFloor flr lst = loop flr lst
 
 newQueue :: Map OF.PortID PortCfg -- ^ports
          -> OF.PortID             -- ^port to adjust
-         -> Word16                -- ^queue GMB
+         -> OF.QueueRate          -- ^queue GMB
+         -> OF.QueueRate          -- ^queue Rlimit
          -> Limit                 -- ^queue ending time
          -> (OF.QueueID, Map OF.PortID PortCfg) -- ^new configuration
-newQueue ports portID gmb end = (queueID, ports')
+newQueue ports portID gmb rlimit end = (queueID, ports')
   -- Queue IDs start with 1 for Open vSwitch and go up, so let's follow that
   where queueID = unusedNumWithFloor 1 (Map.keys queues)
         queues  = case Map.lookup portID ports of
                     Just (PortCfg q)  -> q
                     Nothing -> error "newQueue: bad portID"
-        queues' = Map.insert queueID (Queue gmb end) queues
+        queues' = Map.insert queueID (Queue gmb rlimit end) queues
         ports'  = Map.adjust (\(PortCfg queues) -> PortCfg queues') portID ports
 
 

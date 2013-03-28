@@ -190,13 +190,17 @@ mkPortModsExt now portsNow portsNext sendCmd = (addActions, delTimers, addMsgs)
         addMsgs = map newQueueMsg newQueues
         delTimers = sequence_ (map delQueueAction newQueues)
 
-        newQueueMsg ((pid, qid), NIB.Queue resv _) =
-          OF.ExtQueueModify pid 
+        newQueueMsg ((pid, qid), NIB.Queue (OF.Enabled resv) OF.Disabled _) =
+          OF.ExtQueueModify pid
             [OF.QueueConfig qid [OF.MinRateQueue (OF.Enabled (
                                                   translateRate resv))]]
+        newQueueMsg ((pid, qid), NIB.Queue OF.Disabled (OF.Enabled rlimit) _) =
+          OF.ExtQueueModify pid
+            [OF.QueueConfig qid [OF.MaxRateQueue (OF.Enabled (
+                                                  translateRate rlimit))]]
 
-        delQueueAction ((_, _), NIB.Queue _ NoLimit) = return ()
-        delQueueAction ((pid, qid), NIB.Queue _ (DiscreteLimit end)) = do
+        delQueueAction ((_, _), NIB.Queue _ _ NoLimit) = return ()
+        delQueueAction ((pid, qid), NIB.Queue _ _ (DiscreteLimit end)) = do
           forkIO $ do
             threadDelay (10^6 * (fromIntegral $ end - now))
             debugM $ "Deleting queue " ++ show qid ++ " on port " ++ show pid
@@ -226,7 +230,7 @@ mkPortModsOVS now portsNow portsNext swid config =
         addActions = sequence_ (map newQueueAction newQueues)
         delTimers = sequence_ (map delQueueAction newQueues)
 
-        newQueueAction ((pid, qid), NIB.Queue resv _) = do
+        newQueueAction ((pid, qid), NIB.Queue (OF.Enabled resv) _ _) = do
           debugM $ "Creating queue " ++ show qid ++ " on port " ++ show pid
                    ++ " switch " ++ show swid
           exitcode <- rawSystem (ovsSetQueue config) [show swid, show pid,
@@ -238,8 +242,8 @@ mkPortModsOVS now portsNow portsNext swid config =
                                      show pid ++ " " ++ show qid ++
                                      "; ExitFailure: " ++ show n
 
-        delQueueAction ((_, _), NIB.Queue _ NoLimit) = return ()
-        delQueueAction ((pid, qid), NIB.Queue _ (DiscreteLimit end)) = do
+        delQueueAction ((_, _), NIB.Queue _ _ NoLimit) = return ()
+        delQueueAction ((pid, qid), NIB.Queue _ _ (DiscreteLimit end)) = do
           forkIO $ do
             threadDelay (10^6 * (fromIntegral $ end - now))
             debugM $ "Deleting queue " ++ show qid ++ " on port " ++ show pid

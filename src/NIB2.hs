@@ -77,14 +77,16 @@ instance Show Port where
 
 data Queue = Queue {
     queueID         :: OF.QueueID, -- not globally unique; only unique per port
-    queueMinRate    :: Word16,
+    queueMinRate    :: OF.QueueRate,
+    queueMaxRate    :: OF.QueueRate,
     queueExpiry     :: Limit
 } deriving (Eq,Ord)
 
 instance Show Queue where
-  show (Queue qid rate expiry) =
+  show (Queue qid minr maxr expiry) =
     "QueueID: " ++ show(qid) ++
-    "\n    Min-rate: " ++ show(rate) ++
+    "\n    Min-rate: " ++ show(minr) ++
+    "\n    Max-rate: " ++ show(maxr) ++
     "\n    Expiry: " ++ show(expiry)
 
 --

@@ -41,17 +41,22 @@ combineMaybe f (Just (a, s)) (Just (b, t)) = Just (f a b, min s t)
 
 
 combineSiblingActions act1 act2 = combineMaybe f act1 act2
-  where f (ReqResv m) (ReqResv n) = ReqResv (max m n)
-        f (ReqResv m) ReqAllow    = ReqResv m
-        f ReqAllow    (ReqResv n) = ReqResv n
-        f ReqAllow    ReqAllow    = ReqAllow
-        f _           _           = ReqDeny
+  where f (ReqResv m)   (ReqResv n)   = ReqResv (max m n)
+        f (ReqResv m)   ReqAllow      = ReqResv m
+        f ReqAllow      (ReqResv n)   = ReqResv n
+        f ReqAllow      ReqAllow      = ReqAllow
+        f (ReqRlimit m) (ReqRlimit n) = ReqRlimit (min m n)
+        f (ReqRlimit m) ReqAllow      = ReqRlimit m
+        f ReqAllow      (ReqRlimit n) = ReqRlimit n
+        f _             _             = ReqDeny
 
 combineParentChildActions act1 act2 = combineMaybe f act1 act2
   where -- f parent child = child overrides parent, with the exceptions below
-        f (ReqResv m) (ReqResv n) = ReqResv (max m n) -- pick max, doesn't hurt
-        f (ReqResv m) ReqAllow    = ReqResv m  -- give guarantee, doesn't hurt
-        f _           ch          = ch
+        f (ReqResv m)   (ReqResv n)   = ReqResv (max m n) -- pick max, doesn't hurt
+        f (ReqResv m)   ReqAllow      = ReqResv m  -- give guarantee, doesn't hurt
+        f (ReqRlimit m) (ReqRlimit n) = ReqRlimit (min m n) -- pick min, doesn't hurt
+        f (ReqRlimit m) ReqAllow      = ReqRlimit m -- enforce limit , doesn't hurt
+        f _             ch            = ch
 
 emptyTable :: MatchTable
 emptyTable = MatchTable []

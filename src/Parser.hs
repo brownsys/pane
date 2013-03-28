@@ -226,6 +226,12 @@ resvFill rub = (do
   f <- T.integer lex
   return f) <|> (return rub)
 
+rlimitFloor = (do
+  reserved "ratelimit"
+  reservedOp ">="
+  size <- T.integer lex
+  return (fromInteger size)) <|> (return NoLimit)
+
 permList = do
 -- TODO: Convert to be able to specify in any order; need defaults when missing
   rub <- resvUB
@@ -234,7 +240,8 @@ permList = do
   rlb <- resvLB
   rtbc <- resvCap rub
   rtbf <- resvFill rub
-  return (rub, ca, cd, rlb, rtbc, rtbf)
+  rlf <- rlimitFloor
+  return (rub, ca, cd, rlb, rtbc, rtbf, rlf)
 
 sharePerms = do
   p <- brackets permList
@@ -280,12 +287,12 @@ newShare spk = do
   name <- identifier
   reserved "for"
   fg <- flowGroup
-  (rub, ca, cd, rlb, rtbc, rtbf) <- sharePerms
+  (rub, ca, cd, rlb, rtbc, rtbf, rlf) <- sharePerms
   reserved "on"
   parent <- identifier
   let tg = TG.new rtbf rlb (DiscreteLimit rub) rtbc
   let s = Share name fg (Set.singleton spk) emptyShareReq
-            ca cd tg
+            ca cd tg rlf
   return (newShareM spk parent s)
 
 -----------------------------
@@ -351,6 +358,23 @@ reserve spk = do
         requestM spk (Req share fg absFrom absTo (ReqResv size) s)
   return cmd
 
+ratelimit spk = do
+  reserved "ratelimit"
+  fg <- flowGroup
+  reservedOp "="
+  size <- T.integer lex
+  s <- strict
+  reserved "on"
+  share <- identifier
+  fromTime <- from
+  toTime <- to
+  let cmd = do
+        now <- getTimeM
+        let absFrom = timeToInteger now fromTime
+        let absTo = timeToLimit now toTime
+        requestM spk (Req share fg absFrom absTo (ReqRlimit size) s)
+  return cmd
+
 allow spk = do
   reserved "allow"
   fg <- flowGroup
@@ -386,7 +410,7 @@ deny spk = do
 -- Top-level Parsing Functions
 -----------------------------
 
-verb spk = reserve spk <|> allow spk <|> deny spk
+verb spk = reserve spk <|> ratelimit spk <|> allow spk <|> deny spk
 shareManage spk = newShare spk <|> grant spk <|> grantDefault spk
 sysManage spk = tick spk <|> addUser spk
 query spk = getSchedule spk <|> listShares spk <|> listSharesByFlowGroup

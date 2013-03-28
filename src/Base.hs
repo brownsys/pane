@@ -235,6 +235,7 @@ data Req = Req {
 
 data ReqData 
   = ReqResv Integer
+  | ReqRlimit Integer
   | ReqAllow
   | ReqDeny
   | ReqOutPort (Maybe OF.SwitchID) OF.PseudoPort

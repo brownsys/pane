@@ -46,7 +46,8 @@ data Share = Share {
   -- Restrictions on what this share can be used for
   shareCanAllowFlows :: Bool,
   shareCanDenyFlows :: Bool,
-  shareResv :: TokenGraph
+  shareResv :: TokenGraph,
+  shareRlimit :: Limit
 } deriving (Show)
 
 type ShareTree = Tree ShareRef Share
@@ -73,7 +74,7 @@ emptyStateWithTime t =
   State (Tree.root 
            rootShareRef
            (Share rootShareRef Flows.all (Set.singleton rootSpeaker)
-                  emptyShareReq True True TG.unconstrained))
+                  emptyShareReq True True TG.unconstrained 0))
         (Set.singleton rootSpeaker)
         t
 
@@ -93,6 +94,12 @@ isResv :: Req -> Bool
 isResv req =
   case (reqData req) of
     (ReqResv _) -> True
+    otherwise -> False
+
+isRlimit :: Req -> Bool
+isRlimit req =
+  case (reqData req) of
+    (ReqRlimit _) -> True
     otherwise -> False
 
 isAllow :: Req -> Bool
@@ -120,14 +127,20 @@ unReqResv rd =
     (ReqResv n) -> (Just n)
     otherwise -> Nothing
 
+unReqRlimit :: ReqData -> Maybe Limit
+unReqRlimit rd =
+  case rd of
+    (ReqRlimit n) -> (Just $ fromInteger n)
+    otherwise -> Nothing
 
 isSubShare :: Share -> Share -> Bool
-isSubShare (Share _ flows1 _ _ canAllow1 canDeny1 tg1)
-          (Share _ flows2 _ _ canAllow2 canDeny2 tg2) = 
+isSubShare (Share _ flows1 _ _ canAllow1 canDeny1 tg1 rlimit1)
+          (Share _ flows2 _ _ canAllow2 canDeny2 tg2 rlimit2) =
   flows1 `Flows.isSubFlow` flows2 &&
   canAllow1 <= canAllow2 &&
   canDeny1 <= canDeny2 &&
-  tg1 `TG.isConstraintsContained` tg2
+  tg1 `TG.isConstraintsContained` tg2 &&
+  rlimit1 >= rlimit2
 
 isSubShareWRefs :: ShareRef -> ShareRef -> ShareTree -> Bool
 isSubShareWRefs sr1 sr2 sT =
@@ -223,6 +236,7 @@ recursiveRequest req@(Req shareRef _ start end rData _)
              tg <- TG.drain start end drain tg
              let thisShare' = thisShare { shareReq = req:reqs, shareResv = tg }
              return (Tree.update thisShareName thisShare' sT)
+           (ReqRlimit _) -> Nothing
            ReqAllow -> Nothing
            ReqDeny -> Nothing  
     in case foldl f (Just sT) chain of
@@ -238,7 +252,8 @@ localRequest req@(Req shareRef _ _ _ _ _)
              st@(State {shareTree = sT }) =
   let share = Tree.lookup shareRef sT in
     if (isAllow req && shareCanAllowFlows share) ||
-       (isDeny req && shareCanDenyFlows share)
+       (isDeny req && shareCanDenyFlows share) ||
+       (isRlimit req && unReqRlimit (reqData req) > Just (shareRlimit share))
       then
         let share' = share { shareReq = req:(shareReq share) }
             sT' = Tree.update shareRef share' sT
@@ -284,6 +299,7 @@ request spk req@(Req shareRef flow start end rD strict)
                   True -> case rD of
                              -- TODO: need to send reason why request rejected
                              (ReqResv _) -> recursiveRequest req st
+                             (ReqRlimit _) -> localRequest req st
                              ReqAllow -> strictAdmControl req st
                              ReqDeny -> strictAdmControl req st
                   False -> case rD of

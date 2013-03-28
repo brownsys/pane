@@ -176,7 +176,7 @@ testChildParentOverlap = TestLabel "make child/parent overlap" $ TestCase $ do
   let req1 = Req FC.rootShareRef flowHttp1 0 15 ReqDeny False
   let req2 = Req "net0" flowHttp1 0 10 ReqAllow False
   let share = FC.Share "net0" Flows.all (Set.singleton FC.rootSpeaker)
-                       FC.emptyShareReq True True TG.unconstrained
+                       FC.emptyShareReq True True TG.unconstrained 0
   case FC.request FC.rootSpeaker req1 FC.emptyState of
     Nothing -> assertFailure "should be able to deny in in rootShare"
     Just s -> case FC.newShare FC.rootSpeaker FC.rootShareRef share s of

@@ -121,11 +121,23 @@ compile nib (MatchTable tbl) = do
         --TODO(arjun):error?
         withEth fl (return switches) $ \fl srcEth dstEth -> do
           path <- NIB.getPath srcEth dstEth nib -- TODO(arjun): error on empty?
-          let queue switches (inp, swid, outp) = 
+          let queue switches (inp, swid, outp) =
                   Map.adjust (updSwitch inp outp) swid switches
               updSwitch inp outp (ports, flows, swtype) = (ports', flows ++ [rule], swtype)
-                where (queueID, ports') = NIB.newQueue ports outp bw' end
-                      bw' = fromInteger bw -- TODO(arjun): fit in Word16
+                where (queueID, ports') = NIB.newQueue ports outp bw' OF.Disabled end
+                      bw' = OF.Enabled (fromInteger bw) -- TODO(arjun): fit in Word16
+                      m   = Flows.toMatch' fl
+                      rule = (m, [OF.Enqueue outp queueID], end)
+          return (foldl queue switches path)
+      loop switches (fl, Just (ReqRlimit rl, end)) =
+        --TODO(arjun):error?
+        withEth fl (return switches) $ \fl srcEth dstEth -> do
+          path <- NIB.getPath srcEth dstEth nib -- TODO(arjun): error on empty?
+          let queue switches (inp, swid, outp) =
+                  Map.adjust (updSwitch inp outp) swid switches
+              updSwitch inp outp (ports, flows, swtype) = (ports', flows ++ [rule], swtype)
+                where (queueID, ports') = NIB.newQueue ports outp OF.Disabled rl' end
+                      rl' = OF.Enabled (fromInteger rl) -- TODO(arjun): fit in Word16
                       m   = Flows.toMatch' fl
                       rule = (m, [OF.Enqueue outp queueID], end)
           return (foldl queue switches path)
