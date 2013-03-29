@@ -230,31 +230,17 @@ mkPortModsOVS now portsNow portsNext swid config =
         addActions = sequence_ (map newQueueAction newQueues)
         delTimers = sequence_ (map delQueueAction newQueues)
 
-        newQueueAction ((pid, qid), NIB.Queue (OF.Enabled resv) _ _) = do
-          debugM $ "Creating queue " ++ show qid ++ " on port " ++ show pid
-                   ++ " switch " ++ show swid
-          exitcode <- rawSystem (ovsSetQueue config) [show swid, show pid,
-                                                      show qid, show resv]
-          case exitcode of
-            ExitSuccess   -> return ()
-            ExitFailure n -> noticeM $ "Exception (ignoring): failed to create"
-                                     ++ " OVS queue: " ++ show swid ++ " " ++
-                                     show pid ++ " " ++ show qid ++
-                                     "; ExitFailure: " ++ show n
+        newQueueAction ((pid, qid), NIB.Queue (OF.Enabled resv) OF.Disabled _) =
+          runOVSscript "create" (ovsSetQueue config) swid pid qid resv 0
+
+        newQueueAction ((pid, qid), NIB.Queue OF.Disabled (OF.Enabled rlimit) _) =
+          runOVSscript "create" (ovsSetQueue config) swid pid qid 0 rlimit
 
         delQueueAction ((_, _), NIB.Queue _ _ NoLimit) = return ()
         delQueueAction ((pid, qid), NIB.Queue _ _ (DiscreteLimit end)) = do
           forkIO $ do
             threadDelay (10^6 * (fromIntegral $ end - now))
-            debugM $ "Deleting queue " ++ show qid ++ " on port " ++ show pid
-            exitcode <- rawSystem (ovsDeleteQueue config) [show swid, show pid,
-                                                           show qid]
-            case exitcode of
-              ExitSuccess   -> return ()
-              ExitFailure n -> noticeM $ "Exception (ignoring): failed to " ++
-                                       "delete OVS queue: " ++ show swid ++ " "
-                                       ++ show pid ++ " " ++ show qid ++
-                                       "; ExitFailure: " ++ show n
+            runOVSscript "delete" (ovsDeleteQueue config) swid pid qid 0 0
             return()
           return ()
 
@@ -265,6 +251,22 @@ mkPortModsOVS now portsNow portsNext swid config =
           concatMap (\(pid, NIB.PortCfg qMap) ->
                       map (\(qid, q) -> ((pid, qid), q)) (Map.toList qMap))
                     (Map.toList portMap)
+
+
+
+-- |Helper to handle fork'ing out to run the scripts which know how
+-- to configure Open vSwitch-based switches.
+runOVSscript desc script swid pid qid resv rlimit = do
+  debugM $ show desc ++ " queue " ++ show qid ++ " on port " ++ show pid
+           ++ " switch " ++ show swid
+  exitcode <- rawSystem script [show swid, show pid, show qid,
+                                show resv, show rlimit]
+  case exitcode of
+    ExitSuccess   -> return ()
+    ExitFailure n -> noticeM $ "Exception (ignoring): failed to " ++ show desc
+                             ++ " OVS queue: " ++ show swid ++ " " ++
+                             show pid ++ " " ++ show qid ++
+                             "; ExitFailure: " ++ show n
 
             
 -- TODO(arjun): toTimeout will fail if (end - now) does not fit in a Word16

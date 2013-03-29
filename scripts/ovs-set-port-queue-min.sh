@@ -1,14 +1,17 @@
 #!/bin/bash
 
+Mbps="000000"
+
 dpid=$1
 port_num=$2
 queue_id=$3
-min_rate="$4000000" # convert to Mbps
+min_rate="$4$Mbps" # convert to Mbps
+max_rate="$5$Mbps" # convert to Mbps
 
 queue_name="q$queue_id"
 
-if [ "$min_rate" == "000000" ]; then
-	echo "Error: requires <dpid> <port_num> <queue_id> <min_rate>"
+if [ "$max_rate" == $Mbps ]; then
+	echo "Error: requires <dpid> <port_num> <queue_id> <min_rate> <max_rate>"
 	exit 1
 fi
 
@@ -36,6 +39,17 @@ switch_name=$name
 port_dev=`ovs-ofctl show $switch_name | grep addr | awk -F: '(NR=='$port_num'){ print $1 }' | cut -d\( -f2 | cut -d\) -f1`
 
 ##
+# Determine which properties to set
+
+if [ "$min_rate" != $Mbps ]; then
+    min_rate_prop="other-config:min-rate=$min_rate"
+fi
+
+if [ "$max_rate" != $Mbps ]; then
+    max_rate_prop="other-config:max-rate=$max_rate"
+fi
+
+##
 
 qos_exists=`ovs-vsctl list QoS $port_dev 2>&1 | grep "no row"`
 old_queue=""
@@ -50,10 +64,10 @@ else
 fi
 
 if [ "$old_queue" == "" ]; then
-	ovs-vsctl -- add QoS $port_dev queues $queue_id=@$queue_name \
-        	-- --id=@$queue_name create Queue other-config:min-rate=$min_rate
+    ovs-vsctl -- add QoS $port_dev queues $queue_id=@$queue_name \
+              -- --id=@$queue_name create Queue $min_rate_prop $max_rate_prop
 else
-        ovs-vsctl -- set QoS $port_dev queues:$queue_id=@$queue_name \
-                -- --id=@$queue_name create Queue other-config:min-rate=$min_rate
+    ovs-vsctl -- set QoS $port_dev queues:$queue_id=@$queue_name \
+              -- --id=@$queue_name create Queue $min_rate_prop $max_rate_prop
 	ovs-vsctl destroy Queue $old_queue
 fi
