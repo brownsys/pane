@@ -3,6 +3,7 @@ module SetupLogging
   , str2logPriority
   ) where
 
+import Data.Char
 import System.IO (stderr)
 import System.Log.Logger
 import System.Log.Handler (setFormatter)
@@ -29,9 +30,8 @@ setupLogging config = do
                updateGlobalLogger rootLoggerName
                      (addHandler (setFormatter f fmt))
 
--- TODO(adf): str2upper ?
 str2logPriority :: String -> Priority
-str2logPriority str = case str of
+str2logPriority str = case (map toUpper str) of
     "DEBUG"     -> DEBUG
     "INFO"      -> INFO
     "NOTICE"    -> NOTICE
