@@ -8,6 +8,7 @@ import Base
 import Data.Map (Map)
 import MacLearning (PacketOutChan)
 import qualified NIB
+import qualified NIB2
 import qualified Nettle.OpenFlow as OF
 import Nettle.OpenFlow.Switch (showSwID)
 import qualified Nettle.Servers.Server as OFS
@@ -26,13 +27,14 @@ type PacketIn = (OF.TransactionID, Integer, OF.SwitchID, OF.PacketInfo)
 
 controller :: Chan NIB.Snapshot  -- ^input channel (from Compiler)
            -> Chan NIB.Msg       -- ^output channel (headed to NIB module)
+           -> Chan NIB2.Msg       -- ^output channel (headed to NIB2 module)
            -> Chan PacketIn      -- ^output channel (headed to MAC Learning)
            -> Chan (OF.SwitchID, Bool) -- ^output channel (for MAC Learning;
                                        -- switches connecting & disconnecting)
            -> PacketOutChan      -- ^input channel (from MAC Learning)
            -> PaneConfig
            -> IO ()
-controller nibSnapshot toNIB packets switches pktOut config = do
+controller nibSnapshot toNIB toNIB2 packets switches pktOut config = do
   server <- OFS.startOpenFlowServer Nothing (controllerPort config)
   -- actually send packets sent by MAC learning module
   forkIO $ forever $ do
@@ -49,10 +51,11 @@ controller nibSnapshot toNIB packets switches pktOut config = do
                                             (OFS.acceptSwitch server)
     noticeM $ "OpenFlow controller connected to new switch."
     writeChan toNIB (NIB.NewSwitch switch switchFeatures)
+    writeChan toNIB2 (NIB2.NewSwitch switch switchFeatures)
     writeChan switches (OFS.handle2SwitchID switch, True)
     nibSnapshot <- dupChan nibSnapshot
     configThreadId <- forkIO (configureSwitch nibSnapshot switch NIB.emptySwitch config)
-    forkIO (handleSwitch packets toNIB switches switch configThreadId)
+    forkIO (handleSwitch packets toNIB toNIB2 switches switch configThreadId)
     ignoreExns "stats request" $
         OFS.sendToSwitch switch (0, OF.StatsRequest OF.DescriptionRequest)
   OFS.closeServer server
@@ -63,12 +66,13 @@ controller nibSnapshot toNIB packets switches pktOut config = do
 
 handleSwitch :: Chan PacketIn  -- ^output channel (headed to MAC Learning)
              -> Chan NIB.Msg   -- ^output channel (headed to NIB module)
+             -> Chan NIB2.Msg   -- ^output channel (headed to NIB module)
              -> Chan (OF.SwitchID, Bool) -- ^output channel (for MAC Learning;
                                          -- switches connecting & disconnecting)
              -> OFS.SwitchHandle
              -> ThreadId -- ^ ThreadId of the configuration thread
              -> IO ()
-handleSwitch packets toNIB switches switch configThreadId = do
+handleSwitch packets toNIB toNIB2 switches switch configThreadId = do
   let swID = OFS.handle2SwitchID switch
   killOnExns ("clear flowtable on switch with ID: " ++ showSwID swID)
              (OFS.sendToSwitch switch
@@ -76,7 +80,7 @@ handleSwitch packets toNIB switches switch configThreadId = do
   OFS.untilNothing 
     (retryOnExns ("receive from switch with ID: " ++ showSwID swID)
                  (OFS.receiveFromSwitch switch))
-    (\msg -> ignoreExns "msgHandler" (messageHandler packets toNIB switch msg))
+    (\msg -> ignoreExns "msgHandler" (messageHandler packets toNIB toNIB2 switch msg))
   ignoreExns ("close handle for switch with ID: " ++ showSwID swID)
              (OFS.closeSwitchHandle switch)
   writeChan switches (swID, False)
@@ -86,16 +90,18 @@ handleSwitch packets toNIB switches switch configThreadId = do
 
 messageHandler :: Chan PacketIn -- ^output channel (headed to MAC Learning)
                -> Chan NIB.Msg  -- ^output channel (headed to NIB module)
+               -> Chan NIB2.Msg  -- ^output channel (headed to NIB module)
                -> OFS.SwitchHandle
                -> (OF.TransactionID, OF.SCMessage) -- ^coming from Nettle
                -> IO ()
-messageHandler packets toNIB switch (xid, msg) = case msg of
+messageHandler packets toNIB toNIB2 switch (xid, msg) = case msg of
   OF.PacketIn pkt -> do
     now <- readIORef sysTime
     writeChan packets (xid, now, OFS.handle2SwitchID switch, pkt)
     writeChan toNIB (NIB.PacketIn (OFS.handle2SwitchID switch) pkt)
   OF.StatsReply pkt -> do
     writeChan toNIB (NIB.StatsReply (OFS.handle2SwitchID switch) pkt)
+    writeChan toNIB2 (NIB2.StatsReply (OFS.handle2SwitchID switch) pkt)
   otherwise -> do
     warningM $ "unhandled message from switch " ++
                (showSwID $ OFS.handle2SwitchID switch) ++ "\n" ++ show msg

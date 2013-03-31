@@ -5,12 +5,14 @@ module Management
 import Data.Char (isSpace)
 import Base
 import qualified NIB
+import qualified NIB2
 
 mgmtServer :: Chan (Speaker, Integer, String) -- ^commands from manager
            -> Chan NIB.Msg          -- ^ channel for sending messages to the NIB
+           -> Chan NIB2.Msg
            -> PaneConfig            -- ^ current server configuration
            -> IO (Chan (Speaker, Integer, String))
-mgmtServer reqChan nibChan config = do
+mgmtServer reqChan nibChan nibChan2 config = do
   respChan <- newChan
   let handleReq = do
         (spk, clientId, req) <- readChan reqChan
@@ -18,7 +20,8 @@ mgmtServer reqChan nibChan config = do
         case req' of
           "nib" -> do
             let putter = (\output -> writeChan respChan (spk, clientId, output))
-            writeChan nibChan (NIB.DisplayNIB putter)
+--            writeChan nibChan (NIB.DisplayNIB putter)
+            writeChan nibChan2 (NIB2.DisplayNIB putter)
           -- TODO(adf): add commands to change the logging levels
           -- setupLogging config
           otherwise -> do

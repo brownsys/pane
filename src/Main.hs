@@ -21,6 +21,7 @@ import Control.Concurrent.MVar
 import Control.Concurrent
 import System.Time
 import qualified NIB
+import qualified NIB2
 import ControllerService
 import OFCompiler (compilerService)
 import CombinedPaneMac
@@ -92,6 +93,11 @@ startup filename port = do
   nibMsg <- newChan
   nib <- NIB.newEmptyNIB nibMsg
 
+  noticeM $ "Creating empty NIB2 ..."
+  nibMsg2in <- newChan
+  nibMsg2out <- newChan
+  NIB2.runNIB nibMsg2in nibMsg2out
+
   noticeM $ "Creating PANE + MAC Learning system..."
   packetIn <- newChan
   switches <- newChan
@@ -103,7 +109,7 @@ startup filename port = do
 
   noticeM $ "Launching management server..."
   mgmtReq <- newChan
-  mgmtResp <- mgmtServer mgmtReq nibMsg config
+  mgmtResp <- mgmtServer mgmtReq nibMsg nibMsg2in config
 
   let mgmtPort = port + 1
   noticeM $ "Starting PANE management console on port " ++ show (mgmtPort)
@@ -115,7 +121,7 @@ startup filename port = do
   nibSnapshot <- compilerService (nib, nibUpdates) tbl
 
   noticeM $ "Starting OpenFlow controller ..."
-  controller nibSnapshot nibMsg packetIn switches pktOut config
+  controller nibSnapshot nibMsg nibMsg2in packetIn switches pktOut config
 
 
 ------------------------------------------------------------------------------

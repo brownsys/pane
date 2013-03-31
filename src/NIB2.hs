@@ -1,4 +1,14 @@
-module NIB2 where
+module NIB2
+ ( Msg (..)
+ , NIB (..)
+ , Switch (..)
+ , Port (..)
+ , Queue (..)
+ , Endpoint (..)
+ , NodeLink  (..)
+ , runNIB
+ , lookupIP
+ ) where
 
 import qualified Nettle.OpenFlow as OF
 import qualified Nettle.Servers.Server as OFS
@@ -231,6 +241,13 @@ processMsg (StatsReply swid reply) = case reply of
   otherwise -> logMsg NOTICE $ "unhandled statistics reply from switch " ++
                  (OF.showSwID swid) ++ "\n" ++ show reply
 
+processMsg (PacketIn swid pkt) = logMsg NOTICE $ "unimplemented"
+
+processMsg (DisplayNIB putter) = do
+  logMsg NOTICE $ "trying to log..."
+  displayNIB putter
+  return()
+
 
 ------------------------------------------------------------------------------
 --
@@ -302,6 +319,21 @@ setSwitchType swid stype = do
     Nothing -> logMsg ERROR $ "switch " ++ OF.showSwID swid ++ " not in NIB."
                           ++ " cannot add its type."
 
+
+displayNIB :: (String -> IO ()) -> NIBState (IO ())
+displayNIB putter = do
+  nib <- getNIB
+  let sw  = nibSwitches nib
+      e   = nibEndpoints nib
+      gw  = nibGatewayIP nib
+      str  = "Displaying the NIB...\n" ++
+             "Switches:\n" ++ show sw ++
+             "\n-------------------------------------\n" ++
+             "Endpoints:\n" ++ show e ++
+             "\n-------------------------------------\n" ++
+             "Gateway IP:\n" ++ show gw ++
+             "\n-------------------------------------\n" in do
+      return (putter str)
 
 --
 -- Tracking and updating the state of the NIB
