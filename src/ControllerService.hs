@@ -269,7 +269,7 @@ runOVSscript desc script swid pid qid resv rlimit = do
                                 show resv, show rlimit]
   case exitcode of
     ExitSuccess   -> return ()
-    ExitFailure n -> noticeM $ "Exception (ignoring): failed to " ++ show desc
+    ExitFailure n -> noticeM $ "Exception (ignoring): failed to " ++ desc
                              ++ " OVS queue: " ++ show swid ++ " " ++
                              show pid ++ " " ++ show qid ++
                              "; ExitFailure: " ++ show n
