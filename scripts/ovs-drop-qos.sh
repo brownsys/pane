@@ -18,8 +18,8 @@ for name in `ovs-vsctl list-br`; do
     fi
 done
 
-if [ ! "$dec_dpid" -eq "$dpid" ]; then
-    echo "Error: could not find switch name in `ovs-vsctl | list-br` !"
+if [ "$dec_dpid" == "" ] || [ ! "$dec_dpid" -eq "$dpid" ]; then
+    echo "Error: could not find switch name in bridges list: `ovs-vsctl list-br` !"
     exit 1
 fi
 
