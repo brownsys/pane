@@ -42,10 +42,10 @@ handleUser conn clientId fromClient toClient = do
   msg <- hGetLine conn
   let (tmp1, _) = span (/='.') msg
   let (tmp2, _) = span (/='\r') tmp1
-  let (spk, _) = span (/='\n') tmp2
+  let (spk, _)  = span (/='\n') tmp2
   writeChan toClient (spk, clientId, "logged in")
   -- monitor the toClient bus for messages to this client
-  forkIO $ forever $ do
+  toThreadId <- forkIO $ forever $ do
     (spk', id', msg) <- readChan toClient
     when (spk == spk' && clientId == id') $ do
       hPutStrLn conn msg
@@ -54,6 +54,13 @@ handleUser conn clientId fromClient toClient = do
       return ()
   -- read commands from user and place on fromClient bus
   forever $ do
-    msg <- hGetLine conn
+    tmp1 <- hGetLine conn
+    let (tmp2, _) = span (/='\r') tmp1
+    let (msg, _)  = span (/='\n') tmp2
     infoM $ spk ++ ": " ++ show msg
-    writeChan fromClient (spk, clientId, msg)
+    case msg of
+        "quit"    -> do
+          hClose conn
+          killThread toThreadId
+          myThreadId >>= killThread
+        otherwise -> writeChan fromClient (spk, clientId, msg)
