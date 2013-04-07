@@ -54,32 +54,40 @@ data Node
 data Switch = Switch {
     switchID        :: OF.SwitchID, -- ^ the datapath ID of the switch
     switchType      :: SwitchType,
-    switchPorts     :: Map.Map OF.PortID Port
+    switchPorts     :: Map.Map OF.PortID Port,
+    switchBufSize   :: Integer,
+    switchNumTables :: Integer
 } deriving (Eq,Ord)
 
 instance Show Switch where
-  show (Switch sid stype ports) =
+  show (Switch sid stype ports bufsize ntables) =
     "SwitchID: " ++ show(sid) ++
     "\n    Type: " ++ show(stype) ++
-    "\n    Num ports: " ++ show(Map.size ports)
+    "\n    Num ports: " ++ show(Map.size ports) ++
+    "\n    Buffer size: " ++ show(bufsize) ++
+    "\n    Num tables: " ++ show(ntables)
 
 data Port = Port {
     portID      :: OF.PortID, -- not globally unique; only unique per switch
     portName    :: String,
     portLinks   :: [ NodeLink ],
     portQueues  :: Map.Map OF.QueueID Queue,
-    portSpeed   :: PortSpeed -- highest speed port supports TODO(adf): should become property of a link instead? well, the msgs we get are about ports
-    -- portNoFlood ... controller disables with OFPPC_NO_FLOOD
-    -- portDown? ... controller can disable with OFPPC_PORT_DOWN
+    portSpeed   :: PortSpeed,  -- highest speed port supports / is operating on
+    portDown    :: Bool, -- whether port is disabled
+    portNoFlood :: Bool, -- whether flooding is disabled
+    portNoLink  :: Bool  -- whether a link exists or not
     -- portMedium? (copper, fiber)
     -- portPause?
 } deriving (Eq,Ord)
 
 instance Show Port where
-  show (Port pid name links queues speed) =
+  show (Port pid name links queues speed down noflood nolink) =
     "PortID: " ++ show(pid) ++
     "\n    Name: " ++ show(name) ++
     "\n    Speed: " ++ show(speed) ++
+    "\n    isDown?: " ++ show(down) ++
+    "\n    noFlood?: " ++ show(noflood) ++
+    "\n    noLink?: " ++ show(nolink) ++
     "\n    Num links: " ++ show(length links) ++
 --    "\n    Links:\n" ++ map show links ++
     "\n    Num queues: " ++ show(Map.size queues)
@@ -143,6 +151,17 @@ instance Show PortSpeed where
   show Speed10Gb = "10 Gbps"
   show SpeedUnknown = "(unknown speed)"
 
+highestPortSpeed :: [OF.PortFeature] -> PortSpeed
+highestPortSpeed pf | OF.Rate10GbFD  `elem` pf = Speed10Gb
+                    | OF.Rate1GbFD   `elem` pf = Speed1Gb
+                    | OF.Rate1GbHD   `elem` pf = Speed1Gb
+                    | OF.Rate100MbFD `elem` pf = Speed100Mb
+                    | OF.Rate100MbHD `elem` pf = Speed100Mb
+                    | OF.Rate10MbFD  `elem` pf = Speed10Mb
+                    | OF.Rate10MbHD  `elem` pf = Speed10Mb
+                    | otherwise                = SpeedUnknown
+
+
 ------------------------------------------------------------------------------
 --
 -- | Endpoints are network elements not managed by the OpenFlow controller.
@@ -192,7 +211,7 @@ data Msg
   | PacketIn OF.SwitchID OF.PacketInfo
   | StatsReply OF.SwitchID OF.StatsReply
   | DisplayNIB (String -> IO ())
--- | PortStatus TODO(adf): enable, disable, modify .. which includes OFPPS_LINK_DOWN .. also, adding new ports
+  | PortStatus OF.SwitchID OF.PortStatus
 
 data OutgoingMsg
   = DiscoveryMsg OFS.SwitchHandle
@@ -213,11 +232,11 @@ runNIB chan outgoingChan = do
 
       nibProcessor nib = do
         msg <- readChan chan
-        let (nib, msgs) = execState (processMsg msg) (nib, [])
+        let (nib', msgs) = execState (processMsg msg) (nib, [])
             (logs, outgoing) = partitionEithers msgs
         mapM_ (\(LogMsg p s) -> logM "NIB.processor" p s) logs
         writeList2Chan outgoingChan outgoing
-        nibProcessor nib
+        nibProcessor nib'
 
   forkIO $ nibProcessor newNIB
   return ()
@@ -227,7 +246,7 @@ processMsg :: Msg -> NIBState ()
 
 processMsg (NewSwitch handle features) =
   let swid = OF.switchID features in do
-      newSwitch <- addSwitch swid handle
+      newSwitch <- addSwitch swid handle features
       if newSwitch
         then mapM_ (addPort swid) (OF.ports features)
         else return()
@@ -241,11 +260,16 @@ processMsg (StatsReply swid reply) = case reply of
   otherwise -> logMsg NOTICE $ "unhandled statistics reply from switch " ++
                  (OF.showSwID swid) ++ "\n" ++ show reply
 
-processMsg (PacketIn swid pkt) = logMsg NOTICE $ "unimplemented"
+processMsg (PortStatus swid (reason, port)) = case reason of
+  OF.PortAdded -> addPort swid port
+  OF.PortModified -> modifyPort swid port
+  OF.PortDeleted -> deletePort swid port
+
+processMsg (PacketIn swid pkt) = logMsg NOTICE $ "PacketIn unimplemented" -- TODO(adf):
 
 processMsg (DisplayNIB putter) = do
-  logMsg NOTICE $ "trying to log..."
-  displayNIB putter
+  logMsg NOTICE $ "trying to log (this won't work)..."
+  displayNIB putter -- TODO(adf): this is not at all the right approach; should send NIB snapshots out a channel
   return()
 
 
@@ -274,11 +298,13 @@ lookupIP nib ip =
 -- Updating the NIB
 --
 
-addSwitch :: OF.SwitchID -> OFS.SwitchHandle -> NIBState Bool
-addSwitch swid handle = do
+addSwitch :: OF.SwitchID -> OFS.SwitchHandle -> OF.SwitchFeatures -> NIBState Bool
+addSwitch swid handle features = do
   nib <- getNIB
   case Map.lookup swid (nibSwitches nib) of
     Nothing -> let sw = Switch swid UnknownSwitch Map.empty
+                               (OF.packetBufferSize features)
+                               (OF.numberFlowTables features)
                    sws = Map.insert swid sw (nibSwitches nib) in do
                logMsg NOTICE $ "NIB added switch: " ++ OF.showSwID swid
                addMsg (DiscoveryMsg handle)
@@ -289,25 +315,6 @@ addSwitch swid handle = do
     Just sw -> do logMsg WARNING $ "switch " ++ OF.showSwID swid ++
                                 " already in NIB"
                   return False
-
-addPort :: OF.SwitchID -> OF.Port -> NIBState ()
-addPort swid ofport = do
-  nib <- getNIB
-  case Map.lookup swid (nibSwitches nib) of
-    Just sw -> let pid = OF.portID ofport
-                   name = OF.portName ofport
-                   speed = SpeedUnknown
-                   port = Port pid name [] Map.empty speed
-                   ports = Map.insert pid port (switchPorts sw)
-                   sw' = sw { switchPorts = ports }
-                   sws = Map.insert swid sw' (nibSwitches nib) in do
-                   logMsg DEBUG $ "NIB added port: " ++ show pid ++
-                                  " to switch: " ++ OF.showSwID swid
---                   addMsg (PortAddedMsg swid pid)
-                   putNIB (nib { nibSwitches = sws })
-    Nothing -> logMsg ERROR $ "switch " ++ OF.showSwID swid ++ " not in NIB."
-                        ++ " cannot add OF port: " ++ show ofport
-
 
 setSwitchType :: OF.SwitchID -> SwitchType -> NIBState ()
 setSwitchType swid stype = do
@@ -320,6 +327,78 @@ setSwitchType swid stype = do
                           ++ " cannot add its type."
 
 
+-- Determines highest speed port supports / is operating on
+-- TODO(adf): double-check against Chen's experience!!
+determineSpeed :: OF.Port -> PortSpeed
+determineSpeed ofport =
+  case OF.portCurrentFeatures ofport of
+    Just pf -> highestPortSpeed pf
+    Nothing -> case OF.portAdvertisedFeatures ofport of
+                 Just pf -> highestPortSpeed pf
+                 Nothing -> SpeedUnknown
+
+-- Helper function for addPort and modifyPort
+-- since both are very similar, except with modifyPort, we want
+-- to keep the known links and queues
+insertPort :: OF.SwitchID -> Switch -> OF.Port -> [NodeLink] ->
+              Map.Map OF.QueueID Queue -> NIBState()
+insertPort swid sw ofport nls queues = do
+  nib <- getNIB
+  let pid     = OF.portID ofport
+      name    = OF.portName ofport
+      speed   = determineSpeed ofport
+      down    = OF.PortDown `elem` (OF.portConfig ofport)
+      noflood = OF.NoFlooding `elem` (OF.portConfig ofport)
+      nolink  = OF.portLinkDown ofport
+
+      port    = Port pid name nls queues speed down noflood nolink
+
+      ports   = Map.insert pid port (switchPorts sw)
+      sw'     = sw { switchPorts = ports }
+      sws     = Map.insert swid sw' (nibSwitches nib) in do
+      logMsg DEBUG $ "NIB inserted port: " ++ show pid ++
+                     " to switch: " ++ OF.showSwID swid
+--    addMsg (PortUpdateMsg swid pid) -- TODO(adf): maybe? depends on events NIB should send...
+      putNIB (nib { nibSwitches = sws })
+
+addPort :: OF.SwitchID -> OF.Port -> NIBState ()
+addPort swid ofport = do
+  nib <- getNIB
+  case Map.lookup swid (nibSwitches nib) of
+    Just sw -> insertPort swid sw ofport [] Map.empty
+    Nothing -> logMsg ERROR $ "switch " ++ OF.showSwID swid ++ " not in NIB."
+                        ++ " cannot add OF port: " ++ show ofport
+
+
+modifyPort :: OF.SwitchID -> OF.Port -> NIBState()
+modifyPort swid ofport = do
+  nib <- getNIB
+  case Map.lookup swid (nibSwitches nib) of
+    Just sw -> case Map.lookup (OF.portID ofport) (switchPorts sw) of
+                 Just port -> insertPort swid sw ofport (portLinks port)
+                                         (portQueues port)
+                 Nothing   -> logMsg ERROR $ "switch " ++ OF.showSwID swid ++
+                                " does not have a port to modify with: " ++
+                                show ofport
+    Nothing -> logMsg ERROR $ "switch " ++ OF.showSwID swid ++ " not in NIB."
+                        ++ " cannot modify OF port: " ++ show ofport
+
+deletePort :: OF.SwitchID -> OF.Port -> NIBState()
+deletePort swid ofport = do
+  nib <- getNIB
+  case Map.lookup swid (nibSwitches nib) of
+    Just sw -> let ports = Map.delete (OF.portID ofport) (switchPorts sw)
+                   sw' = sw { switchPorts = ports }
+                   sws = Map.insert swid sw' (nibSwitches nib) in do
+                   logMsg DEBUG $ "NIB deleted port: " ++ show (OF.portID ofport) ++
+                                  " from switch: " ++ OF.showSwID swid
+--                   addMsg (PortDeletedMsg swid pid) -- TODO(adf): maybe? depends on events NIB should send...
+                   putNIB (nib { nibSwitches = sws })
+    Nothing -> logMsg ERROR $ "switch " ++ OF.showSwID swid ++ " not in NIB."
+                        ++ " cannot delete OF port: " ++ show ofport
+
+
+-- TODO(adf): this needs to move away from here...
 displayNIB :: (String -> IO ()) -> NIBState (IO ())
 displayNIB putter = do
   nib <- getNIB

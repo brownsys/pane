@@ -99,9 +99,12 @@ messageHandler packets toNIB toNIB2 switch (xid, msg) = case msg of
     now <- readIORef sysTime
     writeChan packets (xid, now, OFS.handle2SwitchID switch, pkt)
     writeChan toNIB (NIB.PacketIn (OFS.handle2SwitchID switch) pkt)
+    writeChan toNIB2 (NIB2.PacketIn (OFS.handle2SwitchID switch) pkt)
   OF.StatsReply pkt -> do
     writeChan toNIB (NIB.StatsReply (OFS.handle2SwitchID switch) pkt)
     writeChan toNIB2 (NIB2.StatsReply (OFS.handle2SwitchID switch) pkt)
+  OF.PortStatus pkt -> do
+    writeChan toNIB2 (NIB2.PortStatus (OFS.handle2SwitchID switch) pkt)
   otherwise -> do
     warningM $ "unhandled message from switch " ++
                (showSwID $ OFS.handle2SwitchID switch) ++ "\n" ++ show msg
@@ -263,7 +266,7 @@ mkPortModsOVS now portsNow portsNext swid config =
 -- |Helper to handle fork'ing out to run the scripts which know how
 -- to configure Open vSwitch-based switches.
 runOVSscript desc script swid pid qid resv rlimit = do
-  debugM $ show desc ++ " queue " ++ show qid ++ " on port " ++ show pid
+  debugM $ desc ++ " queue " ++ show qid ++ " on port " ++ show pid
            ++ " switch " ++ show swid
   exitcode <- rawSystem script [show swid, show pid, show qid,
                                 show resv, show rlimit]
