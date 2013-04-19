@@ -41,11 +41,11 @@ port_dev=`ovs-ofctl show $switch_name | grep addr | awk -F: '(NR=='$port_num'){ 
 ##
 # Determine which properties to set
 
-if [ "$min_rate" != $Mbps ]; then
+if [ ! "$min_rate" -eq $Mbps ]; then
     min_rate_prop="other-config:min-rate=$min_rate"
 fi
 
-if [ "$max_rate" != $Mbps ]; then
+if [ ! "$max_rate" -eq $Mbps ]; then
     max_rate_prop="other-config:max-rate=$max_rate"
 fi
 
