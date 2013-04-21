@@ -265,7 +265,7 @@ processMsg (PortStatus swid (reason, port)) = case reason of
   OF.PortModified -> modifyPort swid port
   OF.PortDeleted -> deletePort swid port
 
-processMsg (PacketIn swid pkt) = logMsg NOTICE $ "PacketIn unimplemented" -- TODO(adf):
+processMsg (PacketIn swid pkt) = logMsg DEBUG $ "PacketIn unimplemented" -- TODO(adf):
 
 processMsg (DisplayNIB putter) = do
   logMsg NOTICE $ "trying to log (this won't work)..."
