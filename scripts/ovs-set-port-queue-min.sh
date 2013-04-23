@@ -26,7 +26,7 @@ for name in `ovs-vsctl list-br`; do
     fi
 done
 
-if [ ! "$dec_dpid" -eq "$dpid" ]; then
+if [ "$dec_dpid" == "" ] || [ ! "$dec_dpid" -eq "$dpid" ]; then
     echo "Error: could not find switch name in `ovs-vsctl | list-br` !"
     exit 1
 fi
@@ -60,7 +60,7 @@ if [ "$qos_exists" != "" ]; then
 		-- --id=@default create Queue other-config:min-rate=1 # other-config:max-rate=500000000
 else
 	# Check if we are doing a modify
-	old_queue=`ovs-vsctl list QoS $port_dev | grep "^queues" | awk -F{ '{ print $2 }' | cut -d} -f1 | tr ',' '\n' | grep "$queue_id=" | cut -d= -f2`
+    old_queue=`ovs-vsctl get QoS $port_dev queues:$queue_id 2>/dev/null`
 fi
 
 if [ "$old_queue" == "" ]; then
@@ -68,6 +68,6 @@ if [ "$old_queue" == "" ]; then
               -- --id=@$queue_name create Queue $min_rate_prop $max_rate_prop
 else
     ovs-vsctl -- set QoS $port_dev queues:$queue_id=@$queue_name \
-              -- --id=@$queue_name create Queue $min_rate_prop $max_rate_prop
-	ovs-vsctl destroy Queue $old_queue
+              -- --id=@$queue_name create Queue $min_rate_prop $max_rate_prop \
+              -- destroy Queue $old_queue
 fi
