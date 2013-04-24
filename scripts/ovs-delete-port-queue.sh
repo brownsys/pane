@@ -16,14 +16,21 @@ fi
 
 ##
 # First, convert datapath id to switch name
+#
+# we can't use ovs-vsctl's find to get the switch name directly since it stores
+# the DPID as a string, and we need to use numeric equality checking
 
 for name in `ovs-vsctl list-br`; do
-    tmp_dpid=`ovs-ofctl show $name | grep dpid | awk -F"dpid:" '{ print $2 }'`
+    tmp_dpid=`ovs-vsctl -- --columns=datapath_id find Bridge name="$name" | cut -d\" -f2`
     dec_dpid=$((0x$tmp_dpid))
     if [ "$dec_dpid" -eq "$dpid" ]; then
         break
     fi
 done
+
+if [ "`ovs-vsctl list-br`" == "" ]; then
+    exit 0 # switches have been removed; time to exit
+fi
 
 if [ "$dec_dpid" == "" ] || [ ! "$dec_dpid" -eq "$dpid" ]; then
     echo "Error: could not find switch name in '`ovs-vsctl list-br`'!"
@@ -34,6 +41,9 @@ switch_name=$name
 
 ##
 # Convert port number to port device name, and find queue UUID
+#
+# we use this shell pipeline since ovs-vsctl apparently doesn't support JOIN
+# across tables, and we want to get the port on the switch we found above
 
 port_dev=`ovs-ofctl show $switch_name | grep addr | awk -F: '(NR=='$port_num'){ print $1 }' | cut -d\( -f2 | cut -d\) -f1`
 
