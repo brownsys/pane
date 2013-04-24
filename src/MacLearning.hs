@@ -10,10 +10,14 @@ import qualified Nettle.OpenFlow as OF
 import HFT
 import qualified Data.HashTable as Ht
 import qualified Data.HList as HList
+import qualified Data.Set as Set
 import System.Log.Logger.TH (deriveLoggers)
 import qualified System.Log.Logger as Logger
 
 $(deriveLoggers "Logger" [Logger.DEBUG, Logger.ERROR])
+
+mtDiff mt1@(MatchTable tbl1) mt2@(MatchTable tbl2) =
+  Set.difference (Set.fromList tbl1) (Set.fromList tbl2)
 
 getPacketMac pkt = case OF.enclosedFrame pkt of
   Right (HList.HCons ethHdr _ ) -> 
@@ -83,7 +87,9 @@ macLearning switchChan packetInChan = do
               maybeDstPortTime <- Ht.lookup fwdTbl dstMac
               let singleTbl = MatchTable 
                     [ rule now switchID srcPort dstMac maybeDstPortTime ]
-
+--
+-- Send the packet along
+--
               case OF.bufferID packet of
                 Nothing -> return ()
                 Just bufID -> do
@@ -100,13 +106,17 @@ macLearning switchChan packetInChan = do
                   writeChan packetOut
                     (switchID, xid, 
                      OF.PacketOutRecord (Left bufID) (Just srcPort) action)
+--
+-- Write a rule for Mac Learning
+--
               oldTbl <- readIORef hft
               -- NB: "now" is the time at which the PacketIn was received
               -- it's ok for us to condense up to that point as its in the past
               let hft' = condense now $
                                   unionTable (\_ new -> new) oldTbl singleTbl
-              writeIORef hft hft'
-              writeChan tableChan hft'
+              unless (Set.null (mtDiff hft' oldTbl)) $ do
+                 writeIORef hft hft'
+                 writeChan tableChan hft'
         Nothing -> return ()
   msgChan <- mergeChan switchChan packetInChan
   forkIO $ forever (readChan msgChan >>= loop)
