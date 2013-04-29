@@ -20,8 +20,8 @@ mgmtServer reqChan nibChan nibChan2 config = do
         case req' of
           "nib" -> do
             let putter = (\output -> writeChan respChan (spk, clientId, output))
---            writeChan nibChan (NIB.DisplayNIB putter)
-            writeChan nibChan2 (NIB2.DisplayNIB putter)
+            writeChan nibChan (NIB.DisplayNIB putter)
+--            writeChan nibChan2 (NIB2.DisplayNIB putter)
           -- TODO(adf): add commands to change the logging levels
           -- setupLogging config
           otherwise -> do
