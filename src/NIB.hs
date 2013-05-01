@@ -165,9 +165,9 @@ nibMutator nib (NewSwitch handle features) = do
   let swID = OF.switchID features
   maybe <- addSwitch swID nib
   case maybe of
-    Nothing -> warningM $ "nibMutator: switch already exists " ++ show swID
+    Nothing -> warningM $ "nibMutator: switch already exists " ++ OF.showSwID swID
     Just sw -> do
-      infoM$ "NIB added switch " ++ show swID ++ "."
+      infoM$ "NIB added switch " ++ OF.showSwID swID ++ "."
       let addPort' p = do
             maybe <- addPort (OF.portID p) sw
             case maybe of
@@ -177,7 +177,7 @@ nibMutator nib (NewSwitch handle features) = do
                          " on switch " ++ show swID
                 sendDP handle (OF.portID p)
                 return ()
-      ignoreExns ("sending PaneDP on switch " ++ show swID) $
+      ignoreExns ("sending PaneDP on switch " ++ OF.showSwID swID) $
                  mapM_ addPort' (OF.ports features)
 nibMutator nib (StatsReply swid reply) = case reply of
   OF.DescriptionReply desc -> case OF.hardwareDesc desc of
