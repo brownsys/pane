@@ -37,8 +37,12 @@ rule now sw srcPort eth dstPort = (match, action) where
   match = Flows.fromSwitchMatch sw (OF.matchAny { OF.inPort = Just srcPort, OF.dstEthAddress = Just eth })
   action = case dstPort of
      Nothing -> Just (ReqOutPort (Just sw) OF.Flood, fromInteger $ now + 5)
-     Just (portID, t) -> Just (ReqOutPort (Just sw) (OF.PhysicalPort portID), 
-                               fromInteger $ t + 60)
+     Just (portID, t) -> Just (ReqOutPort (Just sw) (OF.PhysicalPort portID), timeout)
+                           -- XXX(adf): the first 24 ports of the euc cluster are fixed
+                           -- we'll give this an idle timeout in ControllerService
+                           where timeout = if (srcPort <= 24 && portID <= 24)
+                                             then NoLimit
+                                             else fromInteger $ t + 60
 
 type PacketOutChan = Chan (OF.SwitchID, OF.TransactionID, OF.PacketOut)
 

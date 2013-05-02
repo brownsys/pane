@@ -175,7 +175,11 @@ mkFlowMods now newTbl oldTbl = map OF.FlowMod (delMsgs ++ addMsgs)
               OF.priority = prio,
               OF.actions = acts,
               OF.cookie = 0,
-              OF.idleTimeOut = OF.Permanent,
+              -- XXX(adf): give euc cluster some idle timeouts for forwarding
+              -- rules since most hosts in this cluster don't migrate
+              OF.idleTimeOut = case expiry of
+                                  NoLimit   -> OF.ExpireAfter 60
+                                  otherwise -> OF.Permanent,
               OF.hardTimeOut = toTimeout now expiry ,
               OF.notifyWhenRemoved = False,
               OF.applyToPacket = Nothing,
