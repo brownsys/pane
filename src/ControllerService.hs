@@ -17,6 +17,7 @@ import qualified Data.Set as Set
 import qualified Data.List as List
 import System.Process
 import System.Exit
+import Network.Socket as Skt
 import qualified System.Log.Logger as Logger
 import System.Log.Logger.TH (deriveLoggers)
 
@@ -53,6 +54,17 @@ controller nibSnapshot toNIB toNIB2 packets switches pktOut config = do
     writeChan toNIB (NIB.NewSwitch switch switchFeatures)
     writeChan toNIB2 (NIB2.NewSwitch switch switchFeatures)
     writeChan switches (OFS.handle2SwitchID switch, True)
+
+    -- Disable Nagle's algorithm on this socket since we are sometimes seeing
+    -- junk at the end of Controller -> Switch messages. Since it's not clear
+    -- where this is coming from, let's eliminate the kernel's buffers as a
+    -- source of confusion. It's most likely that Nettle is not well-behaved
+    -- when we have multiple hardware threads; still, setting NO_DELAY will
+    -- hopefully cut-down on the problems we were seeing. If we still see them,
+    -- we should change sendToSwitch & Strict.runPtr in Nettle to check that
+    -- they send the same number of bytes as in the OpenFlow header's len field
+    Skt.setSocketOption (OFS.switchSocket switch) Skt.NoDelay 1 -- Disable Nagle
+
     nibSnapshot <- dupChan nibSnapshot
     configThreadId <- forkIO (configureSwitch nibSnapshot switch NIB.emptySwitch config)
     forkIO (handleSwitch packets toNIB toNIB2 switches switch configThreadId)
